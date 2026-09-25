@@ -1,0 +1,68 @@
+/* Barra del proceso de proyecto sobre el lienzo (plataforma/proyecto.js).
+   Solo existe con /?proceso=… o /?revision=…; clases propias (piq-) para no
+   tocar nada del editor. z-index por debajo de la cabecera (120) y de los modales. */
+.piq-proyecto {
+  /* Centrado con left/right + margin auto: con left:50% solo dispondría de la mitad del ancho */
+  position: absolute; top: var(--space-3); left: 0; right: 0; margin: 0 auto; width: fit-content;
+  z-index: 60; display: flex; align-items: center; gap: var(--space-3);
+  max-width: calc(100% - 32px); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md); font-family: var(--font-stack); font-size: var(--font-sm); color: var(--gray-900);
+}
+.piq-proyecto-error { border-color: #F3C7C7; }
+.piq-proyecto-error .piq-proyecto-ruta { color: var(--danger); }
+.piq-proyecto-volver {
+  display: grid; place-items: center; width: 28px; height: 28px; flex: none;
+  border-radius: var(--radius-sm); text-decoration: none; color: var(--gray-700); font-size: var(--font-lg);
+}
+.piq-proyecto-volver:hover { background: var(--gray-100); color: var(--mbc-azul); }
+.piq-proyecto-texto { display: flex; flex-direction: column; min-width: 0; }
+.piq-proyecto-ruta, .piq-proyecto-detalle { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.piq-proyecto-ruta { color: var(--gray-700); }
+.piq-proyecto-ruta strong { color: var(--mbc-azul); }
+.piq-proyecto-detalle { color: var(--gray-600); font-size: var(--font-xs); }
+.piq-proyecto-cambios { flex: none; color: var(--warning); font-size: var(--font-xs); font-weight: 600; }
+.piq-proyecto-cambios::before { content: '●'; margin-right: 4px; }
+.piq-proyecto-guardar {
+  flex: none; padding: var(--space-2) var(--space-3); border: 1px solid var(--gray-300); border-radius: var(--radius-sm);
+  background: var(--white); color: var(--gray-800); font: inherit; font-weight: 600; cursor: pointer;
+}
+.piq-proyecto-guardar:hover:not(:disabled) { border-color: var(--trace); color: var(--trace-dk); }
+.piq-proyecto-guardar-destacado { background: var(--trace); border-color: var(--trace); color: var(--white); }
+.piq-proyecto-guardar-destacado:hover:not(:disabled) { background: var(--trace-dk); color: var(--white); }
+.piq-proyecto-guardar:disabled { opacity: 0.6; cursor: wait; }
+
+.piq-proyecto-aviso {
+  position: absolute; top: 72px; left: 0; right: 0; margin: 0 auto; z-index: 60;
+  width: min(560px, calc(100% - 32px)); padding: var(--space-3) var(--space-8) var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm); border: 1px solid; box-shadow: var(--shadow-sm);
+  font-family: var(--font-stack); font-size: var(--font-sm);
+}
+.piq-proyecto-aviso p { margin: 0; }
+.piq-proyecto-aviso ul { margin: var(--space-2) 0 0; padding-left: var(--space-5); }
+.piq-proyecto-aviso a { display: inline-block; margin-top: var(--space-2); font-weight: 600; }
+.piq-aviso-ok { background: #E7F4EA; border-color: #BFE0C7; color: var(--success); }
+.piq-aviso-info { background: #EEF5FF; border-color: var(--trace-ring); color: var(--gray-900); }
+.piq-aviso-atencion { background: #FFF4E0; border-color: #F2D29B; color: #7A3E00; }
+.piq-aviso-error { background: #FDECEE; border-color: #F3C7C7; color: var(--danger); }
+.piq-aviso-cerrar {
+  position: absolute; top: var(--space-2); right: var(--space-2); border: 0; background: none;
+  font-size: var(--font-lg); line-height: 1; color: inherit; cursor: pointer; opacity: 0.7;
+}
+
+.piq-dialogo {
+  border: 0; border-radius: var(--radius-lg); padding: var(--space-6); width: min(480px, calc(100vw - 32px));
+  box-shadow: var(--shadow-lg); font-family: var(--font-stack); font-size: var(--font-md); color: var(--gray-900);
+}
+.piq-dialogo::backdrop { background: rgba(1, 20, 44, 0.45); }
+.piq-dialogo h2 { margin: 0 0 var(--space-3); font-size: var(--font-lg); color: var(--mbc-azul); }
+.piq-dialogo p { margin: 0 0 var(--space-3); color: var(--gray-700); }
+.piq-dialogo .piq-dialogo-aviso { padding: var(--space-2) var(--space-3); background: #FFF4E0; border-radius: var(--radius-sm); color: #7A3E00; font-size: var(--font-sm); }
+.piq-dialogo label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--font-sm); font-weight: 600; }
+.piq-dialogo textarea { font: inherit; font-weight: 400; padding: var(--space-2); border: 1px solid var(--gray-300); border-radius: var(--radius-sm); resize: vertical; }
+.piq-dialogo-acciones { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-4); flex-wrap: wrap; }
+.piq-dialogo-acciones button {
+  padding: var(--space-2) var(--space-4); border: 1px solid var(--gray-300); border-radius: var(--radius-sm);
+  background: var(--white); font: inherit; font-size: var(--font-sm); font-weight: 600; cursor: pointer;
+}
+.piq-dialogo-acciones .piq-dialogo-principal { background: var(--trace); border-color: var(--trace); color: var(--white); }

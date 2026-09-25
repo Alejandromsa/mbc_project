@@ -10,4 +10,4 @@ export {
   VERBS_ALLOWED, VERBS_FORBIDDEN, MACROPROCESSES,
   type Kpi, type CategoriaPain, type DefinicionTipoEjecucion
 } from './catalogos.js';
-export { migrarProyecto, ProyectoV1Esquema, VERSION_ESQUEMA, type ProyectoV1, type ResultadoMigracion } from './esquema.js';
+export { CLAVES_EFIMERAS, migrarProyecto, ProyectoV1Esquema, sinEfimeras, VERSION_ESQUEMA, type ProyectoV1, type ResultadoMigracion } from './esquema.js';

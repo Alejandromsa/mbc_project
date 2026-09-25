@@ -92,9 +92,10 @@ export interface ProyectoV1 {
 }
 
 /** Cachés de renderizado que no forman parte del proceso (se regeneran al pintar). */
-const CLAVES_EFIMERAS = ['_d', '_dSerie', '_band', '_inferredOwner', '_sello'];
+export const CLAVES_EFIMERAS: readonly string[] = ['_d', '_dSerie', '_band', '_inferredOwner', '_sello'];
 
-const sinEfimeras = <T extends Record<string, unknown>>(o: T): T => {
+/** Copia de un nodo o arista sin las cachés de renderizado. */
+export const sinEfimeras = <T extends Record<string, unknown>>(o: T): T => {
   const r = { ...o };
   for (const k of CLAVES_EFIMERAS) delete r[k];
   return r;

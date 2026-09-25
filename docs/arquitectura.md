@@ -458,7 +458,14 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
   - Auditoría y copias de seguridad diarias.
   - 22 pruebas de integración contra Postgres real, también en la CI.
   - Entra ID queda sustituido por cuentas locales hasta que TI registre la aplicación: la sesión no cambia, solo cómo se obtiene.
-- **2.2:** en la web, pantallas de acceso, proyectos y usuarios, y "Guardar revisión" / "Abrir desde proyecto" en el editor.
+- **2.2, hecho.**
+  - Shell en React (`/proyectos/`): acceso y cambio de contraseña, proyectos, miembros, procesos, revisiones con su flujo de aprobación, usuarios y auditoría.
+  - El editor se abre sobre un proceso (`/?proceso=`, `/?revision=`) y guarda revisiones:
+    - con un borrador local por proceso, que se ofrece recuperar al volver;
+    - avisando si se guarda sobre una versión que ya no era la última.
+  - Sin proyecto, el editor sigue igual que el MVP; lo comprueban las pruebas de fidelidad.
+  - Un proyecto archivado pasa a solo lectura (tampoco se aprueba ni se cambian miembros) hasta que se reactiva.
+  - 9 pruebas E2E con la web construida, la API real y Postgres, también en la CI.
 - **2.3:** IA como jobs con endpoints de negocio, progreso y registro de coste.
 - **2.4:** catálogos administrables, fuentes y almacén, observabilidad y staging.
 

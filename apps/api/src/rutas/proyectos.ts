@@ -2,7 +2,7 @@
 import { Hono } from 'hono';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import { miembrosProyecto, procesos, proyectos, usuarios } from '@processiq/db';
+import { miembrosProyecto, procesos, proyectos, revisiones, usuarios } from '@processiq/db';
 import { registrar } from '../auditoria.js';
 import { ErrorHttp, type Entorno } from '../contexto.js';
 import { accesoProyecto } from '../permisos.js';
@@ -22,6 +22,11 @@ const CambioProyectoEsquema = z.object({
 const MiembroEsquema = z.object({ rol: z.enum(['propietario', 'editor', 'revisor', 'lector']) });
 
 const idValido = (id: string) => { if (!esUuid(id)) throw new ErrorHttp(404, 'Proyecto no encontrado.'); return id; };
+
+/** Archivado = solo lectura: lo único que admite es reactivarlo. */
+function exigirActivo(p: { archivado: boolean }) {
+  if (p.archivado) throw new ErrorHttp(409, 'El proyecto está archivado: reactívalo antes de cambiarlo.', 'ARCHIVADO');
+}
 
 export function rutasProyectos() {
   const r = new Hono<Entorno>();
@@ -61,13 +66,23 @@ export function rutasProyectos() {
       .from(miembrosProyecto).innerJoin(usuarios, eq(usuarios.id, miembrosProyecto.usuarioId))
       .where(eq(miembrosProyecto.proyectoId, proyecto.id)).orderBy(asc(usuarios.nombre));
     const lista = await db.select().from(procesos).where(eq(procesos.proyectoId, proyecto.id)).orderBy(desc(procesos.actualizadoEn));
-    return c.json({ proyecto: { ...proyecto, rol }, miembros, procesos: lista });
+    // Última revisión de cada proceso (número y estado), para la lista del proyecto
+    const ultimas = lista.length === 0 ? [] : await db.selectDistinctOn([revisiones.procesoId], {
+      procesoId: revisiones.procesoId, id: revisiones.id, numero: revisiones.numero, estado: revisiones.estado
+    }).from(revisiones).where(inArray(revisiones.procesoId, lista.map((p) => p.id)))
+      .orderBy(revisiones.procesoId, desc(revisiones.numero));
+    const porProceso = new Map(ultimas.map(({ procesoId, ...u }) => [procesoId, u]));
+    return c.json({
+      proyecto: { ...proyecto, rol }, miembros,
+      procesos: lista.map((p) => ({ ...p, ultimaRevision: porProceso.get(p.id) ?? null }))
+    });
   });
 
   r.patch('/:id', async (c) => {
     const db = c.get('db');
     const { proyecto } = await accesoProyecto(db, c.get('usuario'), idValido(c.req.param('id')), 'administrar');
     const cambios = await cuerpo(c, CambioProyectoEsquema);
+    if (Object.keys(cambios).some((k) => k !== 'archivado')) exigirActivo(proyecto);
     const [act] = await db.update(proyectos).set(cambios).where(eq(proyectos.id, proyecto.id)).returning();
     await registrar(c, 'proyecto.cambio', 'proyecto', proyecto.id, cambios);
     return c.json({ proyecto: act });
@@ -77,6 +92,7 @@ export function rutasProyectos() {
   r.put('/:id/miembros/:usuarioId', async (c) => {
     const db = c.get('db'), yo = c.get('usuario');
     const { proyecto } = await accesoProyecto(db, yo, idValido(c.req.param('id')), 'administrar');
+    exigirActivo(proyecto);
     const usuarioId = c.req.param('usuarioId');
     const { rol } = await cuerpo(c, MiembroEsquema);
     const [u] = esUuid(usuarioId)
@@ -93,6 +109,7 @@ export function rutasProyectos() {
   r.delete('/:id/miembros/:usuarioId', async (c) => {
     const db = c.get('db');
     const { proyecto } = await accesoProyecto(db, c.get('usuario'), idValido(c.req.param('id')), 'administrar');
+    exigirActivo(proyecto);
     const usuarioId = c.req.param('usuarioId');
     if (!esUuid(usuarioId)) throw new ErrorHttp(404, 'Usuario no encontrado.');
     const propietarios = await db.select({ id: miembrosProyecto.usuarioId }).from(miembrosProyecto)
