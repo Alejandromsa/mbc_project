@@ -16,6 +16,14 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 3. **`rm -rf resultados` falló porque la shell estaba dentro de esa carpeta** ("Device or resource busy") y la cadena `&&` se cortó sin que se notara.
    → **Regla:** no hacer `cd` a carpetas de resultados. Inspeccionarlas con rutas absolutas o subshells `( … )`.
    **Reincidencia:** un `cd …/resultados/loadComplex6 && diff …` dejó ahí la carpeta de trabajo de la sesión (el `cd` persiste entre comandos). → **Usar variables de ruta (`R=…; diff $R/a $R/b`), nunca `cd`.**
+   **Otras dos reincidencias** (`cd apps/api/src`, `cd /c/Users/usuario`). → Si un comando necesita `cd`, empezarlo por `cd /c/Users/usuario/processiq && …` y usar rutas relativas a la raíz.
+
+4c. **Casi creo el registro DNS en el sitio equivocado.**
+    - Se pidió crear `mbc.asissoft.com` con la API de name.com, porque el dominio está registrado allí.
+    - Pero `asissoft.com` usa los nameservers de Cloudflare: la zona se movió para otro proyecto. Un registro en el DNS de name.com no lo vería nadie.
+    - Devolver los nameservers a name.com rompería `portal.asissoft.com` y el correo.
+
+    → **Regla:** antes de tocar DNS, `nslookup -type=NS <dominio> 8.8.8.8` para saber qué proveedor sirve la zona. El registrador y el proveedor de DNS pueden ser distintos.
 
 4. **`curl -w '%{http_code}' -o /dev/null` devolvió `000` en Git Bash** aunque el servidor respondía bien.
    → **Regla:** en esta máquina usar `curl -v` o `-o NUL` para ver el código real.

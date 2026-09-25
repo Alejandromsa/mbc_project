@@ -8,7 +8,8 @@
     "build": "node scripts/construir.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "start": "node dist/servidor.js"
+    "start": "node dist/servidor.js",
+    "semilla": "tsx --env-file-if-exists=../../.env.dev src/sembrar.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",

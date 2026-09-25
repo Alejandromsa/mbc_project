@@ -52,19 +52,28 @@ Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consul
 |---|---|
 | IP pública | <IP-PUBLICA> |
 | Salida a internet | Wi-Fi, IP fija <IP-LOCAL-DEL-SERVIDOR>, router <IP-DEL-ROUTER> |
-| Dominio | `mbc.asissoft.com` (DNS de `asissoft.com` en Cloudflare) |
+| Dominio | `mbc.asissoft.com`: registro A → <IP-PUBLICA>, **solo DNS** (sin proxy), creado el 25-sep-2026 |
+| DNS | `asissoft.com` está **registrado en name.com**, pero su zona la sirve **Cloudflare** (nameservers `aspen`/`roan.ns.cloudflare.com`; la movió otro proyecto). Los registros se crean en Cloudflare, no en name.com. No devolver los nameservers a name.com: dependen de ellos `portal.asissoft.com` y el correo |
+| Certificado | Let's Encrypt, emitido por Caddy el 25-sep-2026; se renueva solo |
 | Puerto 80 | Ocupado por IIS (W3SVC): por eso no hay redirección HTTP → HTTPS |
 | Carpeta del repositorio | `C:\Users\usuario\processiq` |
 
 ## Puesta en marcha (una sola vez)
 
-1. **DNS:** crear un registro **A** `mbc` → `<IP-PUBLICA>` en la zona `asissoft.com`, en modo **"Solo DNS" (nube gris)**. Con el proxy de Cloudflare activado (nube naranja) el certificado no se puede validar.
-2. **Router (<IP-DEL-ROUTER>):** reenviar **TCP 443** externo → `<IP-LOCAL-DEL-SERVIDOR>:443`.
-3. **Firewall de Windows** (PowerShell **como administrador**):
+Estado al 25-sep-2026: los pasos 1 a 3 y 5 están hechos; falta el 4 (la clave de IA).
+
+1. **DNS** ✅ Registro **A** `mbc` → `<IP-PUBLICA>` en la zona `asissoft.com` de Cloudflare, en modo **"Solo DNS" (nube gris)**. Con el proxy activado (nube naranja), el certificado no se puede validar y el tráfico pasaría por Cloudflare.
+   - Antes de crear un registro, comprobar quién sirve la zona: `nslookup -type=NS asissoft.com 8.8.8.8`.
+   - Se creó por la API de Cloudflare con el token de edición de DNS que ya existía para `asissoft.com`.
+2. **Router (<IP-DEL-ROUTER>)** ✅ Reenvía **TCP 443** externo → `<IP-LOCAL-DEL-SERVIDOR>:443`. Lo confirmó Let's Encrypt al validar desde internet.
+3. **Firewall de Windows** ✅ Regla "ProcessIQ HTTPS (443)". Si hubiera que recrearla (PowerShell **como administrador**):
    ```powershell
    New-NetFirewallRule -DisplayName "ProcessIQ HTTPS (443)" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow -Profile Any
    ```
-4. **Clave de IA:** en `.env`, completar `ANTHROPIC_API_KEY` (creada en console.anthropic.com **dentro de un workspace**, con tope de gasto). `ACCESS_CODE` ya viene generado: es el código que se reparte al equipo.
+4. **Clave de IA** ⏳ En `.env`, pegar la clave en la línea `ANTHROPIC_API_KEY=`, que está marcada con `>>> PEGAR AQUI`.
+   - Crearla en console.anthropic.com **dentro de un workspace**, con tope de gasto.
+   - Después: `docker compose up -d intermediario`.
+   - `ACCESS_CODE` ya viene generado: es el código que se reparte al equipo.
 5. **Arrancar:**
    ```bash
    docker compose up -d --build
@@ -78,7 +87,7 @@ Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consul
 ## Cambiar de dominio
 
 1. Editar `DOMINIO` en `.env`.
-2. Crear el registro A del dominio nuevo → IP pública (modo "Solo DNS").
+2. Crear el registro A del dominio nuevo → IP pública (modo "Solo DNS"). Hay que crearlo en el proveedor que sirve la zona (`nslookup -type=NS <dominio>`), que no siempre es el registrador.
 3. `docker compose up -d` — Caddy pide el certificado nuevo solo.
 
 Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermediario acepta `https://$DOMINIO` por defecto.
@@ -105,8 +114,29 @@ docker compose --profile dev up -d postgres-dev   # Postgres de desarrollo y pru
 cp .env.dev.example .env.dev                      # una vez
 pnpm --filter @processiq/api dev                  # API en :8790 (migra al arrancar)
 pnpm dev                                          # web en :5173; Vite reenvía /api a :8790
-pnpm --filter @processiq/api exec tsx --env-file=../../.env.dev src/cli.ts crear-usuario --email yo@mbc.pe --nombre "Yo" --rol admin
+pnpm --filter @processiq/api semilla              # cuentas y proyectos de prueba (repetible)
 ```
+
+**Cuentas de prueba** (solo en la base de desarrollo; la semilla se niega a correr contra otra base que no esté en `localhost`). Todas usan la contraseña `Prueba-ProcessIQ-2026`:
+
+| Correo | Rol | Para probar |
+|---|---|---|
+| `admin@processiq.test` | admin | usuarios, auditoría y todos los proyectos |
+| `propietario@processiq.test` | consultor · propietario | crear proyectos, gestionar miembros |
+| `editor@processiq.test` | consultor · editor | guardar revisiones y enviarlas a revisión |
+| `revisor@processiq.test` | consultor · revisor | aprobar o devolver revisiones |
+| `lector@processiq.test` | lector · lector | solo lectura; no puede crear proyectos |
+| `externo@processiq.test` | consultor | sin acceso al proyecto de prueba (404) |
+| `nuevo@processiq.test` | consultor | cambio obligatorio de contraseña al entrar |
+| `inactivo@processiq.test` | consultor | cuenta desactivada: no puede entrar |
+
+La semilla crea además el proyecto "Siniestros — Seguros Andinos (prueba)", con estos procesos:
+
+- "Gestión de siniestros": v1 aprobada, v2 en revisión y v3 en borrador.
+- "Venta de lotes urbanos": v1 en borrador.
+- Un proceso sin revisiones.
+
+También crea un proyecto archivado. Volver a ejecutarla restablece las cuentas y rehace esos proyectos.
 
 Las pruebas de la API (`pnpm test`) usan la base `processiq_pruebas` de ese mismo contenedor y la recrean en cada ejecución.
 

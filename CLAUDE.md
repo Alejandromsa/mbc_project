@@ -24,6 +24,7 @@ pnpm --filter @processiq/motor test             # un solo paquete
 pnpm --filter @processiq/pruebas-fidelidad exec playwright test -g "loadComplex11$"   # un escenario (¡tras build!)
 docker compose --profile dev up -d postgres-dev # Postgres de desarrollo en :5440 (lo necesitan las pruebas de la API)
 pnpm --filter @processiq/api dev                # API en :8790 con .env.dev (copiar de .env.dev.example); Vite reenvía /api
+pnpm --filter @processiq/api semilla            # cuentas de prueba (*@processiq.test, clave Prueba-ProcessIQ-2026) y proyectos en todos los estados
 pnpm --filter @processiq/api exec vitest run -t "numera las revisiones"   # una prueba de la API
 pnpm --filter @processiq/db generar             # nueva migración tras cambiar packages/db/src/esquema.ts
 docker compose up -d --build                    # servidor (ver docs/runbooks/servidor-local.md)

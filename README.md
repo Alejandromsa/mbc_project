@@ -48,6 +48,7 @@ pnpm dev             # web en http://localhost:5173 (con /ia → intermediario e
 pnpm --filter @processiq/intermediario dev   # intermediario, lee ../../.env
 docker compose --profile dev up -d postgres-dev   # Postgres de desarrollo (puerto 5440)
 cp .env.dev.example .env.dev && pnpm --filter @processiq/api dev   # API en :8790 (/api desde la web)
+pnpm --filter @processiq/api semilla   # cuentas de prueba por rol y proyectos de ejemplo (ver el runbook)
 pnpm typecheck
 pnpm test            # unitarias de los paquetes e integración de la API (necesita postgres-dev)
 pnpm fronteras       # dependencias permitidas entre paquetes
