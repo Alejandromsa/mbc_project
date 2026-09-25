@@ -6,6 +6,7 @@ import {
 } from '@processiq/ia';
 import { state } from '../estado.js';
 import { MAX_AI_CHARS, ingestAbort, throwIfCancelled } from '../ingesta/formatos.js';
+import { iaRemota } from './remota.js';
 
 // ============================================================
 // MOTOR DE IA — Anthropic API (BYOK, llamada directa desde el navegador)
@@ -45,6 +46,9 @@ function lineaCosteIa() {
 // Lista si hay forma de llegar a Claude: codigo de equipo (intermediario)
 // o clave propia. Sin 'modo' guardado se asume clave propia (configs viejas).
 function aiReady() {
+  // En un proceso de proyecto la IA es la del servidor (ia/remota.js)
+  const r = iaRemota();
+  if (r) return r.lista();
   const c = aiConfig();
   return c.modo === 'equipo' ? !!(c.codigo || '').trim() : !!(c.key || '').trim();
 }

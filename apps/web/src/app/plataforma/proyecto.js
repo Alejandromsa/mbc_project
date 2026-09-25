@@ -20,7 +20,11 @@ import { alCambiar } from '../cambios.js';
 import { $ } from '../dom.js';
 import { normalizeFicha, state, usarClaveAlmacen } from '../estado.js';
 import { resetHistory } from '../historial.js';
+import { updateAiUi } from '../ia/ajustes.js';
+import { buildProcessFromAiSpec } from '../ia/generacion.js';
+import { usarIaRemota } from '../ia/remota.js';
 import { autoLayout } from '../layout/auto-layout.js';
+import { aplicarNivel } from '../layout/niveles.js';
 import { render } from '../lienzo/render.js';
 import { maybeFitOnLoad } from '../lienzo/zoom.js';
 import { renderProperties } from '../paneles/propiedades.js';
@@ -28,6 +32,7 @@ import { persist } from '../persistencia.js';
 import { runLinter } from '../validacion/lint.js';
 import { updateViewUi } from '../vistas/comparador.js';
 import './barra.css';
+import { crearIaRemota } from './ia.js';
 
 const parametros = new URLSearchParams(location.search);
 const pedidoRevision = parametros.get('revision');
@@ -206,6 +211,8 @@ async function abrir() {
     alCambiar(programarRevision);
     pintarBarra();
     if (!puedeGuardar()) avisar('info', motivoSoloLectura());
+    await activarIa();
+    await ofrecerGeneracionPendiente();
   } catch (e) {
     errorAlAbrir(e);
   }
@@ -267,7 +274,17 @@ async function guardar() {
       : ''
   });
   if (mensaje === null) return;
+  await guardarContenido(mensaje);
+}
 
+/**
+ * Crea una revisión con lo que hay en el lienzo. `ejecucionIaId`: la generación
+ * de IA de la que sale (queda enlazada y deja de ofrecerse como pendiente).
+ */
+async function guardarContenido(mensaje, ejecucionIaId = null) {
+  // Un guardado en curso (p. ej. el usuario pulsó «Guardar» mientras terminaba la IA): se espera
+  while (ctx.guardando) await new Promise((r) => setTimeout(r, 200));
+  const partida = ctx.base;
   const contenido = normalizado(snapshotDelEstado());
   if (!contenido) {
     const r = migrarProyecto(contenidoDe(snapshotDelEstado()));
@@ -277,16 +294,17 @@ async function guardar() {
   ctx.guardando = true;
   pintarBarra();
   try {
-    const res = await api.guardarRevision(ctx.proceso.id, { contenido, mensaje, padreId: partida ? partida.id : null });
+    const res = await api.guardarRevision(ctx.proceso.id, { contenido, mensaje, padreId: partida ? partida.id : null, ejecucionIaId });
     ctx.base = { id: res.revision.id, numero: res.revision.numero, estado: res.revision.estado };
     ctx.ultima = { id: res.revision.id, numero: res.revision.numero };
     ctx.huellaGuardada = hash(JSON.stringify(contenido));
     escribir(claveBorrador(ctx.proceso.id) + '.base', { revisionId: ctx.base.id, huella: ctx.huellaGuardada });
     history.replaceState(null, '', `/?revision=${encodeURIComponent(res.revision.id)}`);
+    const que = ejecucionIaId ? 'Proceso generado con IA y guardado' : 'Guardada';
     if (res.conflicto) {
-      avisar('atencion', `Guardada como v${res.revision.numero}. Mientras trabajabas, alguien guardó la v${res.ultimaAnterior ? res.ultimaAnterior.numero : '?'}: tu versión no incluye esos cambios. Revisa las dos en el proyecto.`);
+      avisar('atencion', `${que} como v${res.revision.numero}. Mientras trabajabas, alguien guardó la v${res.ultimaAnterior ? res.ultimaAnterior.numero : '?'}: esta versión no incluye esos cambios. Revisa las dos en el proyecto.`);
     } else {
-      avisar('ok', `Guardada como v${res.revision.numero} (borrador).`);
+      avisar('ok', `${que} como v${res.revision.numero} (borrador).`);
     }
   } catch (e) {
     if (e instanceof ErrorApi && (e.estado === 401 || e.codigo === 'CAMBIAR_CLAVE')) {
@@ -299,6 +317,49 @@ async function guardar() {
     ctx.sucio = huellaDe(snapshotDelEstado()) !== ctx.huellaGuardada;
     pintarBarra();
   }
+}
+
+// =================== IA del servidor (fase 2.3) ===================
+
+async function activarIa() {
+  let estado;
+  try {
+    estado = await api.estadoIa();
+  } catch {
+    estado = { configurada: false, modelos: [], modeloAnalisis: '', presupuesto: { mensualUsd: 0, gastadoUsd: 0, limiteUsuarioUsd: 0, gastadoUsuarioUsd: 0 } };
+  }
+  usarIaRemota(crearIaRemota({
+    procesoId: ctx.proceso.id,
+    estado,
+    soloLectura: puedeGuardar() ? '' : 'Tu rol o el estado del proyecto no permiten usar la IA aquí.',
+    contenidoActual: () => normalizado(snapshotDelEstado()) || contenidoDe(snapshotDelEstado()),
+    // Tras dibujar lo generado (el resto de la ingesta es síncrono), se guarda como revisión
+    alGenerar: (ejecucionId, etiqueta) => { setTimeout(() => { guardarContenido(`Proceso generado con IA desde ${etiqueta}`, ejecucionId); }, 0); },
+    avisar
+  }));
+  updateAiUi();
+}
+
+/** Una generación que terminó con la pestaña cerrada: se ofrece dibujarla y guardarla. */
+async function ofrecerGeneracionPendiente() {
+  if (!puedeGuardar()) return;
+  let pendientes = [];
+  try { pendientes = (await api.iaDelProceso(ctx.proceso.id)).pendientes; } catch { return; }
+  const e = pendientes[0];
+  if (!e || !e.resultado) return;
+  const etiqueta = (e.parametros && e.parametros.etiqueta) || 'documento';
+  const dibujar = await preguntar({
+    titulo: 'Hay un proceso generado con IA sin guardar',
+    texto: `El ${fecha(e.terminadoEn)} la IA generó este proceso desde «${etiqueta}», pero no llegó a guardarse en el proyecto (se cerró la pestaña antes). ¿Lo dibujamos ahora? Se guardará como una versión nueva; las anteriores no cambian.`,
+    si: 'Dibujarlo y guardarlo',
+    no: 'Descartarlo'
+  });
+  if (!dibujar) { await api.descartarIa(e.id).catch(() => {}); return; }
+  buildProcessFromAiSpec(e.resultado, etiqueta);
+  const vista = Number(e.parametros && e.parametros.vista) || 3;
+  if (vista < 3) aplicarNivel(vista, { silent: true });
+  maybeFitOnLoad();
+  await guardarContenido(`Proceso generado con IA desde ${etiqueta}`, e.id);
 }
 
 // =================== Barra, avisos y diálogos ===================

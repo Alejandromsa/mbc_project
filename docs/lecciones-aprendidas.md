@@ -85,7 +85,14 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
     → **Regla:** toda pantalla nueva o cambiada se revisa con una captura (`page.screenshot`) antes de darla por terminada.
 
 20. **`getByLabel('Contraseña nueva')` también encontró «Repite la contraseña nueva»**: Playwright busca por subcadena.
-    → **Regla:** con etiquetas que comparten palabras, `{ exact: true }`.
+    → **Regla:** con etiquetas que comparten palabras, `{ exact: true }`. Lo mismo con `locator('tbody')` en una página con dos tablas: acotar con `getByRole('table').first()` / `.last()`.
+    **Reincidencia (E2E de la IA):** `#notesInput` está dentro de un `<details>` plegado del modal de ingesta y la prueba esperó 60 s a que fuera visible. → Antes de escribir una prueba sobre la interfaz del editor, mirar el marcado (`index.html`) de lo que se va a tocar.
+
+21. **Los diálogos del editor no restauran el texto de sus botones:** cada uno pone el suyo (`Generar`, `Guardar`, `Usar estos roles`…). El diálogo nuevo de «IA del proyecto» salió con «Generar», heredado del anterior. Se vio en una captura, no en las pruebas.
+    → **Regla:** un diálogo nuevo que use `openModal` pone siempre el texto de `#modalOk`.
+
+22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
+    → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 
 ## Portado de código
 

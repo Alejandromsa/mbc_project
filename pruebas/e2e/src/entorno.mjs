@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 export const PUERTO_WEB = 4480;
 export const PUERTO_API = 8792;
+export const PUERTO_ANTHROPIC = 8793;
 export const BASE = `http://127.0.0.1:${PUERTO_WEB}`;
 export const URL_BASE_DATOS = process.env.E2E_DATABASE_URL ?? 'postgres://processiq:processiq@localhost:5440/processiq_e2e';
 export const RAIZ = fileURLToPath(new URL('../../../', import.meta.url));

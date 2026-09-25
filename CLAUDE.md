@@ -25,6 +25,7 @@ pnpm --filter @processiq/pruebas-fidelidad exec playwright test -g "loadComplex1
 docker compose --profile dev up -d postgres-dev # Postgres de desarrollo en :5440 (lo necesitan las pruebas de la API)
 pnpm --filter @processiq/api dev                # API en :8790 con .env.dev (copiar de .env.dev.example); Vite reenvía /api
 pnpm --filter @processiq/api semilla            # cuentas de prueba (*@processiq.test, clave Prueba-ProcessIQ-2026) y proyectos en todos los estados
+pnpm --filter @processiq/api worker             # worker de IA (cola ejecuciones_ia); con ANTHROPIC_API_KEY en .env.dev gasta de verdad
 pnpm --filter @processiq/api exec vitest run -t "numera las revisiones"   # una prueba de la API
 pnpm --filter @processiq/db generar             # nueva migración tras cambiar packages/db/src/esquema.ts
 pnpm e2e                                        # build + shell/editor/API/Postgres de punta a punta (Playwright, ~1 min; base processiq_e2e)
@@ -47,6 +48,7 @@ packages/            TypeScript, exportan su fuente (./src/index.ts); Vite y Vit
 apps/
   web/               dos páginas: el editor (/, src/app/, JS del MVP en módulos ES) y el shell (/proyectos/, src/shell/, React + TS)
   api/               Hono + Postgres: sesiones, usuarios, proyectos, procesos, revisiones, auditoría; cli.ts
+                     ia/ + rutas/ia.ts + worker.ts: IA en el servidor (cola, ejecución, SSE, consumo)
   intermediario/     guarda la clave de Anthropic; contrato del antiguo Cloudflare Worker
 pruebas/fidelidad/   MVP congelado frente a la app nueva (fidelidad, interacciones, divergencias)
 pruebas/e2e/         flujos de la plataforma con la web construida, la API real y Postgres
@@ -74,7 +76,14 @@ infra/               Caddyfile y Dockerfiles
   - Permisos en `permisos.ts`: rol de organización (`admin`/`consultor`/`lector`) y rol por proyecto (`propietario`/`editor`/`revisor`/`lector`). Un proyecto sin acceso devuelve 404, no 403.
   - Revisiones: el contenido es JSON v1 validado con `migrarProyecto` de `dominio`. El número se asigna bajo `select … for update` sobre el proceso. Si `padreId` no es la última revisión, se guarda igual y se responde `conflicto: true`. Una revisión `aprobada` es inmutable.
   - Errores: `{ error: { mensaje, codigo, detalles } }`, lanzados con `ErrorHttp`. Toda escritura relevante llama a `registrar()` (auditoría).
-  - `scripts/construir.mjs` empaqueta con esbuild y copia `packages/db/migraciones` a `dist/`; la API migra al arrancar.
+  - `scripts/construir.mjs` empaqueta con esbuild (`servidor`, `worker`, `cli`) y copia `packages/db/migraciones` a `dist/`; la API migra al arrancar y el worker no.
+- IA en el servidor (fase 2.3, `apps/api/src/ia`, `rutas/ia.ts`):
+  - La fila de `ejecuciones_ia` es el trabajo: el worker la toma con `SKIP LOCKED` (`cola.ts`) y la ejecuta con `llamarClaude` en modo `servidor` de `@processiq/ia` (`ejecutar.ts`).
+  - Reintenta lo que `clasificarErrorIa` considera transitorio, repara una vez el JSON, suma tokens y coste, y borra el texto de las fuentes al terminar.
+  - Avisos por `LISTEN/NOTIFY` (`avisos.ts`): `ia_cola` despierta al worker e `ia_ejecucion` alimenta el SSE `/api/ia/ejecuciones/:id/eventos`, que envía el estado completo en cada evento, así que reconectar es seguro.
+  - **El cliente nunca envía prompts:** envía el texto de las fuentes o el proceso. El servidor decide prompt, modelo (dentro de los permitidos), esfuerzo y topes (presupuesto mensual y límite por persona).
+  - En el editor, `ia/remota.js` es el punto de enganche. Si `plataforma/ia.js` registró la IA remota (modo proyecto), generación, pains y tareas del copiloto van al servidor; si no, se comportan igual que el MVP.
+  - La especificación generada la dibuja el editor (`buildProcessFromAiSpec`) y se guarda como revisión con `ejecucionIaId`.
 - Servidor: Caddy sirve `apps/web/dist`, obtiene el certificado por TLS-ALPN (IIS ocupa el puerto 80), enruta `/api/*` a la API y `/ia/*` al intermediario. La web llama a la IA en su mismo origen (`location.origin + '/ia'`). El dominio sale de `.env` (`DOMINIO`); `index.html` se sirve como plantilla (`{{.Host}}` en Open Graph).
 
 ## Reglas de trabajo
@@ -91,7 +100,10 @@ infra/               Caddyfile y Dockerfiles
 - **Fronteras** (las comprueba `pnpm fronteras` en la CI): `dominio` no depende de ningún paquete del monorepo; los demás paquetes solo de `dominio`; `packages/*` nunca importan de `apps/*`. `dominio` solo usa ECMAScript estándar (nada de DOM ni Node en `src/`).
 - **Esquema de la base:** nunca editar una migración ya publicada. Se cambia `packages/db/src/esquema.ts`, se genera la migración nueva con `pnpm --filter @processiq/db generar` y se revisa el SQL antes de confirmarlo.
 - Cada ruta nueva de la API lleva pruebas de integración en `apps/api/src/*.test.ts` contra Postgres real (`pruebas/entorno.ts`), incluidos los casos de permiso denegado.
-- Cada flujo nuevo de la plataforma (shell o editor en modo proyecto) lleva su prueba en `pruebas/e2e/plataforma.spec.mjs`. **Cambios en `src/app/`: `pnpm fidelidad` y `pnpm e2e` en verde.**
+- La IA del servidor se prueba sin red ni gasto:
+  - integración (`apps/api/src/ia.test.ts`), con un `fetch` falso que imita el SSE de Anthropic;
+  - E2E, con `pruebas/e2e/src/anthropic-falso.mjs`, que además arranca el worker real.
+- Cada flujo nuevo de la plataforma (shell o editor en modo proyecto) lleva su prueba en `pruebas/e2e/*.spec.mjs`. **Cambios en `src/app/`: `pnpm fidelidad` y `pnpm e2e` en verde.**
 - Pantalla nueva o cambiada: revisar una captura (Playwright `page.screenshot`) antes de darla por buena; las pruebas verdes no ven el diseño.
 
 ## Rarezas del entorno (Windows)

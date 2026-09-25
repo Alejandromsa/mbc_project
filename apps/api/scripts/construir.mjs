@@ -11,7 +11,7 @@ const dist = join(raiz, 'dist');
 rmSync(dist, { recursive: true, force: true });
 
 await build({
-  entryPoints: { servidor: join(raiz, 'src/servidor.ts'), cli: join(raiz, 'src/cli.ts') },
+  entryPoints: { servidor: join(raiz, 'src/servidor.ts'), worker: join(raiz, 'src/worker.ts'), cli: join(raiz, 'src/cli.ts') },
   outdir: dist,
   bundle: true,
   platform: 'node',
@@ -26,4 +26,4 @@ await build({
 });
 
 cpSync(join(raiz, '..', '..', 'packages', 'db', 'migraciones'), join(dist, 'migraciones'), { recursive: true });
-console.log('api: dist/servidor.js, dist/cli.js y dist/migraciones');
+console.log('api: dist/servidor.js, dist/worker.js, dist/cli.js y dist/migraciones');

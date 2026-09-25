@@ -33,6 +33,25 @@ export interface EventoAuditoria {
   detalle: unknown; ip: string | null; creadoEn: string; usuario: string | null;
 }
 
+export type EstadoEjecucionIa = 'en_cola' | 'ejecutando' | 'completada' | 'fallida' | 'cancelada';
+export interface EjecucionIa {
+  id: string; procesoId: string; usuarioId: string; tipo: 'generacion' | 'pains' | 'tarea'; tarea: string | null;
+  modelo: string; estado: EstadoEjecucionIa; parametros: Record<string, unknown>; progreso: number;
+  resultado?: any; error: string | null; intentos: number; tokensEntrada: number; tokensSalida: number; costeUsd: number;
+  revisionId: string | null; descartada: boolean; creadoEn: string; iniciadoEn: string | null; terminadoEn: string | null;
+}
+export interface EstadoIa {
+  configurada: boolean;
+  modelos: { id: string; label: string; precio: { entrada: number; salida: number; nombre: string } }[];
+  modeloAnalisis: string;
+  presupuesto: { mensualUsd: number; gastadoUsd: number; limiteUsuarioUsd: number; gastadoUsuarioUsd: number };
+}
+export interface ConsumoIa {
+  mes: { gastadoUsd: number; presupuestoUsd: number; limiteUsuarioUsd: number };
+  porUsuario: { usuarioId: string; nombre: string; email: string; ejecuciones: number; costeUsd: number }[];
+  recientes: (Pick<EjecucionIa, 'id' | 'procesoId' | 'tipo' | 'tarea' | 'modelo' | 'estado' | 'error' | 'intentos' | 'tokensEntrada' | 'tokensSalida' | 'costeUsd' | 'creadoEn' | 'terminadoEn'> & { usuario: string })[];
+}
+
 export class ErrorApi extends Error {
   readonly estado: number;
   readonly codigo: string | undefined;
@@ -93,12 +112,27 @@ export const api = {
     pedir<{ proceso: Proceso; revision: ResumenRevision | null }>('POST', `/proyectos/${q(proyectoId)}/procesos`, datos),
   proceso: (id: string) => pedir<{ proceso: Proceso; rol: RolProyecto; revisiones: Revision[] }>('GET', `/procesos/${q(id)}`),
   renombrarProceso: (id: string, nombre: string) => pedir<{ proceso: Proceso }>('PATCH', `/procesos/${q(id)}`, { nombre }),
-  guardarRevision: (procesoId: string, datos: { contenido: unknown; mensaje: string; padreId: string | null }) =>
+  guardarRevision: (procesoId: string, datos: { contenido: unknown; mensaje: string; padreId: string | null; ejecucionIaId?: string | null }) =>
     pedir<{ revision: ResumenRevision & { padreId: string | null; creadaEn: string }; conflicto: boolean; ultimaAnterior: { id: string; numero: number } | null }>(
       'POST', `/procesos/${q(procesoId)}/revisiones`, datos),
   revision: (id: string) => pedir<{ revision: Revision }>('GET', `/revisiones/${q(id)}`),
   cambiarEstado: (id: string, estado: EstadoRevision) =>
     pedir<{ revision: { id: string; estado: EstadoRevision } }>('POST', `/revisiones/${q(id)}/estado`, { estado }),
+
+  // IA en el servidor (el cliente envía datos, nunca prompts)
+  estadoIa: () => pedir<EstadoIa>('GET', '/ia/estado'),
+  generarIa: (datos: {
+    procesoId: string; texto: string; etiqueta: string; vista: 1 | 2 | 3; roles?: Record<string, string> | null;
+    variasFuentes: boolean; fuentes: { nombre: string; tipo: string; caracteres: number }[]; modelo?: string;
+  }) => pedir<{ ejecucion: EjecucionIa }>('POST', '/ia/generaciones', datos),
+  analizarIa: (datos: { procesoId: string; tipo: string; contenido: unknown }) => pedir<{ ejecucion: EjecucionIa }>('POST', '/ia/analisis', datos),
+  ejecucionIa: (id: string) => pedir<{ ejecucion: EjecucionIa }>('GET', `/ia/ejecuciones/${q(id)}`),
+  cancelarIa: (id: string) => pedir<{ ejecucion: EjecucionIa }>('POST', `/ia/ejecuciones/${q(id)}/cancelar`),
+  descartarIa: (id: string) => pedir<{ ejecucion: EjecucionIa }>('POST', `/ia/ejecuciones/${q(id)}/descartar`),
+  iaDelProceso: (procesoId: string) => pedir<{ ejecuciones: EjecucionIa[]; pendientes: EjecucionIa[] }>('GET', `/ia/procesos/${q(procesoId)}`),
+  consumoIa: () => pedir<ConsumoIa>('GET', '/ia/consumo'),
+  /** URL del progreso en vivo (SSE) de una ejecución. */
+  eventosIa: (id: string) => `/api/ia/ejecuciones/${q(id)}/eventos`,
 
   // Administración
   usuarios: () => pedir<{ usuarios: UsuarioAdmin[] }>('GET', '/usuarios'),

@@ -10,6 +10,7 @@ import { escapeHtml } from '../util.js';
 import { runLinter } from '../validacion/lint.js';
 import { openAiSettings } from './ajustes.js';
 import { aiReady, callClaude, parseJsonLoose } from './motor.js';
+import { iaRemota } from './remota.js';
 
 // ============================================================
 // ANALISIS DE PAINS CON IA
@@ -26,14 +27,21 @@ function processDigestForAi() {
 async function aiAnalyzePains() {
   if (state.nodes.length === 0) { alert('No hay proceso que analizar.'); return; }
   if (!aiReady()) {
+    if (iaRemota()) { iaRemota().avisarNoDisponible(); return; }
     if (confirm('El analisis profundo de dolores usa la IA (Claude). Aun no configuraste tu API key. Abrir Ajustes de IA?')) openAiSettings();
     return;
   }
   copilotPost('ai', '_Analizando el proceso en busca de dolores..._');
   let data;
   try {
-    const raw = await callClaude(processDigestForAi(), { system: PAINS_SYSTEM, effort: 'high', maxTokens: 8000 });
-    data = parseJsonLoose(raw);
+    // Proceso de un proyecto: el análisis lo hace el servidor con el proceso actual
+    const remota = iaRemota();
+    if (remota) {
+      data = (await remota.analizar('pains')).datos;
+    } else {
+      const raw = await callClaude(processDigestForAi(), { system: PAINS_SYSTEM, effort: 'high', maxTokens: 8000 });
+      data = parseJsonLoose(raw);
+    }
   } catch (e) {
     copilotPost('ai', '**No se pudo completar el analisis:** ' + e.message);
     return;

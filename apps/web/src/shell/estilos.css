@@ -85,6 +85,14 @@ code { font-family: var(--font-mono); font-size: var(--font-sm); }
 .detalle-json { font-family: var(--font-mono); font-size: var(--font-xs); color: var(--gray-700); max-width: 48ch; overflow-wrap: anywhere; }
 .aviso-en-linea { display: block; color: var(--warning); font-size: var(--font-xs); }
 
+/* ---------- Presupuesto de IA ---------- */
+.presupuesto { margin-bottom: var(--space-4); }
+.presupuesto-cifras { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.presupuesto-cifras strong { font-size: var(--font-2xl); color: var(--mbc-azul); }
+.barra-progreso { height: 10px; border-radius: var(--radius-full); background: var(--gray-150); overflow: hidden; }
+.barra-progreso span { display: block; height: 100%; background: var(--trace); border-radius: inherit; }
+.barra-progreso span.alto { background: var(--warning); }
+
 /* ---------- Insignias ---------- */
 .insignia, .etiqueta { display: inline-block; padding: 2px var(--space-2); border-radius: var(--radius-full); font-size: var(--font-xs); font-weight: 600; white-space: nowrap; }
 .insignia-borrador { background: var(--gray-100); color: var(--gray-700); }

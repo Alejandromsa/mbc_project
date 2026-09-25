@@ -4,7 +4,11 @@
 // ingesta, dominio actual) llega como parámetro.
 
 export interface ConfigIa {
-  /** 'equipo' = vía intermediario con código; cualquier otro valor = clave propia. */
+  /**
+   * 'equipo' = vía intermediario con código; 'servidor' = desde la API/worker
+   * con la clave del servidor (sin cabeceras de navegador); cualquier otro
+   * valor = clave propia desde el navegador.
+   */
   modo?: string;
   codigo?: string;
   key?: string;
@@ -38,6 +42,8 @@ export interface Entorno {
   comprobarCancelado?: () => void;
   fetch?: typeof fetch;
   esperar?: (ms: number) => Promise<void>;
+  /** Solo en modo servidor: base de la API de Anthropic (pruebas con un servidor falso). */
+  urlApi?: string;
 }
 
 export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg: ConfigIa, entorno: Entorno): Promise<string> {
@@ -47,17 +53,24 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
   const senal = entorno.senalCancelacion ?? null;
   const cancelado = () => !!entorno.cancelado?.();
   const equipo = cfg.modo === 'equipo';
+  const servidor = cfg.modo === 'servidor';
   const key = (cfg.key || '').trim(), codigo = (cfg.codigo || '').trim();
   if (equipo && !codigo) throw new Error('Falta el código de acceso del equipo. Configúralo en Ajustes de IA (✨).');
-  if (!equipo && !key) throw new Error('Falta la API key. Configúrala en Ajustes de IA (✨).');
+  if (!equipo && !key) {
+    throw new Error(servidor ? 'El servidor no tiene configurada la clave de Anthropic (ANTHROPIC_API_KEY).' : 'Falta la API key. Configúrala en Ajustes de IA (✨).');
+  }
   // Modo equipo: la clave NO sale del intermediario; aquí solo viaja el código.
   const destino = equipo
     ? (cfg.proxyUrl || entorno.proxyPorDefecto).replace(/\/+$/, '') + '/v1/messages'
-    : 'https://api.anthropic.com/v1/messages';
+    : servidor
+      ? (entorno.urlApi || 'https://api.anthropic.com').replace(/\/+$/, '') + '/v1/messages'
+      : 'https://api.anthropic.com/v1/messages';
   const cabeceras: Record<string, string> = equipo
     ? { 'content-type': 'application/json', 'x-processiq-code': codigo }
-    : { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true' };
+    : servidor
+      ? { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' }
+      : { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true' };
   const body: Record<string, unknown> & { model: string; max_tokens: number } = {
     model: cfg.model || 'claude-opus-5',
     max_tokens: opts.maxTokens || 16000,
@@ -113,9 +126,11 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
   }
   if (!res.ok) {
     let msg = 'Error ' + res.status;
-    try { const j = await res.json(); msg += ': ' + (j.error?.message || JSON.stringify(j).slice(0, 200)); } catch { /* sin cuerpo */ }
+    // any explícito: con los tipos de Node (la API compila esta fuente) json() devuelve unknown
+    try { const j: any = await res.json(); msg += ': ' + (j.error?.message || JSON.stringify(j).slice(0, 200)); } catch { /* sin cuerpo */ }
     if (res.status === 401) msg = equipo ? 'Código de acceso del equipo incorrecto (401). Revísalo en Ajustes de IA.'
-                                         : 'API key inválida o revocada (401). Revísala en Ajustes de IA.';
+                                 : servidor ? 'La clave de Anthropic del servidor no es válida o fue revocada (401): revisa ANTHROPIC_API_KEY.'
+                                 : 'API key inválida o revocada (401). Revísala en Ajustes de IA.';
     if (res.status === 403 && equipo) msg = 'El intermediario rechazó este origen (403): abre la app desde su dominio oficial (' + entorno.host + ' no esta en ALLOWED_ORIGINS).';
     if (res.status === 429) msg = 'Límite de uso alcanzado (429). Espera unos segundos y reintenta.';
     limpiar();

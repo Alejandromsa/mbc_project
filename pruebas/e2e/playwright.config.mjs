@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { BASE, PUERTO_API, URL_BASE_DATOS } from './src/entorno.mjs';
+import { BASE, PUERTO_ANTHROPIC, PUERTO_API, URL_BASE_DATOS } from './src/entorno.mjs';
 
 // Requisitos: Postgres de desarrollo en :5440 (docker compose --profile dev up -d postgres-dev)
 // y la web construida (el script "e2e" la construye antes).
@@ -19,9 +19,16 @@ export default defineConfig({
       // Base nueva con la semilla y, después, la API real (tsx, sin construir)
       command: 'pnpm --filter @processiq/api semilla --desde-cero && pnpm --filter @processiq/api exec tsx src/servidor.ts',
       url: `http://127.0.0.1:${PUERTO_API}/api/salud`,
-      env: { DATABASE_URL: URL_BASE_DATOS, ORIGEN_PUBLICO: BASE, PORT: String(PUERTO_API) },
+      env: { DATABASE_URL: URL_BASE_DATOS, ORIGEN_PUBLICO: BASE, PORT: String(PUERTO_API), ANTHROPIC_API_KEY: 'sk-ant-e2e' },
       reuseExistingServer: false,
       timeout: 120_000
+    },
+    {
+      // Anthropic falso + el worker de IA apuntando a él
+      command: 'node src/anthropic-falso.mjs',
+      url: `http://127.0.0.1:${PUERTO_ANTHROPIC}/salud`,
+      reuseExistingServer: false,
+      timeout: 60_000
     },
     {
       command: 'node src/servidor.mjs',

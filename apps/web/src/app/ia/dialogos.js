@@ -3,6 +3,7 @@ import { $ } from '../dom.js';
 import { openModal } from '../ui/modal.js';
 import { updateAiUi } from './ajustes.js';
 import { GEN_MAX_TOKENS, aiConfig, estimarCosteGeneracion, fmtUsd, saveAiConfig } from './motor.js';
+import { iaRemota } from './remota.js';
 
 // Modal: profundidad del levantamiento. NO decide QUE se genera --siempre se
 // genera el proceso completo-- sino con cuanto detalle lo mira la IA y en que
@@ -13,6 +14,9 @@ import { GEN_MAX_TOKENS, aiConfig, estimarCosteGeneracion, fmtUsd, saveAiConfig 
 // Esc o clic fuera: el MutationObserver cubre los cierres que no pasan por
 // los botones, para que la ingesta nunca se quede esperando).
 function pedirCodigoEquipo() {
+  // En un proceso de proyecto no hay código de equipo: la IA es la del servidor
+  const remota = iaRemota();
+  if (remota) { remota.avisarNoDisponible(); return Promise.resolve(''); }
   return new Promise(resolve => {
     const modal = $('#modal'), ok = $('#modalOk'), cancel = $('#modalCancel');
     const txtOk = ok ? ok.textContent : '', txtCancel = cancel ? cancel.textContent : '';

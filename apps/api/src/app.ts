@@ -13,13 +13,22 @@ import { rutasProyectos } from './rutas/proyectos.js';
 import { rutasProcesos } from './rutas/procesos.js';
 import { rutasAuditoria } from './rutas/auditoria.js';
 import { rutasDirectorio } from './rutas/directorio.js';
+import { rutasIa } from './rutas/ia.js';
+import type { Escucha } from './ia/avisos.js';
 
 /** Rutas que no exigen sesión. */
 const PUBLICAS = new Set(['GET /api/salud', 'POST /api/sesion']);
 /** Rutas permitidas con contraseña temporal pendiente de cambio. */
 const CON_CLAVE_TEMPORAL = new Set(['GET /api/sesion', 'DELETE /api/sesion', 'POST /api/sesion/clave']);
 
-export function crearApp(db: BaseDeDatos, config: Config) {
+export interface OpcionesApp {
+  /** Avisos de Postgres (LISTEN) para el progreso en vivo de la IA; sin ella, el SSE sondea. */
+  escucha?: Escucha;
+  /** Cada cuánto re-lee el SSE si no llega ningún aviso (ms). */
+  sondeoMs?: number;
+}
+
+export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp = {}) {
   const app = new Hono<Entorno>();
   const limitador = new LimitadorAccesos();
 
@@ -36,6 +45,7 @@ export function crearApp(db: BaseDeDatos, config: Config) {
   app.use('/api/*', async (c, next) => {
     c.set('db', db);
     c.set('config', config);
+    c.set('escucha', opciones.escucha);
     c.set('ip', (c.req.header('x-forwarded-for') ?? '').split(',')[0]!.trim() || 'local');
     // CSRF: toda escritura debe venir de la propia web (además de SameSite=Lax en la cookie)
     if (!['GET', 'HEAD', 'OPTIONS'].includes(c.req.method) && c.req.header('origin') !== config.origenPublico) {
@@ -80,5 +90,6 @@ export function crearApp(db: BaseDeDatos, config: Config) {
   app.route('/api/proyectos', rutasProyectos());
   app.route('/api', rutasProcesos());
   app.route('/api/auditoria', rutasAuditoria());
+  app.route('/api/ia', rutasIa({ sondeoMs: opciones.sondeoMs }));
   return app;
 }

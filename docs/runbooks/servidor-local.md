@@ -8,6 +8,7 @@ ProcessIQ corre en un PC propio con IP pública fija, en contenedores Docker. Es
 |---|---|---|
 | `web` (Caddy) | Sirve la web, obtiene y renueva el certificado HTTPS; enruta `/api/*` a la API y `/ia/*` al intermediario | 443 publicado |
 | `api` (Node) | Cuentas locales, proyectos, procesos y revisiones; aplica las migraciones de la base al arrancar | 8080, solo red interna |
+| `worker` (Node) | IA en el servidor: ejecuta la cola de generaciones y análisis de los procesos de proyectos (misma imagen que la API) | — |
 | `postgres` | Base de datos de la plataforma (volumen `postgres_datos`) | 5432, solo red interna |
 | `respaldo` | `pg_dump` cada 24 h a la carpeta `respaldos/` del repositorio; conserva los 14 últimos | — |
 | `intermediario` (Node) | Guarda la clave de Anthropic y reenvía las llamadas de IA del modo "Clave del equipo" | 8787, solo red interna |
@@ -29,6 +30,31 @@ Flujo de trabajo:
 4. Quien edita la envía a revisión; el revisor (o el propietario) la aprueba o la devuelve.
 
 Si se cierra el navegador con cambios sin guardar, quedan como borrador en ese navegador y el editor ofrece recuperarlos al volver a abrir el proceso.
+
+## IA
+
+Hay dos caminos, y los dos usan la misma `ANTHROPIC_API_KEY` de `.env`:
+
+- **Editor libre (`/`), como el MVP:** va por el `intermediario` con el código del equipo (`ACCESS_CODE`).
+- **Procesos de un proyecto:** la IA la hace el servidor. La web encola una ejecución y el `worker` llama a Claude.
+  - El progreso llega en vivo.
+  - Si se corta la red o hay sobrecarga, reintenta solo (hasta 3 veces).
+  - El resultado queda guardado aunque se cierre la pestaña.
+  - El texto de los documentos se borra de la base al terminar.
+
+**Topes de gasto (`.env`, en US$ a precio de lista):**
+
+| Variable | Qué limita |
+|---|---|
+| `PRESUPUESTO_IA_MENSUAL_USD` | Gasto de toda la organización en el mes. Al alcanzarlo, la IA del servidor se detiene hasta el mes siguiente |
+| `LIMITE_IA_USUARIO_MENSUAL_USD` | Gasto de cada persona en el mes |
+| `MODELOS_IA_PERMITIDOS` | Modelos que se pueden elegir al generar un proceso |
+| `MODELO_IA_ANALISIS` | Modelo de los análisis de pains y de las tareas del copiloto |
+
+Tras cambiarlos: `docker compose up -d api worker`. El tope de gasto de la consola de Anthropic sigue siendo la última red.
+
+- **Consumo:** como administrador, en `https://mbc.asissoft.com/proyectos/admin/ia`: gasto del mes, por persona y las últimas ejecuciones con sus tokens y su coste.
+- **Si una ejecución falla:** el error aparece en esa pantalla y en `docker compose logs -f worker`.
 
 ## Usuarios
 
@@ -88,7 +114,7 @@ Estado al 25-sep-2026: los pasos 1 a 3 y 5 están hechos; falta el 4 (la clave d
    ```
 4. **Clave de IA** ⏳ En `.env`, pegar la clave en la línea `ANTHROPIC_API_KEY=`, que está marcada con `>>> PEGAR AQUI`.
    - Crearla en console.anthropic.com **dentro de un workspace**, con tope de gasto.
-   - Después: `docker compose up -d intermediario`.
+   - Después: `docker compose up -d intermediario api worker` (la usan el editor libre y la IA del servidor).
    - `ACCESS_CODE` ya viene generado: es el código que se reparte al equipo.
 5. **Arrancar:**
    ```bash
@@ -113,7 +139,7 @@ Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermed
 | Tarea | Comando (en la carpeta del repositorio) |
 |---|---|
 | Estado | `docker compose ps` |
-| Logs | `docker compose logs -f web` · `docker compose logs -f api` · `docker compose logs -f intermediario` |
+| Logs | `docker compose logs -f web` · `docker compose logs -f api` · `docker compose logs -f worker` · `docker compose logs -f intermediario` |
 | Publicar una versión nueva | `git pull && docker compose up -d --build` (la API aplica las migraciones nuevas al arrancar) |
 | Rotar el código del equipo | editar `ACCESS_CODE` en `.env` → `docker compose up -d intermediario` |
 | Ver la auditoría | como administrador, en `https://mbc.asissoft.com/proyectos/admin/auditoria` |
@@ -129,6 +155,7 @@ El gasto de IA queda en el log del intermediario (`"evento":"gasto_ia"`). Si se 
 docker compose --profile dev up -d postgres-dev   # Postgres de desarrollo y pruebas, puerto 5440
 cp .env.dev.example .env.dev                      # una vez
 pnpm --filter @processiq/api dev                  # API en :8790 (migra al arrancar)
+pnpm --filter @processiq/api worker               # worker de IA (necesita ANTHROPIC_API_KEY en .env.dev; gasta de verdad)
 pnpm dev                                          # web en :5173 (editor en /, plataforma en /proyectos/); Vite reenvía /api a :8790
 pnpm --filter @processiq/api semilla              # cuentas y proyectos de prueba (repetible)
 pnpm --filter @processiq/api semilla --desde-cero # además vacía la base antes

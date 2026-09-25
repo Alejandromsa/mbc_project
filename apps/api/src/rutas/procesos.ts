@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { migrarProyecto } from '@processiq/dominio';
-import { procesos, revisiones, usuarios, type BaseDeDatos } from '@processiq/db';
+import { ejecucionesIa, procesos, revisiones, usuarios, type BaseDeDatos } from '@processiq/db';
 import { registrar } from '../auditoria.js';
 import { ErrorHttp, type Entorno, type UsuarioSesion } from '../contexto.js';
 import { accesoProyecto, type Capacidad } from '../permisos.js';
@@ -20,7 +20,9 @@ const RevisionEsquema = z.object({
   contenido: z.unknown(),
   mensaje: z.string().trim().max(500).default(''),
   /** Revisión sobre la que se trabajó (null si se partió de un proceso sin revisiones). */
-  padreId: z.string().uuid().nullable().default(null)
+  padreId: z.string().uuid().nullable().default(null),
+  /** Generación de IA de la que sale esta revisión: queda enlazada y deja de ofrecerse como pendiente. */
+  ejecucionIaId: z.string().uuid().nullable().default(null)
 });
 const EstadoEsquema = z.object({ estado: z.enum(['borrador', 'en_revision', 'aprobada']) });
 
@@ -37,7 +39,7 @@ const columnasRevision = {
   schemaVersion: revisiones.schemaVersion, creadaEn: revisiones.creadaEn
 };
 
-async function accesoProceso(db: BaseDeDatos, u: UsuarioSesion, procesoId: string, capacidad: Capacidad) {
+export async function accesoProceso(db: BaseDeDatos, u: UsuarioSesion, procesoId: string, capacidad: Capacidad) {
   if (!esUuid(procesoId)) throw new ErrorHttp(404, 'Proceso no encontrado.');
   const [p] = await db.select().from(procesos).where(eq(procesos.id, procesoId)).limit(1);
   if (!p) throw new ErrorHttp(404, 'Proceso no encontrado.');
@@ -116,9 +118,18 @@ export function rutasProcesos() {
         mensaje: datos.mensaje, schemaVersion: v1.schemaVersion, contenido: v1
       }).returning({ id: revisiones.id, numero: revisiones.numero, estado: revisiones.estado, padreId: revisiones.padreId, creadaEn: revisiones.creadaEn });
       await tx.update(procesos).set({ actualizadoEn: new Date() }).where(eq(procesos.id, proceso.id));
+      if (datos.ejecucionIaId) {
+        const enlazada = await tx.update(ejecucionesIa).set({ revisionId: nueva!.id })
+          .where(and(eq(ejecucionesIa.id, datos.ejecucionIaId), eq(ejecucionesIa.procesoId, proceso.id),
+            eq(ejecucionesIa.tipo, 'generacion'), eq(ejecucionesIa.estado, 'completada')))
+          .returning({ id: ejecucionesIa.id });
+        if (!enlazada.length) throw new ErrorHttp(400, 'La generación de IA indicada no es de este proceso o no terminó.', 'EJECUCION_INVALIDA');
+      }
       return { revision: nueva!, conflicto, ultimaAnterior: ultima ?? null };
     });
-    await registrar(c, 'revision.alta', 'revision', res.revision.id, { procesoId: proceso.id, numero: res.revision.numero, conflicto: res.conflicto });
+    await registrar(c, 'revision.alta', 'revision', res.revision.id, {
+      procesoId: proceso.id, numero: res.revision.numero, conflicto: res.conflicto, ...(datos.ejecucionIaId ? { ejecucionIaId: datos.ejecucionIaId } : {})
+    });
     return c.json(res, 201);
   });
 

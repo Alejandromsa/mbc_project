@@ -26,6 +26,9 @@ importers:
       '@processiq/dominio':
         specifier: workspace:*
         version: link:../../packages/dominio
+      '@processiq/ia':
+        specifier: workspace:*
+        version: link:../../packages/ia
       drizzle-orm:
         specifier: ^0.45.3
         version: 0.45.3(@types/pg@8.23.1)(pg@8.23.0)
@@ -221,6 +224,9 @@ importers:
       '@processiq/dominio':
         specifier: workspace:*
         version: link:../dominio
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       vitest:
         specifier: ^5.0.2

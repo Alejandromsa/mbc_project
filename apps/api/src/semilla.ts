@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { inArray } from 'drizzle-orm';
 import { proyectos, sesiones, usuarios, type BaseDeDatos } from '@processiq/db';
 import { crearApp } from './app.js';
-import type { Config } from './config.js';
+import { leerConfigIa, type Config } from './config.js';
 import { asegurarOrganizacion } from './organizacion.js';
 import { hashearClave } from './seguridad.js';
 
@@ -75,7 +75,7 @@ export async function sembrar(db: BaseDeDatos, databaseUrl: string) {
   // Los proyectos de prueba se rehacen desde cero (procesos, revisiones y miembros caen en cascada)
   await db.delete(proyectos).where(inArray(proyectos.creadoPor, todos));
 
-  const config: Config = { databaseUrl, origenPublico: ORIGEN, puerto: 0, horasSesion: 12 };
+  const config: Config = { databaseUrl, origenPublico: ORIGEN, puerto: 0, horasSesion: 12, ia: leerConfigIa({}) };
   const app = crearApp(db, config);
   const como = async (usuario: string) => {
     const pedir = cliente(app);

@@ -14,14 +14,17 @@ Plataforma de diagramación, diagnóstico y reingeniería de procesos con BPMN 2
     - Postgres y una API con cuentas locales, proyectos, procesos, revisiones versionadas con flujo de aprobación, auditoría y copias de seguridad diarias.
     - La plataforma web en `/proyectos/`: acceso, proyectos, miembros, revisiones, usuarios y auditoría.
     - El editor abre y guarda revisiones de un proyecto; sin proyecto, sigue igual que el MVP.
-  - Siguiente: la IA en el servidor (jobs con endpoints de negocio).
+    - La IA en el servidor para los procesos de proyectos:
+      - generación, pains y copiloto como trabajos en cola, con progreso en vivo, reintentos y coste por ejecución;
+      - presupuesto mensual y pantalla de consumo.
+  - Siguiente: catálogos administrables, observabilidad y staging.
 
 ## Estructura
 
 ```text
 apps/
   web/            la app (Vite): el editor (src/app/, módulos ES) y la plataforma en /proyectos/ (src/shell/, React)
-  api/            API de la plataforma (Node + Hono + Postgres): cuentas, proyectos, revisiones
+  api/            API de la plataforma (Node + Hono + Postgres): cuentas, proyectos, revisiones; worker de IA
   intermediario/  intermediario de IA (Node + Hono): guarda la clave de Anthropic
 packages/
   db/             esquema de la base (Drizzle) y migraciones SQL

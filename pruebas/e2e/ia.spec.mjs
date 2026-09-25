@@ -1,0 +1,106 @@
+// IA en el servidor de punta a punta: editor en modo proyecto + API + worker +
+// Anthropic falso (src/anthropic-falso.mjs).
+import { expect, test } from '@playwright/test';
+import { BASE, CLAVE, correo, reiniciarDatos } from './src/entorno.mjs';
+
+test.beforeEach(() => reiniciarDatos());
+
+async function entrar(page, usuario) {
+  await page.goto('/proyectos/entrar');
+  await page.getByLabel('Correo').fill(correo(usuario));
+  await page.getByLabel('Contraseña').fill(CLAVE);
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await expect(page.getByRole('heading', { name: 'Proyectos', level: 1 })).toBeVisible();
+}
+
+async function irAlProceso(page, proceso) {
+  await page.getByRole('link', { name: /Siniestros — Seguros Andinos/ }).click();
+  await page.getByRole('link', { name: proceso, exact: true }).click();
+  await expect(page.getByRole('heading', { name: proceso, level: 1 })).toBeVisible();
+}
+
+const barra = (page) => page.locator('.piq-proyecto');
+const fila = (page, n) => page.locator('tbody tr').filter({ has: page.locator('td:first-child strong', { hasText: new RegExp(`^v${n}$`) }) });
+const nodos = (page) => page.evaluate(() => window.ProcessIQ.snapshot().nodes);
+
+test('la IA del servidor genera el proceso desde el editor y queda guardado como revisión', async ({ page }) => {
+  await entrar(page, 'editor');
+  await irAlProceso(page, 'Proceso sin revisiones');
+  await page.getByRole('link', { name: 'Empezar a dibujarlo en el editor' }).click();
+  await expect(barra(page)).toContainText('sin revisiones todavía');
+  expect(await page.evaluate(() => window.ProcessIQ.aiReady())).toBe(true);
+
+  await page.locator('#btnIngest').click();
+  await expect(page.locator('#ingestAiMode')).toContainText('IA en el servidor');
+  await page.evaluate(() => { document.querySelector('#ingestModal .ingest-more').open = true; });   // «pegar texto» está plegado
+  await page.locator('#notesInput').fill('La mesa de ayuda recibe el reclamo del cliente, lo registra en el CRM y lo deriva al área responsable.');
+  await page.locator('#btnIngestGo').click();
+  await page.locator('#modalOk').click();   // nivel de detalle y modelo
+
+  await expect(page.locator('.piq-proyecto-aviso')).toContainText('Proceso generado con IA y guardado como v1', { timeout: 30_000 });
+  await expect(barra(page)).toContainText('v1 · Borrador');
+  expect(await nodos(page)).toBe(3);
+  await expect(barra(page).locator('.piq-proyecto-cambios')).toBeHidden();
+
+  await barra(page).getByRole('link', { name: 'Volver al proyecto' }).click();
+  await expect(fila(page, 1)).toContainText('Proceso generado con IA desde texto pegado');
+});
+
+test('una generación que terminó con la pestaña cerrada se ofrece al volver a abrir el proceso', async ({ page }) => {
+  await entrar(page, 'editor');
+  await irAlProceso(page, 'Proceso sin revisiones');
+  const procesoId = new URL(page.url()).pathname.split('/').pop();
+  // Lanzada desde una pestaña que se cerró: directamente por la API
+  const r = await page.request.post('/api/ia/generaciones', {
+    headers: { origin: BASE },
+    data: { procesoId, texto: 'La mesa de ayuda registra el reclamo en el CRM.', etiqueta: 'minuta.docx', vista: 3 }
+  });
+  expect(r.status()).toBe(202);
+  const id = (await r.json()).ejecucion.id;
+  await expect.poll(async () => (await (await page.request.get(`/api/ia/ejecuciones/${id}`)).json()).ejecucion.estado, { timeout: 30_000 })
+    .toBe('completada');
+
+  await page.getByRole('link', { name: 'Empezar a dibujarlo en el editor' }).click();
+  const dialogo = page.locator('dialog.piq-dialogo');
+  await expect(dialogo).toContainText('Hay un proceso generado con IA sin guardar');
+  await expect(dialogo).toContainText('minuta.docx');
+  await dialogo.getByRole('button', { name: 'Dibujarlo y guardarlo' }).click();
+  await expect(barra(page)).toContainText('v1 · Borrador');
+  expect(await nodos(page)).toBe(3);
+
+  // Ya enlazada a la revisión: no se vuelve a ofrecer
+  await page.reload();
+  await expect(barra(page)).toContainText('v1');
+  await expect(page.locator('dialog.piq-dialogo')).toHaveCount(0);
+});
+
+test('el copiloto y el análisis de dolores van al servidor; el administrador ve el consumo', async ({ page, browser }) => {
+  await entrar(page, 'editor');
+  await irAlProceso(page, 'Gestión de siniestros');
+  await page.getByRole('link', { name: 'Abrir la última versión en el editor' }).click();
+  await expect(barra(page)).toContainText('v3');
+
+  await page.evaluate(() => window.ProcessIQ.runAiTask('suggest-kpis'));
+  await expect(page.locator('#copilotMessages')).toContainText('Análisis del servidor', { timeout: 30_000 });
+  await page.evaluate(() => window.ProcessIQ.aiAnalyzePains());
+  await expect(page.locator('#copilotMessages')).toContainText('Fraude en reclamos', { timeout: 30_000 });
+
+  const admin = await (await browser.newContext()).newPage();
+  await entrar(admin, 'admin');
+  await admin.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'IA' }).click();
+  await expect(admin.getByRole('heading', { name: 'Consumo de IA' })).toBeVisible();
+  const ultimas = admin.getByRole('table').last();   // «Últimas ejecuciones» (la primera es «Por persona»)
+  await expect(ultimas).toContainText('Sugerir KPIs aplicables');
+  await expect(ultimas).toContainText('Análisis de dolores');
+  await expect(admin.getByRole('table').first().getByRole('row', { name: /editor@processiq\.test/ })).toContainText('US$');
+});
+
+test('quien solo lee no usa la IA del servidor', async ({ page }) => {
+  await entrar(page, 'lector');
+  await irAlProceso(page, 'Gestión de siniestros');
+  await page.getByRole('link', { name: 'Abrir la última versión en el editor' }).click();
+  await expect(barra(page)).toContainText('solo lectura');
+  expect(await page.evaluate(() => window.ProcessIQ.aiReady())).toBe(false);
+  await page.evaluate(() => window.ProcessIQ.aiAnalyzePains());
+  await expect(page.locator('.piq-proyecto-aviso')).toContainText('no permiten usar la IA');
+});
