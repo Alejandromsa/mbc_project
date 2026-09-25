@@ -13,12 +13,28 @@ jobs:
   verificar:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Postgres real para las pruebas de integración de la API (apps/api)
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: processiq_pruebas
+          POSTGRES_USER: processiq
+          POSTGRES_PASSWORD: processiq
+        ports:
+          - 5440:5432
+        options: >-
+          --health-cmd "pg_isready -U processiq -d processiq_pruebas"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://processiq:processiq@localhost:5440/processiq_pruebas
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -46,7 +62,7 @@ jobs:
 
       - name: Resultados de fidelidad (si fallo)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fidelidad-resultados
           path: |
@@ -58,3 +74,4 @@ jobs:
         run: docker compose build
         env:
           DOMINIO: ci.invalid
+          POSTGRES_PASSWORD: solo-para-construir

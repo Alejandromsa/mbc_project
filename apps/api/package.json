@@ -1,0 +1,29 @@
+{
+  "name": "@processiq/api",
+  "private": true,
+  "version": "4.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env.dev src/servidor.ts",
+    "build": "node scripts/construir.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "node dist/servidor.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@processiq/db": "workspace:*",
+    "@processiq/dominio": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.9",
+    "pg": "^8.23.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "@types/pg": "^8.23.1",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.2"
+  }
+}

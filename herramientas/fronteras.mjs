@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PERMITIDOS = {
   '@processiq/dominio': [],
+  '@processiq/db': ['@processiq/dominio'],
   '@processiq/bpmn': ['@processiq/dominio'],
   '@processiq/motor': ['@processiq/dominio'],
   '@processiq/exportar': ['@processiq/dominio'],

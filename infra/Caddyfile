@@ -50,6 +50,12 @@
 		}
 	}
 
+	# API (cuentas, proyectos, revisiones). Caddy pone X-Forwarded-For con la IP
+	# real del cliente (no confía en la que envía el navegador).
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
 	handle {
 		root * /srv
 		# index.html se sirve como plantilla para resolver {{.Host}} (Open Graph)

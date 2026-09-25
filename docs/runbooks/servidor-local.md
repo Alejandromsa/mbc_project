@@ -1,4 +1,4 @@
-# Runbook — servidor local (fase 1)
+# Runbook — servidor local
 
 ProcessIQ corre en un PC propio con IP pública fija, en contenedores Docker. Es la etapa previa al PaaS descrito en `docs/arquitectura.md`: las imágenes son las mismas, así que migrar después no exige rediseñar.
 
@@ -6,10 +6,45 @@ ProcessIQ corre en un PC propio con IP pública fija, en contenedores Docker. Es
 
 | Contenedor | Qué hace | Puerto |
 |---|---|---|
-| `web` (Caddy) | Sirve la web, obtiene y renueva el certificado HTTPS, enruta `/ia/*` al intermediario | 443 publicado |
+| `web` (Caddy) | Sirve la web, obtiene y renueva el certificado HTTPS; enruta `/api/*` a la API y `/ia/*` al intermediario | 443 publicado |
+| `api` (Node) | Cuentas locales, proyectos, procesos y revisiones; aplica las migraciones de la base al arrancar | 8080, solo red interna |
+| `postgres` | Base de datos de la plataforma (volumen `postgres_datos`) | 5432, solo red interna |
+| `respaldo` | `pg_dump` cada 24 h a la carpeta `respaldos/` del repositorio; conserva los 14 últimos | — |
 | `intermediario` (Node) | Guarda la clave de Anthropic y reenvía las llamadas de IA del modo "Clave del equipo" | 8787, solo red interna |
 
-En la fase 1 **no hay base de datos**: igual que en el MVP, el trabajo de cada consultor vive en su navegador (`localStorage`). Recomendar exportar a JSON lo importante.
+El editor sigue funcionando sin iniciar sesión, como en el MVP: sin cuenta, el trabajo vive en el navegador (`localStorage`). Lo que se guarda en un proyecto vive en Postgres.
+
+## Usuarios
+
+Las cuentas son locales (correo y contraseña) hasta que TI registre la aplicación en Entra ID. Cada alta genera una **contraseña temporal** que se muestra una sola vez y que el usuario debe cambiar al entrar.
+
+- **Primer administrador** (una vez, en la carpeta del repositorio):
+  ```bash
+  docker compose exec api node dist/cli.js crear-usuario --email correo@dominio --nombre "Nombre Apellido" --rol admin
+  ```
+- **Más usuarios:** los da de alta un administrador desde la web (o con el mismo comando y `--rol consultor` o `--rol lector`).
+- **Contraseña olvidada:**
+  ```bash
+  docker compose exec api node dist/cli.js restablecer-clave --email correo@dominio
+  ```
+  Cierra sus sesiones y genera una nueva contraseña temporal.
+
+Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consultor` (crea proyectos) y `lector` (solo participa donde lo invitan). En cada proyecto: `propietario`, `editor`, `revisor` y `lector` (ver `apps/api/src/permisos.ts`).
+
+## Copias de seguridad
+
+- El servicio `respaldo` deja `respaldos/processiq-AAAAMMDD-HHMMSS.dump` cada 24 h (`RESPALDO_CADA_HORAS`) y conserva los 14 últimos (`RESPALDO_CONSERVAR`). Carpeta configurable con `CARPETA_RESPALDOS` en `.env`.
+- **Esa carpeta está en el mismo PC: hay que copiarla fuera** (OneDrive, disco externo) con la frecuencia que se acuerde.
+- **Restaurar** (desde el contenedor `respaldo`, que ya monta la carpeta; no pasar el archivo por tubería desde la shell de Windows, se corrompe):
+  ```bash
+  # Prueba en una base aparte
+  docker compose exec respaldo sh -c "createdb restaurada && pg_restore -d restaurada /respaldos/processiq-AAAAMMDD-HHMMSS.dump"
+  # Restauración real (con la API parada)
+  docker compose stop api
+  docker compose exec respaldo pg_restore --clean --if-exists -d processiq /respaldos/processiq-AAAAMMDD-HHMMSS.dump
+  docker compose start api
+  ```
+- Prueba de restauración: trimestral, en una base aparte (primer comando).
 
 ## Datos del servidor actual
 
@@ -53,13 +88,27 @@ Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermed
 | Tarea | Comando (en la carpeta del repositorio) |
 |---|---|
 | Estado | `docker compose ps` |
-| Logs | `docker compose logs -f web` · `docker compose logs -f intermediario` |
-| Publicar una versión nueva | `git pull && docker compose up -d --build` |
+| Logs | `docker compose logs -f web` · `docker compose logs -f api` · `docker compose logs -f intermediario` |
+| Publicar una versión nueva | `git pull && docker compose up -d --build` (la API aplica las migraciones nuevas al arrancar) |
 | Rotar el código del equipo | editar `ACCESS_CODE` en `.env` → `docker compose up -d intermediario` |
-| Parar todo | `docker compose down` (sin `-v`: conserva los certificados) |
-| Probar en local sin tocar producción | `DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ALLOWED_ORIGINS=https://localhost:8443 docker compose -p processiq-prueba up -d --build` |
+| Ver la auditoría | como administrador, `GET /api/auditoria` (pantalla en la web en la fase 2.2) |
+| Último respaldo | `docker compose logs --tail 5 respaldo` |
+| Parar todo | `docker compose down` — **nunca con `-v`**: borraría la base de datos y los certificados |
+| Probar en local sin tocar producción | `DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ALLOWED_ORIGINS=https://localhost:8443 CARPETA_RESPALDOS=./respaldos-prueba docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`) |
 
 El gasto de IA queda en el log del intermediario (`"evento":"gasto_ia"`). Si se configura `PULSE_URL`, también se reporta allí.
+
+## Desarrollo en el PC
+
+```bash
+docker compose --profile dev up -d postgres-dev   # Postgres de desarrollo y pruebas, puerto 5440
+cp .env.dev.example .env.dev                      # una vez
+pnpm --filter @processiq/api dev                  # API en :8790 (migra al arrancar)
+pnpm dev                                          # web en :5173; Vite reenvía /api a :8790
+pnpm --filter @processiq/api exec tsx --env-file=../../.env.dev src/cli.ts crear-usuario --email yo@mbc.pe --nombre "Yo" --rol admin
+```
+
+Las pruebas de la API (`pnpm test`) usan la base `processiq_pruebas` de ese mismo contenedor y la recrean en cada ejecución.
 
 ## Problemas conocidos
 

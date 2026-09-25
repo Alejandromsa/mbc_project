@@ -6,17 +6,22 @@ Plataforma de diagramación, diagnóstico y reingeniería de procesos con BPMN 2
 - **Servidor actual (PC propio, Docker):** [docs/runbooks/servidor-local.md](docs/runbooks/servidor-local.md)
 - **Historia y lecciones del MVP:** [docs/mvp/HANDOFF.md](docs/mvp/HANDOFF.md)
 
-## Estado: fase 1 (fundaciones) terminada
+## Estado
 
-El MVP 3.8.9 (un único `app.js` de ~10.500 líneas) quedó portado a paquetes TypeScript con pruebas **sin cambiar su comportamiento**, salvo las diferencias registradas en [docs/fase1-divergencias.md](docs/fase1-divergencias.md): un fallo del MVP corregido y librerías servidas desde la propia app. Las pruebas de fidelidad lo demuestran en cada cambio.
+- **Fase 1 (fundaciones), terminada.** El MVP 3.8.9 (un único `app.js` de ~10.500 líneas) quedó portado a paquetes TypeScript con pruebas **sin cambiar su comportamiento**, salvo las diferencias registradas en [docs/fase1-divergencias.md](docs/fase1-divergencias.md): un fallo del MVP corregido y librerías servidas desde la propia app. Las pruebas de fidelidad lo demuestran en cada cambio.
+- **Fase 2 (plataforma), en curso.**
+  - Hecho: Postgres y una API con cuentas locales, proyectos, procesos, revisiones versionadas con flujo de aprobación, auditoría y copias de seguridad diarias.
+  - Siguiente: las pantallas de acceso y proyectos en la web, y guardar y abrir revisiones desde el editor.
 
 ## Estructura
 
 ```text
 apps/
   web/            la app (Vite). src/app/ = interfaz en módulos ES sobre los paquetes
+  api/            API de la plataforma (Node + Hono + Postgres): cuentas, proyectos, revisiones
   intermediario/  intermediario de IA (Node + Hono): guarda la clave de Anthropic
 packages/
+  db/             esquema de la base (Drizzle) y migraciones SQL
   dominio/        modelo, catálogos, validación del Playbook MBB, esquema v1 y migración
   motor/          auto-layout, ruteo, calidad, niveles de detalle
   bpmn/           import/export BPMN 2.0
@@ -41,8 +46,10 @@ Requisitos: Node 22+, pnpm 10 y Docker Desktop.
 pnpm install
 pnpm dev             # web en http://localhost:5173 (con /ia → intermediario en :8787)
 pnpm --filter @processiq/intermediario dev   # intermediario, lee ../../.env
+docker compose --profile dev up -d postgres-dev   # Postgres de desarrollo (puerto 5440)
+cp .env.dev.example .env.dev && pnpm --filter @processiq/api dev   # API en :8790 (/api desde la web)
 pnpm typecheck
-pnpm test            # pruebas unitarias de los paquetes
+pnpm test            # unitarias de los paquetes e integración de la API (necesita postgres-dev)
 pnpm fronteras       # dependencias permitidas entre paquetes
 pnpm fidelidad       # la app frente al MVP: ejemplos, exports, interacciones, IA simulada (≈2,5 min)
 ```
@@ -50,8 +57,9 @@ pnpm fidelidad       # la app frente al MVP: ejemplos, exports, interacciones, I
 ## Despliegue en el servidor
 
 ```bash
-cp .env.example .env   # completar DOMINIO, ANTHROPIC_API_KEY, ACCESS_CODE
+cp .env.example .env   # completar DOMINIO, POSTGRES_PASSWORD, ANTHROPIC_API_KEY, ACCESS_CODE
 docker compose up -d --build
+docker compose exec api node dist/cli.js crear-usuario --email correo@dominio --nombre "Nombre" --rol admin
 ```
 
-El dominio se cambia solo en `.env` (ver el runbook).
+El dominio se cambia solo en `.env`. Usuarios, copias de seguridad y restauración: ver el runbook.

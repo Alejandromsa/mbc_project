@@ -8,7 +8,10 @@ export default defineConfig({
       '/ia': {
         target: 'http://localhost:8787',
         rewrite: (p) => p.replace(/^\/ia/, '')
-      }
+      },
+      // API de la plataforma (pnpm --filter @processiq/api dev, puerto de .env.dev).
+      // changeOrigin no: la API valida el Origin de la web (http://localhost:5173).
+      '/api': { target: 'http://localhost:8790' }
     }
   },
   preview: { port: 4173 },

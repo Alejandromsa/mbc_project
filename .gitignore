@@ -8,6 +8,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.dev.example
 
 # Librerías de navegador copiadas desde node_modules en cada build
 apps/web/public/vendor/
@@ -28,3 +29,6 @@ desktop.ini
 .vscode/
 .idea/
 .claude/
+
+# Copias de seguridad de la base (docker compose: servicio respaldo)
+respaldos/

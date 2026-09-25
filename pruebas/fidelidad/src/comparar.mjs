@@ -12,6 +12,35 @@ const APPS = {
 };
 const RESULTADOS = join(import.meta.dirname, '..', 'resultados');
 
+// Única tolerancia de la fidelidad: el fondo de las etiquetas de flecha
+// (rect.edge-label-bg) toma x y width del getBBox del texto. En corridas
+// completas con la máquina cargada, las etiquetas largas miden a veces hasta
+// un 0,06 % menos en una de las dos apps (0,05 px en 90 px); no depende del
+// zoom y la causa sigue abierta (docs/lecciones-aprendidas.md, 7 y 7c). Esos
+// dos atributos se comparan con ±0,25 px: un cambio real (relleno, posición)
+// mueve 1 px o más. El resto del artefacto, texto de la etiqueta incluido,
+// se compara byte a byte.
+const RECT_ETIQUETA = /<rect\b[^>]*class="edge-label-bg"[^>]*>/g;
+const MEDIDA = /\b(x|width)="(-?[0-9.]+)"/g;
+const TOLERANCIA_PX = 0.25;
+
+function separarMedidas(s) {
+  const medidas = [];
+  const resto = s.replace(RECT_ETIQUETA, (rect) => rect.replace(MEDIDA, (_, attr, valor) => {
+    medidas.push(Number(valor));
+    return `${attr}="#"`;
+  }));
+  return { resto, medidas };
+}
+
+export function equivalentes(a, b) {
+  if (a === b) return true;
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const A = separarMedidas(a), B = separarMedidas(b);
+  return A.resto === B.resto && A.medidas.length === B.medidas.length &&
+    A.medidas.every((v, i) => Math.abs(v - B.medidas[i]) <= TOLERANCIA_PX);
+}
+
 function primeraDiferencia(a, b) {
   const n = Math.min(a.length, b.length);
   let i = 0;
@@ -58,7 +87,7 @@ export async function compararEnAmbas(browser, caso, capturar, opciones = {}) {
   if (process.env.GUARDAR_TODO) for (const k of claves) await guardar(caso, 'nueva', k, nueva.artefactos[k]);
   for (const k of claves) {
     const a = ref.artefactos[k], b = nueva.artefactos[k];
-    if (a === b) continue;
+    if (equivalentes(a, b)) continue;
     distintos.push(`${k}: ${a == null || b == null ? 'falta en una de las dos' : primeraDiferencia(a, b)}`);
     await guardar(caso, 'referencia', k, a);
     await guardar(caso, 'nueva', k, b);
