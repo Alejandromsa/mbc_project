@@ -1,0 +1,17 @@
+# Dueños por carpeta (docs/arquitectura.md §5).
+# Descomentar y sustituir por los equipos reales de GitHub cuando existan:
+# un propietario que no existe en la organización invalida la línea.
+#
+# Plataforma: modelo compartido, datos, IA, infraestructura y CI.
+# *                       @ORG/plataforma
+# /packages/dominio/      @ORG/plataforma
+# /packages/db/           @ORG/plataforma
+# /packages/ia/           @ORG/plataforma
+# /infra/                 @ORG/plataforma
+# /.github/               @ORG/plataforma
+# /docs/arquitectura.md   @ORG/plataforma
+#
+# Iniciativas: un bloque por equipo.
+# /apps/web/src/modulos/<iniciativa>/     @ORG/<equipo>
+# /apps/api/src/modulos/<iniciativa>/     @ORG/<equipo>
+# /apps/worker/src/modulos/<iniciativa>/  @ORG/<equipo>

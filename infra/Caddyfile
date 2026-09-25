@@ -1,0 +1,69 @@
+# ProcessIQ — servidor web (Caddy)
+#
+# El dominio y el modo del certificado vienen de .env (DOMINIO, TLS_MODO):
+# para cambiar de dominio no se toca este archivo. Ver docs/runbooks/servidor-local.md
+#
+# El puerto 80 del servidor lo ocupa IIS: no hay redireccion HTTP -> HTTPS y el
+# certificado de Let's Encrypt se obtiene con el desafio TLS-ALPN (solo 443).
+{
+	auto_https disable_redirects
+	# HTTP/3 necesitaria abrir tambien UDP 443 en el router: se deja en h1/h2.
+	servers {
+		protocols h1 h2
+	}
+}
+
+# TLS_MODO=acme    certificado real de Let's Encrypt (produccion)
+# TLS_MODO=interno certificado de la CA interna de Caddy (pruebas en localhost)
+(tls-acme) {
+	tls {
+		issuer acme {
+			disable_http_challenge
+		}
+	}
+}
+
+(tls-interno) {
+	tls internal
+}
+
+(cabeceras-seguridad) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		-Server
+	}
+}
+
+{$DOMINIO} {
+	import tls-{$TLS_MODO:acme}
+	import cabeceras-seguridad
+	encode zstd gzip
+
+	# Intermediario de IA (mismo origen que la web). flush_interval -1 reenvia
+	# el streaming SSE de Claude sin acumularlo.
+	handle_path /ia/* {
+		reverse_proxy intermediario:8787 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		root * /srv
+		# index.html se sirve como plantilla para resolver {{.Host}} (Open Graph)
+		@html path / /index.html
+		templates @html
+		header @html Cache-Control "no-cache"
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	handle_errors 404 {
+		import cabeceras-seguridad
+		root * /srv
+		rewrite * /404.html
+		file_server
+	}
+}

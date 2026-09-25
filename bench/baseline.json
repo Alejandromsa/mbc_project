@@ -1,0 +1,169 @@
+{
+  "version": "v2.9.5",
+  "commit": "2679990",
+  "nota": "Filas anonimizadas: los fixtures son procesos reales de cliente y no se versionan. Ver bench/README.md. La corrida en vista ejecutiva se obtiene con PIQBench.correr(null, 7000, 1). Sin regresion respecto a la linea base v2.7.3: las 7 metricas en detalle son identicas.",
+  "resumen": {
+    "casos": 12,
+    "importados": 11,
+    "nodosTotales": 1042,
+    "txtSobreTxt": 1793,
+    "txtSobreFig": 2092,
+    "fueraDeLamina": 0,
+    "flechaSobreCaja": 1804,
+    "cruces": 346,
+    "laminas": 138,
+    "usoMedio": 90,
+    "fueraDePaleta": 0,
+    "tipografias": [
+      "ForFuture Sans"
+    ]
+  },
+  "filas": [
+    {
+      "n": 0,
+      "err": "XML invalido (esperado)",
+      "caso": "caso-01"
+    },
+    {
+      "n": 97,
+      "flechas": 320,
+      "cruces": 36,
+      "lam": 14,
+      "tt": 304,
+      "tf": 328,
+      "fuera": 0,
+      "uso": 87,
+      "caso": "caso-02"
+    },
+    {
+      "n": 97,
+      "flechas": 320,
+      "cruces": 36,
+      "lam": 14,
+      "tt": 304,
+      "tf": 328,
+      "fuera": 0,
+      "uso": 87,
+      "caso": "caso-03"
+    },
+    {
+      "n": 64,
+      "flechas": 27,
+      "cruces": 11,
+      "lam": 9,
+      "tt": 69,
+      "tf": 84,
+      "fuera": 0,
+      "uso": 97,
+      "caso": "caso-04"
+    },
+    {
+      "n": 88,
+      "flechas": 60,
+      "cruces": 17,
+      "lam": 12,
+      "tt": 88,
+      "tf": 112,
+      "fuera": 0,
+      "uso": 85,
+      "caso": "caso-05"
+    },
+    {
+      "n": 89,
+      "flechas": 145,
+      "cruces": 34,
+      "lam": 12,
+      "tt": 132,
+      "tf": 148,
+      "fuera": 0,
+      "uso": 90,
+      "caso": "caso-06"
+    },
+    {
+      "n": 89,
+      "flechas": 143,
+      "cruces": 34,
+      "lam": 12,
+      "tt": 130,
+      "tf": 150,
+      "fuera": 0,
+      "uso": 90,
+      "caso": "caso-07"
+    },
+    {
+      "n": 154,
+      "flechas": 366,
+      "cruces": 66,
+      "lam": 16,
+      "tt": 344,
+      "tf": 414,
+      "fuera": 0,
+      "uso": 97,
+      "caso": "caso-08"
+    },
+    {
+      "n": 59,
+      "flechas": 6,
+      "cruces": 2,
+      "lam": 9,
+      "tt": 52,
+      "tf": 70,
+      "fuera": 0,
+      "uso": 96,
+      "caso": "caso-09"
+    },
+    {
+      "n": 108,
+      "flechas": 202,
+      "cruces": 38,
+      "lam": 16,
+      "tt": 149,
+      "tf": 208,
+      "fuera": 0,
+      "uso": 87,
+      "caso": "caso-10"
+    },
+    {
+      "n": 78,
+      "flechas": 15,
+      "cruces": 7,
+      "lam": 11,
+      "tt": 71,
+      "tf": 93,
+      "fuera": 0,
+      "uso": 77,
+      "caso": "caso-11"
+    },
+    {
+      "n": 119,
+      "flechas": 200,
+      "cruces": 65,
+      "lam": 13,
+      "tt": 150,
+      "tf": 157,
+      "fuera": 0,
+      "uso": 94,
+      "caso": "caso-12"
+    }
+  ],
+  "resumenPorVista": {
+    "detalle_nivel3": {
+      "flechaSobreCaja": 1804,
+      "cruces": 346,
+      "txtSobreTxt": 1793,
+      "txtSobreFig": 2092,
+      "laminas": 138,
+      "usoMedio": 90,
+      "fueraDeLamina": 0
+    },
+    "ejecutivo_nivel1": {
+      "flechaSobreCaja": 104,
+      "cruces": 0,
+      "txtSobreTxt": 1168,
+      "txtSobreFig": 1354,
+      "laminas": 119,
+      "usoMedio": 95,
+      "fueraDeLamina": 0
+    }
+  }
+}

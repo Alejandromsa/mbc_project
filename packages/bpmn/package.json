@@ -1,0 +1,20 @@
+{
+  "name": "@processiq/bpmn",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@processiq/dominio": "workspace:*"
+  },
+  "devDependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "vitest": "^5.0.2"
+  }
+}

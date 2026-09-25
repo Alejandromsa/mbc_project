@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProcessIQ — Diagramador de procesos BPMN · MBC Perú</title>
+  <meta name="description" content="ProcessIQ: herramienta de diagramación, diagnóstico y reingeniería de procesos con nomenclatura BPMN 2.0. Pains, KPIs, simulación what-if, cuello de botella y export a PPTX/BPMN/SVG/Word. MBC Business Consulting Perú." />
+  <meta name="theme-color" content="#003478" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <!-- Open Graph / Twitter (preview al compartir el link) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="ProcessIQ — Diagramador de procesos BPMN" />
+  <meta property="og:description" content="Diagramación, diagnóstico y reingeniería de procesos con nomenclatura BPMN 2.0. Analítica 2026 y export a PPTX/BPMN/SVG/Word. MBC Business Consulting Perú." />
+  <meta property="og:url" content="https://nelson2206.github.io/process-iq/" />
+  <meta property="og:image" content="https://nelson2206.github.io/process-iq/og-image.png?v=3.8.9" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="ProcessIQ — diagramador de procesos BPMN de MBC" />
+  <meta property="og:site_name" content="ProcessIQ · MBC Perú" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="ProcessIQ — Diagramador de procesos BPMN" />
+  <meta name="twitter:description" content="Diagramación, diagnóstico y reingeniería de procesos con BPMN 2.0. MBC Business Consulting Perú." />
+  <meta name="twitter:image" content="https://nelson2206.github.io/process-iq/og-image.png?v=3.8.9" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=3.8.9" />
+  <script defer src="https://umami-mbc.vercel.app/script.js" data-website-id="0f3aaa08-7bb8-4aec-b09b-d9c4abf3868c"></script>
+</head>
+<body>
+
+  <!-- Aviso para pantallas estrechas (link público abierto en móvil) -->
+  <div id="mobileNotice" class="mobile-notice" hidden>
+    <div class="mobile-notice-card">
+      <div class="mobile-notice-mark">M</div>
+      <h2>ProcessIQ está optimizado para escritorio</h2>
+      <p>Es un diagramador de procesos con paneles de edición y un lienzo amplio: la mejor experiencia es en una pantalla grande (laptop o monitor).</p>
+      <button id="btnMobileContinue" class="mobile-notice-btn">Continuar de todos modos</button>
+      <div class="mobile-notice-sub">MBC · Business Consulting · Perú</div>
+    </div>
+  </div>
+
+  <!-- ============== HEADER ============== -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-mark"><svg class="brand-logo" viewBox="0 0 3860.17 856.07" role="img" aria-label="MBC"><path fill="currentColor" d="M418.06 0 626.07 488.07 701.67 492.29 910.14 0 1328.21 0 1328.21 856.07 1100.17 856.07 1100.17 192.01 1048.6 192.48 830.28 684.35 496.03 682.1 280.46 194.49 228.04 192.01 228.04 856.07 0 856.07 0 0 418.06 0Z"/><path fill="currentColor" d="M3139.84 201 3860.17 201 3860.17 0 3148.64 0C3148.13 0 3147.62 0.01 3147.11 0.02 2906.1 1.66 2724.88 176.94 2724.88 428.03 2724.88 679.12 2905.48 852.72 3144.73 856.01 3145.07 856.01 3145.42 856.02 3145.76 856.03 3145.9 856.03 3146.05 856.03 3146.19 856.03 3147 856.04 3147.81 856.06 3148.63 856.06L3860.16 856.06 3860.16 655.06 3141.03 655.06C3033.15 651.52 2947.27 567.26 2947.27 428.02 2947.27 288.78 3029.79 204.6 3139.84 200.98Z"/><path fill="currentColor" d="M1485.95 0 2304.74 0C2482.07 0 2588.46 94.17 2588.46 231.14 2588.46 311.86 2550.55 384.01 2463.72 407.24L2463.72 426.81C2560.33 441.49 2614.14 508.75 2614.14 618.81 2614.14 765.56 2516.3 856.06 2334.08 856.06L1485.94 856.06 1485.94 0ZM2292.51 335.09C2345.1 335.09 2373.23 305.74 2373.23 259.27 2373.23 212.8 2345.1 183.45 2292.51 183.45L1706.08 183.45 1706.08 335.1 2292.51 335.1ZM2299.84 672.62C2357.32 672.62 2386.67 646.94 2386.67 595.57 2386.67 544.2 2357.32 518.52 2299.84 518.52L1706.08 518.52 1706.08 672.61 2299.84 672.61Z"/></svg></div>
+      <div class="brand-text">
+        <div class="brand-title">ProcessIQ</div>
+        <div class="brand-sub">Business Consulting · Perú</div>
+      </div>
+    </div>
+
+    <div class="process-meta-inline">
+      <input id="processName" type="text" placeholder="Nombre del proceso (ej. Gestión de Reclamos)" />
+      <button id="btnMeta" class="meta-btn" title="Industria y macroproceso" aria-expanded="false" aria-controls="metaPopover">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div id="metaPopover" class="meta-popover" hidden>
+        <label>Industria
+          <select id="processIndustry">
+            <option value="">— Industria —</option>
+          </select>
+        </label>
+        <label>Macroproceso
+          <select id="processMacro">
+            <option value="">— Macroproceso —</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Grupo 1: vista As-Is / To-Be -->
+      <div class="view-toggle" title="Cambia entre vista As-Is y To-Be">
+        <button id="btnViewAsIs" class="view-btn active" data-view="asis">As-Is</button>
+        <button id="btnViewToBe" class="view-btn" data-view="tobe">To-Be</button>
+      </div>
+      <!-- Grupo 2: acciones de reingeniería To-Be -->
+      <button id="btnCloneToBe" class="btn btn-ghost btn-icon" title="Clonar As-Is → To-Be (para empezar a reingenierar)" aria-label="Clonar As-Is a To-Be">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </button>
+      <button id="btnTransformToBe" class="btn btn-ghost btn-mini" title="Genera el To-Be aplicando reingeniería por nivel (Operativo/Táctico/Estratégico)">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4"/><path d="M13 3l2.4 6.1L22 12l-6.6 2.4L13 21l-2.4-6.6L4 12l6.6-2.4L13 3z"/></svg></span>
+        To-Be IA
+      </button>
+      <span class="header-sep" aria-hidden="true"></span>
+      <!-- Grupo 3: documento -->
+      <button id="btnNew" class="btn btn-ghost" title="Nuevo proceso">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
+        Nuevo
+      </button>
+      <button id="btnIngest" class="btn btn-primary" title="Ingestar desde audio, notas o event log">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+        Ingestar
+      </button>
+      <button id="btnImport" class="btn btn-ghost btn-icon" title="Importar proyecto JSON" aria-label="Importar proyecto JSON">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      </button>
+      <button id="btnAiSettings" class="btn btn-ghost btn-icon" title="Ajustes de IA (Claude)">
+        <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6 4.6 1.9-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"/></svg></span>
+      </button>
+      <button id="btnPresent" class="btn btn-ghost" title="Modo presentación: oculta las barras y maximiza el diagrama (Esc para salir)">⛶ Presentar</button>
+      <div class="export-menu">
+        <button id="btnExportMenu" class="btn btn-ghost" title="Exportar">
+          <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/></svg></span>
+          Exportar
+          <svg class="chevron" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="export-dropdown" id="exportDropdown" hidden>
+          <button data-export="json">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            JSON · proyecto
+          </button>
+          <button data-export="svg">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            SVG · vectorial
+          </button>
+          <button data-export="png">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            PNG · imagen
+          </button>
+          <button data-export="bpmn">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><rect x="14" y="3" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/><path d="M9 6h5M9 18h5M14 12v6M14 6v6"/></svg>
+            BPMN 2.0 · Bizagi/Camunda
+          </button>
+          <div class="export-group-title">PPTX por diseño</div>
+          <button data-export="pptx" data-tema="mbc">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="2" y1="20" x2="22" y2="20"/><path d="m7 12 3-3 3 3 5-5"/></svg>
+            PPTX · MBC <span class="export-hint">azul, Montserrat</span>
+          </button>
+          <button data-export="pptx" data-tema="bbva">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="2" y1="20" x2="22" y2="20"/><path d="m7 12 3-3 3 3 5-5"/></svg>
+            PPTX · cliente BBVA <span class="export-hint">plantilla Flow Value</span>
+          </button>
+          <div class="export-group-title">Otros formatos</div>
+          <button data-export="word">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+            Word · informe del proceso
+          </button>
+          <button data-export="ficha">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="13" y2="15"/></svg>
+            Ficha de Proceso · formato corporativo
+          </button>
+        </div>
+      </div>
+      <input id="fileImport" type="file" accept=".json" hidden />
+    </div>
+  </header>
+
+  <!-- ============== MAIN ============== -->
+  <main class="app-main">
+
+    <!-- ====== TOOLBAR LEFT ====== -->
+    <!-- Riel de 48 px. Las formas viven en un desplegable: dibujar a mano es
+         la excepción (los procesos nacen por ingesta o IA), no merece 180 px fijos. -->
+    <aside class="toolbar-left" aria-label="Herramientas de dibujo">
+      <button id="btnShapes" class="rail-btn" title="Añadir forma al lienzo" aria-expanded="false" aria-controls="shapesFlyout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Añadir</span>
+      </button>
+      <div id="shapesFlyout" class="shapes-flyout" hidden>
+        <div class="flyout-title">Arrastra al lienzo</div>
+        <button class="shape-btn" draggable="true" data-shape="start" title="Inicio">
+          <span class="shape-preview shape-start"></span>
+          <span class="shape-label">Inicio</span>
+        </button>
+        <button class="shape-btn" draggable="true" data-shape="task" title="Actividad">
+          <span class="shape-preview shape-task"></span>
+          <span class="shape-label">Actividad</span>
+        </button>
+        <button class="shape-btn" draggable="true" data-shape="decision" title="Decisión / gateway">
+          <span class="shape-preview shape-decision"></span>
+          <span class="shape-label">Decisión</span>
+        </button>
+        <button class="shape-btn" draggable="true" data-shape="document" title="Documento">
+          <span class="shape-preview shape-document"></span>
+          <span class="shape-label">Documento</span>
+        </button>
+        <button class="shape-btn" draggable="true" data-shape="data" title="Data">
+          <span class="shape-preview shape-data"></span>
+          <span class="shape-label">Data</span>
+        </button>
+        <button class="shape-btn" draggable="true" data-shape="system" title="Sistema">
+          <span class="shape-preview shape-system"></span>
+          <span class="shape-label">Sistema</span>
+        </button>
+        <button class="shape-btn" draggable="true" data-shape="end" title="Fin">
+          <span class="shape-preview shape-end"></span>
+          <span class="shape-label">Fin</span>
+        </button>
+      </div>
+      <button id="btnConnect" class="rail-btn" title="Modo conexión (C)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 19 5"/><path d="M12 5h7v7"/></svg>
+        <span>Conectar</span>
+      </button>
+      <button id="btnDelete" class="rail-btn" title="Eliminar selección (Supr)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        <span>Eliminar</span>
+      </button>
+      <button id="btnAutoLayout" class="rail-btn" title="Auto-layout: reordena el diagrama">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><path d="M10 6.5h4v7"/></svg>
+        <span>Ordenar</span>
+      </button>
+    </aside>
+
+    <!-- ====== CANVAS ====== -->
+    <section class="canvas-wrapper" id="canvasArea">
+      <!-- Capa con scroll: solo el lienzo se desplaza; barra de estado y botones quedan anclados -->
+      <div class="canvas-scroll" id="canvasWrapper">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 Z" fill="#6B6B6B"/>
+          </marker>
+          <marker id="arrow-open" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5" fill="none" stroke="#888888" stroke-width="1.2"/>
+          </marker>
+          <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="0.6" cy="0.6" r="0.6" fill="#D6D6D6"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" id="gridBg"/>
+        <g id="swimlanesLayer"></g>
+        <g id="edgesLayer"></g>
+        <g id="nodesLayer"></g>
+        <g id="laneHeadersLayer"></g>
+      </svg>
+      <div class="canvas-hint" id="canvasHint">
+        <div class="onboard-card">
+          <div class="onboard-title">Empieza tu levantamiento</div>
+          <div class="onboard-sub">Tres formas de crear el flujograma del proceso</div>
+          <div class="onboard-steps">
+            <button class="onboard-step" id="onbIngest">
+              <span class="onboard-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+              <span class="onboard-step-t">Ingestar fuente</span>
+              <span class="onboard-step-d">Audio de entrevista, notas, documento o event log CSV</span>
+            </button>
+            <button class="onboard-step" id="onbDemo">
+              <span class="onboard-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4"/><path d="M13 3l2.4 6.1L22 12l-6.6 2.4L13 21l-2.4-6.6L4 12l6.6-2.4L13 3z"/></svg></span>
+              <span class="onboard-step-t">Cargar ejemplo</span>
+              <span class="onboard-step-d">Proceso demo completo (pains, KPIs, simulación) para explorar</span>
+            </button>
+            <button class="onboard-step" id="onbDraw">
+              <span class="onboard-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.6 7.6"/><circle cx="11" cy="11" r="2"/></svg></span>
+              <span class="onboard-step-t">Dibujar manual</span>
+              <span class="onboard-step-d">Pulsa ＋ en la barra izquierda o usa el copiloto IA</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      </div><!-- /.canvas-scroll -->
+      <div class="canvas-history" id="canvasHistory">
+        <button id="btnUndo" title="Deshacer (Ctrl/⌘ Z)" aria-label="Deshacer el último cambio" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5 5 5 0 0 1-5 5h-4"/></svg>
+        </button>
+        <button id="btnRedo" title="Rehacer (Ctrl/⌘ Y · Ctrl/⌘ Shift Z)" aria-label="Rehacer el cambio deshecho" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0-5 5 5 5 0 0 0 5 5h4"/></svg>
+        </button>
+        <button id="btnAutoFit" class="hist-btn" title="Autoajustar: reordena y verifica que no se crucen las flechas" aria-label="Autoajustar diagrama"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/></svg></button>
+        <button id="btnShortcuts" title="Atajos de teclado (tecla ?)" aria-label="Ver atajos de teclado">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+        </button>
+      </div>
+      <div id="shortcutsPanel" class="shortcuts-panel" hidden>
+        <div class="shortcuts-head">
+          <strong>Atajos de teclado</strong>
+          <button id="btnShortcutsClose" class="shortcuts-close" title="Cerrar" aria-label="Cerrar atajos">✕</button>
+        </div>
+        <div class="shortcuts-body">
+          <div class="sc-row"><kbd>Ctrl/⌘</kbd><kbd>Z</kbd><span>Deshacer</span></div>
+          <div class="sc-row"><kbd>Ctrl/⌘</kbd><kbd>Y</kbd><span>Rehacer</span></div>
+          <div class="sc-row"><kbd>Ctrl/⌘</kbd><kbd>+</kbd><span>Acercar zoom</span></div>
+          <div class="sc-row"><kbd>Ctrl/⌘</kbd><kbd>−</kbd><span>Alejar zoom</span></div>
+          <div class="sc-row"><kbd>Ctrl/⌘</kbd><kbd>0</kbd><span>Zoom 100%</span></div>
+          <div class="sc-row"><kbd>Ctrl/⌘</kbd><kbd>rueda</kbd><span>Zoom hacia el cursor</span></div>
+          <div class="sc-row"><kbd>F</kbd><span>Ajustar a la pantalla</span></div>
+          <div class="sc-row"><kbd>C</kbd><span>Modo conectar</span></div>
+          <div class="sc-row"><kbd>Supr</kbd> / <kbd>Del</kbd><span>Eliminar selección</span></div>
+          <div class="sc-row"><kbd>Esc</kbd><span>Deseleccionar / salir de modo</span></div>
+          <div class="sc-row"><kbd>?</kbd><span>Mostrar/ocultar estos atajos</span></div>
+          <div class="shortcuts-note">Doble-clic en un nodo edita su etiqueta · ＋ abre las formas para arrastrar</div>
+        </div>
+      </div>
+      <div id="bpmnLegend" class="bpmn-legend" hidden>
+        <div class="bpmn-legend-head">
+          <strong>Nomenclatura BPMN 2.0</strong>
+          <button id="btnLegendClose" class="bpmn-legend-close" title="Cerrar" aria-label="Cerrar leyenda">✕</button>
+        </div>
+        <div class="bpmn-legend-body">
+          <div class="legend-col">
+            <h5>Formas y flujos</h5>
+            <div class="legend-row"><span class="lg-shape lg-task"></span>Actividad / tarea</div>
+            <div class="legend-row"><span class="lg-shape lg-system"></span>Tarea de sistema</div>
+            <div class="legend-row"><span class="lg-shape lg-diamond"></span>Decisión / gateway</div>
+            <div class="legend-row"><span class="lg-shape lg-doc"></span>Documento</div>
+            <div class="legend-row"><span class="lg-shape lg-data"></span>Datos / registro</div>
+            <div class="legend-row"><span class="lg-flow lg-seq"></span>Flujo de secuencia</div>
+            <div class="legend-row"><span class="lg-flow lg-msg"></span>Flujo de mensaje (entre carriles)</div>
+          </div>
+          <div class="legend-col">
+            <h5>Eventos (círculos)</h5>
+            <div class="legend-row"><span class="lg-ev lg-start">✉</span>Inicio (mensaje)</div>
+            <div class="legend-row"><span class="lg-ev lg-inter">⏱</span>Intermedio · doble anillo (timer)</div>
+            <div class="legend-row"><span class="lg-ev lg-end">⚡</span>Fin (error)</div>
+            <div class="legend-row"><span class="lg-ev lg-inter">▲</span>Señal (broadcast 1→N)</div>
+            <div class="legend-row"><span class="lg-ev lg-end lg-term">●</span>Terminación (corta la instancia)</div>
+            <div class="legend-row"><span class="lg-ev lg-boundary">⏱</span>De borde (SLA/excepción sobre tarea)</div>
+            <div class="legend-note">Contorno = catch (recibe) · Relleno = throw (lanza) · Punteado = no interrumpe</div>
+          </div>
+          <div class="legend-col">
+            <h5>Gateways y marcadores</h5>
+            <div class="legend-row"><span class="lg-gw">✕</span>Exclusivo XOR (un camino)</div>
+            <div class="legend-row"><span class="lg-gw">＋</span>Paralelo AND (fork/join)</div>
+            <div class="legend-row"><span class="lg-gw">○</span>Inclusivo OR (uno o varios)</div>
+            <div class="legend-row"><span class="lg-mk">⊞</span>Marcador: subproceso</div>
+            <div class="legend-row"><span class="lg-mk">↻</span>Marcador: loop (cíclica)</div>
+            <div class="legend-row"><span class="lg-mk">‖‖</span>Marcador: multi-instancia</div>
+            <div class="legend-note">Las tareas llevan chip de color + código [USR-01].</div>
+          </div>
+        </div>
+      </div>
+      <div class="canvas-statusbar">
+        <span id="statusNodes">0 nodos</span>
+        <span id="statusEdges">0 conexiones</span>
+        <span id="statusMode">Modo edición</span>
+        <span id="statusSaved"><span class="dot"></span>Guardado</span>
+        <div id="nivelVista" class="nivel-vista" role="group" aria-label="Nivel de detalle del flujo" title="Nivel de detalle del flujo">
+          <button type="button" data-nivel="1" title="Ejecutivo: el proceso en 5-10 etapas, sin carriles">Ejecutivo</button>
+          <button type="button" data-nivel="2" title="Actividad: agrupa tareas consecutivas del mismo actor">Actividad</button>
+          <button type="button" data-nivel="3" class="activo" title="Detalle: todas las tareas, como se levantó">Detalle</button>
+        </div>
+        <span id="nivelInfo" class="nivel-info"></span>
+        <div class="zoom-controls" id="zoomControls" title="Zoom · Ctrl/⌘ + rueda del mouse para acercar sobre el cursor · tecla F para ajustar">
+          <button id="btnZoomOut" title="Alejar (Ctrl/⌘ −)" aria-label="Alejar zoom">−</button>
+          <button id="btnZoomLevel" title="Restablecer a 100% (Ctrl/⌘ 0)" aria-label="Nivel de zoom; clic para restablecer a 100%">100%</button>
+          <button id="btnZoomIn" title="Acercar (Ctrl/⌘ +)" aria-label="Acercar zoom">＋</button>
+          <button id="btnZoomFit" title="Ajustar todo el proceso a la pantalla (tecla F)" aria-label="Ajustar todo el proceso a la pantalla">⤢ Ajustar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== RIGHT PANEL (TABS) ====== -->
+    <aside class="panel-right">
+      <nav class="tabs" aria-label="Paneles de análisis">
+        <button class="tab active" data-tab="properties" data-title="Propiedades del nodo seleccionado" title="Propiedades del nodo seleccionado">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg>
+          <span>Props</span>
+        </button>
+        <button class="tab" data-tab="pains" data-title="Pain points" title="Pain points">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <span>Pains</span>
+        </button>
+        <button class="tab" data-tab="kpis" data-title="Librería de KPIs" title="Librería de KPIs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v-4M12 15V7M17 15v-2"/></svg>
+          <span>KPIs</span>
+        </button>
+        <button class="tab" data-tab="sim" data-title="Simulador FTE y lead time" title="Simulador FTE y lead time">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+          <span>Sim</span>
+        </button>
+        <button class="tab" data-tab="validations" data-title="Validaciones MBB · linter" title="Validaciones MBB · linter">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1"/><path d="m9 11 3 3L22 4"/></svg>
+          <span>Lint</span> <span id="lintBadge" class="lint-badge" hidden>0</span>
+        </button>
+        <button class="tab" data-tab="ficha" data-title="Ficha de proceso corporativa" title="Ficha de proceso corporativa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6"/></svg>
+          <span>Ficha</span>
+        </button>
+        <button class="tab" data-tab="copilot" data-title="Copiloto IA" title="Copiloto IA">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6 4.6 1.9-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"/></svg>
+          <span>IA</span>
+        </button>
+        <span class="rail-spacer"></span>
+        <button id="btnLegend" class="tab rail-aux" title="Leyenda de nomenclatura BPMN">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>
+          <span>Leyenda</span>
+        </button>
+      </nav>
+      <div class="drawer" id="drawer" aria-live="polite">
+        <div class="drawer-head">
+          <span id="drawerTitle">Propiedades</span>
+          <button id="btnDrawerClose" class="drawer-close" title="Cerrar panel (Esc)" aria-label="Cerrar panel">✕</button>
+        </div>
+
+      <!-- TAB: PROPIEDADES -->
+      <section class="tab-panel active" data-panel="properties">
+        <div id="propsEmpty" class="empty-state">
+          Selecciona un nodo para ver sus propiedades.
+        </div>
+        <div id="propsForm" hidden>
+          <div class="props-grid-2">
+            <label>Tipo de bloque BPMN
+              <select id="propNodeType">
+                <option value="start">● Inicio</option>
+                <option value="intermediate">◎ Evento intermedio</option>
+                <option value="task">▭ Actividad</option>
+                <option value="system">▭ Sistema</option>
+                <option value="decision">◇ Decisión / Gateway</option>
+                <option value="document">▤ Documento</option>
+                <option value="data">▱ Data</option>
+                <option value="end">◉ Fin</option>
+              </select>
+            </label>
+            <label>Código actividad
+              <input type="text" id="propActivityCode" placeholder="USR-27" />
+            </label>
+          </div>
+          <label id="propGatewayWrap" hidden>Tipo de gateway BPMN
+            <select id="propGatewayType">
+              <option value="exclusive">✕ Exclusivo (XOR — un solo camino)</option>
+              <option value="parallel">＋ Paralelo (AND — todos los caminos)</option>
+              <option value="inclusive">○ Inclusivo (OR — uno o varios)</option>
+            </select>
+          </label>
+          <label id="propEventWrap" hidden>Tipo de evento BPMN
+            <select id="propEventType">
+              <option value="none">— Simple (ninguno)</option>
+              <option value="message">✉ Mensaje</option>
+              <option value="timer">⏱ Temporizador (espera)</option>
+              <option value="error">⚡ Error</option>
+              <option value="signal">▲ Señal</option>
+            </select>
+          </label>
+          <label id="propTerminateWrap" hidden class="prop-check">
+            <input type="checkbox" id="propTerminate" />
+            <span>Evento de terminación ⬤ <span style="text-transform:none;color:var(--gray-500);font-weight:400">— corta toda la instancia</span></span>
+          </label>
+          <label>Etiqueta · <span style="text-transform:none;color:var(--gray-500);font-weight:400">verbo + objeto</span>
+            <input type="text" id="propLabel" placeholder="Ej. Validar identidad del cliente" />
+            <div id="propLabelHint" class="field-hint" hidden></div>
+          </label>
+          <label>Tipo de tarea (marcador BPMN)
+            <select id="propExecType">
+              <option value="">— Selecciona —</option>
+            </select>
+            <div id="propExecHint" class="field-hint" hidden></div>
+          </label>
+          <label id="propMarkerWrap">Marcador de actividad BPMN
+            <select id="propMarker">
+              <option value="none">— Tarea simple</option>
+              <option value="subprocess">⊞ Subproceso (colapsado)</option>
+              <option value="loop">↻ Loop (cíclica)</option>
+              <option value="multiinstance">‖ Multi-instancia (paralela)</option>
+              <option value="multiinstance-seq">≡ Multi-instancia (secuencial)</option>
+            </select>
+          </label>
+          <label id="propBoundaryWrap">Evento de borde BPMN <span style="text-transform:none;color:var(--gray-500);font-weight:400">— excepción/SLA sobre la tarea</span>
+            <select id="propBoundary">
+              <option value="none">— Ninguno</option>
+              <option value="timer|true">⏱ Timer — interrumpe</option>
+              <option value="timer|false">⏱ Timer — no interrumpe (punteado)</option>
+              <option value="error|true">⚡ Error — interrumpe</option>
+              <option value="message|false">✉ Mensaje — no interrumpe (punteado)</option>
+            </select>
+          </label>
+          <label>Responsable / Rol
+            <input type="text" id="propOwner" placeholder="Ej. Analista back office" />
+          </label>
+          <label>Sistema soporte
+            <input type="text" id="propSystem" placeholder="Ej. SAP, Salesforce" />
+          </label>
+          <div class="props-grid-2">
+            <label>Tiempo (min)
+              <input type="number" id="propTime" min="0" step="1" />
+            </label>
+            <label>Volumen / mes
+              <input type="number" id="propVolume" min="0" step="1" />
+            </label>
+          </div>
+          <div class="props-grid-2">
+            <label>Valor añadido
+              <select id="propVA">
+                <option value="">—</option>
+                <option value="VA">VA — Valor Añadido</option>
+                <option value="BVA">BVA — Business Value Added</option>
+                <option value="NVA">NVA — No Value Added</option>
+              </select>
+            </label>
+            <label>SLA
+              <input type="text" id="propSla" placeholder="Ej. ≤ 2h" />
+            </label>
+          </div>
+          <label>Documentos entrada
+            <input type="text" id="propDocsIn" placeholder="Ej. DNI, comprobante de ingresos" />
+          </label>
+          <label>Documentos salida
+            <input type="text" id="propDocsOut" placeholder="Ej. Contrato firmado, voucher" />
+          </label>
+          <label>Reglas / criterios de decisión
+            <textarea id="propRules" rows="2" placeholder="Lógica condicional, criterios de aprobación, umbrales…"></textarea>
+          </label>
+          <label>Notas / comentarios adicionales
+            <textarea id="propNotes" rows="3"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <!-- TAB: PAINS -->
+      <section class="tab-panel" data-panel="pains">
+        <div id="painsHeader" class="panel-section">
+          <h3>Pain points</h3>
+          <p class="panel-hint">Selecciona un nodo y captura sus dolores.</p>
+        </div>
+        <div id="painsList"></div>
+        <div id="painsAdd" hidden>
+          <select id="painCategory"></select>
+          <input type="text" id="painDescription" placeholder="Describe el pain..." />
+          <div class="pain-meta-row">
+            <label>Severidad
+              <select id="painSeverity">
+                <option value="1">1 — baja</option>
+                <option value="2">2</option>
+                <option value="3" selected>3 — media</option>
+                <option value="4">4</option>
+                <option value="5">5 — crítica</option>
+              </select>
+            </label>
+            <label>Frecuencia
+              <select id="painFrequency">
+                <option value="1">1 — rara</option>
+                <option value="2">2</option>
+                <option value="3" selected>3 — media</option>
+                <option value="4">4</option>
+                <option value="5">5 — constante</option>
+              </select>
+            </label>
+          </div>
+          <button id="btnAddPain" class="btn btn-primary btn-block">+ Agregar pain</button>
+        </div>
+      </section>
+
+      <!-- TAB: KPIs -->
+      <section class="tab-panel" data-panel="kpis">
+        <div class="panel-section">
+          <h3>Librería de KPIs</h3>
+          <input type="text" id="kpiSearch" placeholder="Buscar KPI..." class="search-input" />
+          <select id="kpiFilterIndustry" class="filter-select">
+            <option value="">Todas las industrias</option>
+          </select>
+        </div>
+        <div id="kpiList" class="kpi-list"></div>
+      </section>
+
+      <!-- TAB: SIMULADOR -->
+      <section class="tab-panel" data-panel="sim">
+        <div class="panel-section">
+          <h3>Simulador de carga</h3>
+          <p class="panel-hint">Calcula FTE, lead time y costo a partir de los <strong>tiempos</strong> y <strong>volúmenes</strong> capturados en cada actividad. Completa "Tiempo (min)" y "Volumen mensual" en la pestaña Props para alimentar la simulación.</p>
+        </div>
+
+        <div class="sim-params">
+          <label>Costo FTE mensual (PEN)
+            <input type="number" id="simCostFte" value="5000" min="0" step="500" />
+          </label>
+          <label>Horas hábiles/mes
+            <input type="number" id="simHours" value="160" min="1" step="1" />
+          </label>
+          <label>% reducción esperada to-be
+            <input type="number" id="simReduction" value="35" min="0" max="100" step="5" />
+          </label>
+        </div>
+
+        <div class="sim-actions">
+          <button id="btnSimWizard" class="btn btn-ghost btn-block">⚡ Capturar tiempos rápido (wizard)</button>
+          <button id="btnSimRun" class="btn btn-primary btn-block">▶ Ejecutar simulación</button>
+        </div>
+
+        <div id="simResults" class="sim-results" hidden></div>
+      </section>
+
+      <!-- TAB: VALIDACIONES (linter) -->
+      <section class="tab-panel" data-panel="validations">
+        <div class="panel-section">
+          <h3>Validaciones · Playbook MBB</h3>
+          <p class="panel-hint">Linter automático que verifica naming, layout, gateways, metadata y antipatrones. Severidad: <span class="sev-tag sev-critical">crítico</span> bloquea export · <span class="sev-tag sev-high">alto</span> · <span class="sev-tag sev-medium">medio</span> · <span class="sev-tag sev-low">bajo</span>.</p>
+        </div>
+        <div id="lintScore" class="lint-score"></div>
+        <div id="lintList"></div>
+      </section>
+
+      <!-- TAB: COPILOTO -->
+      <!-- TAB: FICHA DE PROCESO -->
+      <section class="tab-panel" data-panel="ficha">
+        <div class="panel-section">
+          <h3>Ficha de proceso</h3>
+          <p class="panel-hint">Metadatos corporativos de la ficha. Las <b>actividades, sistemas, responsables y el diagrama</b> se generan automáticamente desde el flujo del canvas.</p>
+        </div>
+        <div class="ficha-form">
+          <div class="props-grid-2">
+            <label>Código
+              <input type="text" id="fichaCode" placeholder="PR-DU-COM-02" />
+            </label>
+            <label>Versión
+              <input type="text" id="fichaVersion" placeholder="1" />
+            </label>
+          </div>
+          <label>Objetivo
+            <textarea id="fichaObjetivo" rows="2" placeholder="Describir las actividades y responsabilidades del proceso…"></textarea>
+          </label>
+          <label>Alcance · áreas involucradas
+            <input type="text" id="fichaAlcanceAreas" placeholder="Ventas de Lotes Urbanos, Administración de Ventas" />
+          </label>
+          <div class="props-grid-2">
+            <label>Inicia con
+              <input type="text" id="fichaAlcanceDesde" placeholder="(auto desde el nodo Inicio)" />
+            </label>
+            <label>Termina con
+              <input type="text" id="fichaAlcanceHasta" placeholder="(auto desde el nodo Fin)" />
+            </label>
+          </div>
+          <label>Incluye / excluye
+            <input type="text" id="fichaAlcanceIncluye" placeholder="Abarca lotes residenciales y de segunda vivienda" />
+          </label>
+          <label>Descripción (opcional)
+            <textarea id="fichaDescripcion" rows="2" placeholder="Contexto general del proceso…"></textarea>
+          </label>
+
+          <div class="ficha-list-hint">Gobernanza — <b>una fila por línea</b>, campos separados por <code>|</code>: <code>Rol | Cargo | Nombre | Fecha</code></div>
+          <label class="sr-label">Gobernanza
+            <textarea id="fichaGobernanza" rows="4" placeholder="Dueño | Jefe de Ventas | Carlos Rolleri | 10/02/2026&#10;Aprobador | VP Desarrollo Urbano | Carlos Conroy | 10/02/2026"></textarea>
+          </label>
+
+          <div class="ficha-list-hint">Sistemas de nivel proceso — <code>Sistema | Uso</code> (además, los sistemas de cada nodo se agregan solos)</div>
+          <label class="sr-label">Sistemas
+            <textarea id="fichaSistemas" rows="3" placeholder="ONBASE | Gestión documental&#10;SAP | ERP / cierre de venta"></textarea>
+          </label>
+
+          <div class="ficha-list-hint">Términos clave — <code>Término | Definición</code></div>
+          <label class="sr-label">Términos
+            <textarea id="fichaTerminos" rows="3" placeholder="Lead | Persona interesada que comparte su contacto&#10;Oportunidad | Potencial venta de lote a un prospecto"></textarea>
+          </label>
+
+          <div class="ficha-list-hint">Anexos — <code>Código | Nombre</code></div>
+          <label class="sr-label">Anexos
+            <textarea id="fichaAnexos" rows="3" placeholder="Anexo N°1 | DJ de conocimiento de clientes PN LAFT"></textarea>
+          </label>
+
+          <div class="ficha-list-hint">Control de cambios — <code>Versión | Fecha | Descripción</code></div>
+          <label class="sr-label">Control de cambios
+            <textarea id="fichaCambios" rows="3" placeholder="1 | 10/04/2023 | Actualización completa del documento"></textarea>
+          </label>
+
+          <div class="ficha-actions">
+            <button id="btnFichaPreview" class="btn btn-primary" title="Ver y descargar la ficha completa">
+              <span class="icon"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="13" y2="15"/></svg></span>
+              Generar ficha
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" data-panel="copilot">
+        <div class="panel-section">
+          <h3>Copiloto IA</h3>
+          <p class="panel-hint">Asistente para acelerar el levantamiento y diagnóstico.</p>
+        </div>
+        <div class="copilot-quick">
+          <button class="copilot-action" data-action="generate"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4"/><path d="M13 3l2.4 6.1L22 12l-6.6 2.4L13 21l-2.4-6.6L4 12l6.6-2.4L13 3z"/></svg></span>Generar proceso desde descripción</button>
+          <button class="copilot-action" data-action="detect-pains"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>Detectar pains en el diagrama</button>
+          <button class="copilot-action" data-action="suggest-kpis"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16v-4M12 16V9M17 16v-7"/></svg></span>Sugerir KPIs aplicables</button>
+          <button class="copilot-action" data-action="propose-tobe"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v6h-6"/></svg></span>Proponer reingeniería to-be</button>
+          <button class="copilot-action" data-action="raci"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg></span>Generar matriz RACI</button>
+          <button class="copilot-action" data-action="sipoc"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span>Generar SIPOC</button>
+          <button class="copilot-action" data-action="impact-effort"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg></span>Matriz impacto-esfuerzo</button>
+          <button class="copilot-action" data-action="whatif"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></span>Comparador de escenarios (What-If)</button>
+          <button class="copilot-action" data-action="automation"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg></span>Oportunidades de automatización</button>
+          <button class="copilot-action" data-action="bottleneck"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>Cuello de botella / ruta crítica</button>
+          <button class="copilot-action" data-action="variants"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></span>Análisis de variantes (event log)</button>
+          <button class="copilot-action" data-action="value-map"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>Mapa de valor Lean (VA/NVA)</button>
+          <button class="copilot-action" data-action="backlog"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>Backlog de iniciativas</button>
+          <button class="copilot-action" data-action="ai-pains"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="M12 2a7 7 0 0 0-7 7c0 3.5-1 4.5-2 5.5h18c-1-1-2-2-2-5.5a7 7 0 0 0-7-7z"/></svg></span>Analisis profundo de dolores (IA)</button>
+          <button class="copilot-action" data-action="autofit"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/></svg></span>Autoajustar (verificar cruces)</button>
+          <button class="copilot-action" data-action="relayout"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 17h7M17.5 14v6"/></svg></span>Reorganizar diagrama (compactar)</button>
+          <button class="copilot-action" data-action="merge-gateways"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6l4 6 4-6h4"/><path d="M3 18h6l4-6"/></svg></span>Insertar compuertas de convergencia</button>
+          <button class="copilot-action" data-action="exec-summary"><span class="ca-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg></span>Resumen ejecutivo</button>
+        </div>
+        <div id="copilotMessages" class="copilot-messages"></div>
+        <div class="copilot-input">
+          <textarea id="copilotPrompt" rows="2" placeholder="Comandos: 'agregar Validar score después de Registrar', 'eliminar Aprobar', 'renombrar X a Y', 'conectar X con Y', 'marcar X como automático'…"></textarea>
+          <button id="btnCopilotSend" class="btn btn-primary">Enviar</button>
+        </div>
+      </section>
+      </div><!-- /.drawer -->
+    </aside>
+  </main>
+
+  <!-- ============== MODAL GENÉRICO ============== -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card">
+      <h3 id="modalTitle"></h3>
+      <div id="modalBody"></div>
+      <div class="modal-actions">
+        <button id="modalCancel" class="btn btn-ghost">Cancelar</button>
+        <button id="modalOk" class="btn btn-primary">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== MODAL DE INGESTA ============== -->
+  <div id="ingestModal" class="modal" hidden>
+    <div class="modal-card modal-card-lg">
+      <div class="modal-head">
+        <h3>📥 Ingestar fuentes — construir proceso automáticamente</h3>
+        <button id="ingestClose" class="modal-close" title="Cerrar">✕</button>
+      </div>
+      <p class="modal-sub">
+        ProcessIQ puede levantar el flujograma a partir de <strong>audio de entrevista</strong>,
+        <strong>notas/documentación del cliente</strong>, o <strong>event logs</strong> de sus sistemas.
+      </p>
+
+      <nav class="ingest-tabs">
+        <button class="itab active" data-itab="notes">📝 Notas / Documentación</button>
+        <button class="itab" data-itab="audio">🎤 Audio / Transcripción</button>
+        <button class="itab" data-itab="eventlog">🗄 Event Log (Process Mining)</button>
+      </nav>
+
+      <!-- TAB AUDIO -->
+      <section class="ipanel" data-ipanel="audio">
+        <p class="panel-hint">
+          Graba la entrevista en vivo (requiere micrófono y Chrome/Edge) o pega una transcripción existente.
+          ProcessIQ analizará el texto y construirá el flujograma as-is.
+        </p>
+        <div class="audio-controls">
+          <button id="btnRecStart" class="btn btn-primary">🔴 Grabar</button>
+          <button id="btnRecStop" class="btn btn-ghost" disabled>⏹ Detener</button>
+          <span id="recStatus" class="rec-status">listo</span>
+        </div>
+        <textarea id="audioTranscript" rows="10" placeholder="La transcripción aparecerá aquí. También puedes pegar texto directamente."></textarea>
+        <div class="ingest-actions">
+          <button id="btnIngestAudio" class="btn btn-primary">Generar proceso desde transcripción →</button>
+        </div>
+      </section>
+
+      <!-- TAB NOTES -->
+      <section class="ipanel active" data-ipanel="notes">
+        <p class="panel-hint">
+          Pega notas de levantamiento, manuales de procedimiento, descripciones del cliente o cualquier texto que
+          describa el proceso paso a paso. Una oración = una posible actividad.
+        </p>
+        <!-- Zona de arrastrar y soltar: el gesto principal -->
+        <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Suelta tus documentos aquí o haz clic para elegirlos; puedes seleccionar varios">
+          <svg class="drop-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div class="drop-title">Suelta aquí tus documentos</div>
+          <div class="drop-sub">o <b>haz clic para elegirlos</b> (puedes seleccionar varios) — Word · PDF · PowerPoint · texto · BPMN</div>
+          <div id="docFileName" class="drop-file"></div>
+        </div>
+        <input id="docFileInput" type="file" multiple accept=".txt,.md,.csv,.text,.docx,.doc,.pdf,.pptx,.ppt,.bpmn,.xml" hidden />
+
+        <div id="sourcesBox" class="sources-box" hidden>
+          <div class="src-head">
+            <span id="sourcesCount" class="src-count">0 fuentes</span>
+            <button id="btnAddSource" class="btn btn-ghost btn-mini" type="button" title="Anadir otro documento, transcripcion o diagrama">+ Anadir otra fuente</button>
+          </div>
+          <ul id="sourcesList" class="src-list"></ul>
+          <p id="sourcesWarn" class="src-warn" hidden></p>
+          <p class="src-hint">Se combinaran en un solo AS-IS. Ante contradicciones prevalece la fuente mas reciente (p. ej. la transcripcion del levantamiento sobre un diagrama antiguo).</p>
+        </div>
+
+        <!-- Progreso + cancelar (para que nunca parezca colgada) -->
+        <div id="ingestProgress" class="ingest-progress" hidden>
+          <div class="ip-row">
+            <span id="ingestProgressText" class="ip-text">Procesando…</span>
+            <span id="ingestElapsed" class="ip-elapsed"></span>
+            <button id="btnIngestCancel" class="btn btn-ghost btn-mini" type="button">Cancelar</button>
+          </div>
+          <div class="ip-track"><div id="ingestProgressBar" class="ip-bar"></div></div>
+        </div>
+
+        <details class="ingest-more">
+          <summary>o pega el texto a mano</summary>
+        <textarea id="notesInput" rows="13" placeholder="Ejemplo:
+1. El cliente solicita el servicio a través del portal web.
+2. El asesor comercial valida los datos y registra la solicitud en Salesforce.
+3. Si el monto supera 50,000 USD se requiere aprobación del gerente comercial.
+4. Operaciones recibe la solicitud aprobada y procede a la activación en el core.
+5. Se notifica al cliente y se cierra el caso.
+
+Cualquier formato funciona: bullets, párrafos, notas mezcladas..."></textarea>
+        </details>
+
+        <div class="ingest-actions">
+          <button id="btnIngestGo" class="btn btn-primary btn-go" title="Extrae, interpreta y dibuja el proceso">
+            <span class="icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6 4.6 1.9-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/></svg></span>
+            <span class="go-label">Generar proceso</span>
+          </button>
+          <button id="btnLoadSample" class="btn btn-ghost btn-mini" title="Explora los procesos de ejemplo">Ver ejemplos</button>
+        </div>
+        <p id="ingestAiMode" class="ingest-mode"></p>
+      </section>
+
+      <!-- TAB EVENT LOG -->
+      <section class="ipanel" data-ipanel="eventlog">
+        <p class="panel-hint">
+          Sube un <strong>event log</strong> en CSV con columnas mínimas: <code>case_id, activity, timestamp</code>
+          (opcional: <code>resource</code>). ProcessIQ ejecutará un <em>process discovery</em> ligero —
+          identifica actividades únicas y transiciones más frecuentes (estilo alpha miner).
+        </p>
+        <div class="csv-controls">
+          <input type="file" id="csvFile" accept=".csv,.tsv,.txt" />
+          <button id="btnCsvSample" class="btn btn-ghost">📋 Usar muestra</button>
+        </div>
+        <div id="csvPreview" class="csv-preview" hidden></div>
+        <div id="csvMapping" class="csv-mapping" hidden>
+          <label>Columna case_id <select id="mapCase"></select></label>
+          <label>Columna activity <select id="mapAct"></select></label>
+          <label>Columna timestamp <select id="mapTs"></select></label>
+          <label>Columna resource (opcional) <select id="mapRes"></select></label>
+        </div>
+        <div class="ingest-actions">
+          <button id="btnIngestCsv" class="btn btn-primary" disabled>Descubrir proceso →</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+  <script src="kpi-library.js?v=1.6.1"></script>
+  <script src="app.js?v=3.8.9"></script>
+</body>
+</html>

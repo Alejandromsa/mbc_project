@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Fronteras entre paquetes
+        run: pnpm fronteras
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Pruebas unitarias
+        run: pnpm test
+
+      - name: Navegador para las pruebas de fidelidad
+        run: pnpm --filter @processiq/pruebas-fidelidad exec playwright install --with-deps chromium
+
+      - name: Fidelidad frente al MVP 3.8.9
+        run: pnpm fidelidad
+
+      - name: Resultados de fidelidad (si fallo)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fidelidad-resultados
+          path: |
+            pruebas/fidelidad/resultados/
+            pruebas/fidelidad/playwright-report/
+          retention-days: 14
+
+      - name: Imagenes Docker
+        run: docker compose build
+        env:
+          DOMINIO: ci.invalid

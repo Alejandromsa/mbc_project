@@ -1,0 +1,30 @@
+# Dependencias y builds
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+
+# Configuración local con secretos (usar .env.example como plantilla)
+.env
+.env.*
+!.env.example
+
+# Librerías de navegador copiadas desde node_modules en cada build
+apps/web/public/vendor/
+
+# Resultados de pruebas
+pruebas/*/resultados/
+pruebas/*/playwright-report/
+test-results/
+
+# Banco de pruebas: los fixtures son procesos reales de cliente
+bench/fixtures/
+
+# SO / editor
+Thumbs.db
+.DS_Store
+desktop.ini
+*~
+.vscode/
+.idea/
+.claude/

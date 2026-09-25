@@ -1,0 +1,28 @@
+{
+  "name": "@processiq/web",
+  "private": true,
+  "version": "4.0.0-fase1",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/copiar-vendor.mjs && vite",
+    "build": "node scripts/copiar-vendor.mjs && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.3.1"
+  },
+  "dependencies": {
+    "@processiq/analitica": "workspace:*",
+    "@processiq/bpmn": "workspace:*",
+    "@processiq/documentos": "workspace:*",
+    "@processiq/dominio": "workspace:*",
+    "@processiq/exportar": "workspace:*",
+    "@processiq/ia": "workspace:*",
+    "@processiq/mining": "workspace:*",
+    "@processiq/motor": "workspace:*",
+    "jszip": "3.10.1",
+    "mammoth": "1.8.0",
+    "pdfjs-dist": "4.7.76",
+    "pptxgenjs": "3.12.0"
+  }
+}

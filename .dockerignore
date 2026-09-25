@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.turbo
+.git
+.env
+.env.*
+bench/fixtures
+pruebas/*/resultados
+pruebas/*/playwright-report
+test-results

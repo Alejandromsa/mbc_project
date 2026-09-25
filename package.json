@@ -1,0 +1,21 @@
+{
+  "name": "processiq",
+  "private": true,
+  "description": "ProcessIQ — plataforma de diagramación, diagnóstico y reingeniería de procesos BPMN 2.0 (MBC).",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @processiq/web dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "fronteras": "node herramientas/fronteras.mjs",
+    "fidelidad": "pnpm --filter @processiq/pruebas-fidelidad fidelidad"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.4",
+    "typescript": "^7.0.2"
+  }
+}

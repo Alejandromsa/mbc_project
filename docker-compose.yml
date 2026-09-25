@@ -1,0 +1,43 @@
+# ProcessIQ — servidor local (fase 1)
+# Uso:  docker compose up -d --build
+# Configuracion en .env (plantilla: .env.example). Runbook: docs/runbooks/servidor-local.md
+name: processiq
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: infra/web.Dockerfile
+    image: processiq/web:local
+    restart: unless-stopped
+    ports:
+      - "${PUERTO_HTTPS:-443}:443"
+    environment:
+      DOMINIO: ${DOMINIO:?Falta DOMINIO en .env}
+      TLS_MODO: ${TLS_MODO:-acme}
+    volumes:
+      # Certificados y claves de Caddy: si se borran, se vuelven a pedir a Let's Encrypt
+      - caddy_datos:/data
+      - caddy_config:/config
+    depends_on:
+      - intermediario
+
+  intermediario:
+    build:
+      context: .
+      dockerfile: infra/intermediario.Dockerfile
+    image: processiq/intermediario:local
+    restart: unless-stopped
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ACCESS_CODE: ${ACCESS_CODE:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://${DOMINIO}}
+      PULSE_URL: ${PULSE_URL:-}
+      PULSE_TOKEN: ${PULSE_TOKEN:-}
+    # Sin puertos publicados: solo lo alcanza Caddy por la red interna de Docker
+    expose:
+      - "8787"
+
+volumes:
+  caddy_datos:
+  caddy_config:
