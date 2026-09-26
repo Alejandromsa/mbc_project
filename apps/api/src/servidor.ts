@@ -4,13 +4,15 @@ import { aplicarMigraciones, conectar } from '@processiq/db';
 import { crearApp } from './app.js';
 import { leerConfig } from './config.js';
 import { CANAL_EJECUCION, Escucha } from './ia/avisos.js';
+import { asegurarCatalogos } from './catalogos.js';
 import { asegurarOrganizacion } from './organizacion.js';
 
 const config = leerConfig();
 const conexion = conectar(config.databaseUrl);
 
 await aplicarMigraciones(conexion.db, config.carpetaMigraciones);
-await asegurarOrganizacion(conexion.db);
+// Catálogos del MVP también para la organización que ya existía antes de la fase 2.4
+await asegurarCatalogos(conexion.db, await asegurarOrganizacion(conexion.db));
 
 // Avisos del worker (progreso de la IA) para el SSE: una sola conexión LISTEN
 const escucha = new Escucha(config.databaseUrl, [CANAL_EJECUCION]);

@@ -6,6 +6,7 @@
     "e2e": "pnpm --filter @processiq/web build && playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "jszip": "3.10.1"
   }
 }

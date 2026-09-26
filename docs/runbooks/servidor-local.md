@@ -143,6 +143,7 @@ Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermed
 | Publicar una versión nueva | `git pull && docker compose up -d --build` (la API aplica las migraciones nuevas al arrancar) |
 | Rotar el código del equipo | editar `ACCESS_CODE` en `.env` → `docker compose up -d intermediario` |
 | Ver la auditoría | como administrador, en `https://mbc.asissoft.com/proyectos/admin/auditoria` |
+| Cambiar KPIs, verbos del Playbook o temas PPTX de cliente | como administrador, en `https://mbc.asissoft.com/proyectos/admin/catalogos` (aplican a los procesos de proyectos; el editor libre usa los de fábrica) |
 | Último respaldo | `docker compose logs --tail 5 respaldo` |
 | Parar todo | `docker compose down` — **nunca con `-v`**: borraría la base de datos y los certificados |
 | Probar en local sin tocar producción | `DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ALLOWED_ORIGINS=https://localhost:8443 CARPETA_RESPALDOS=./respaldos-prueba docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`) |

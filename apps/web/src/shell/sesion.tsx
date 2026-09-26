@@ -83,6 +83,7 @@ function Marco({ usuario, children }: { usuario: Usuario; children: ReactNode })
           <nav aria-label="Secciones">
             <EnlaceMenu href="/">Proyectos</EnlaceMenu>
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/usuarios">Usuarios</EnlaceMenu>}
+            {usuario.rol === 'admin' && <EnlaceMenu href="/admin/catalogos">Catálogos</EnlaceMenu>}
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/auditoria">Auditoría</EnlaceMenu>}
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/ia">IA</EnlaceMenu>}
             <a href="/" title="El editor, sin proyecto (trabajo guardado en este navegador)">Editor libre</a>

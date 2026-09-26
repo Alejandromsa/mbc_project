@@ -88,7 +88,8 @@ export function Vacio({ children }: { children: ReactNode }) {
 }
 
 /** Diálogo modal nativo (<dialog>): Esc y el botón Cancelar lo cierran. */
-export function Dialogo({ abierto, titulo, onCerrar, children }: { abierto: boolean; titulo: string; onCerrar: () => void; children: ReactNode }) {
+export function Dialogo({ abierto, titulo, onCerrar, children, ancho = false }:
+  { abierto: boolean; titulo: string; onCerrar: () => void; children: ReactNode; ancho?: boolean }) {
   const ref = useRef<HTMLDialogElement>(null);
   const idTitulo = useId();
   useEffect(() => {
@@ -98,7 +99,7 @@ export function Dialogo({ abierto, titulo, onCerrar, children }: { abierto: bool
     if (!abierto && d.open) d.close();
   }, [abierto]);
   return (
-    <dialog ref={ref} className="dialogo" aria-labelledby={idTitulo} onClose={onCerrar}>
+    <dialog ref={ref} className={ancho ? 'dialogo dialogo-ancho' : 'dialogo'} aria-labelledby={idTitulo} onClose={onCerrar}>
       <h2 id={idTitulo}>{titulo}</h2>
       {abierto && children}
     </dialog>

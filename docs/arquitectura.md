@@ -488,7 +488,17 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
   - Pruebas:
     - 10 de integración con un `fetch` que imita el streaming de Anthropic;
     - 4 E2E con un Anthropic falso y el worker real.
-- **2.4:** catálogos administrables, fuentes y almacén, observabilidad y staging.
+- **2.4a, hecho: catálogos administrables.**
+  - KPIs, verbos del Playbook y temas PPTX de cliente, por organización. Se siembran con los del MVP al crear la organización.
+  - Pantalla «Catálogos» para administradores. Los temas se crean duplicando MBC o BBVA y se editan colores, tipografías, logotipos y carátula.
+  - En un proceso de proyecto, el editor reemplaza en sitio los catálogos por defecto de `dominio` y `exportar`, así que editor, linter y PPTX los usan sin cambios. El editor libre sigue con los de fábrica.
+  - Las plantillas de proceso quedan para más adelante.
+- **2.4b, siguiente:** observabilidad sin servicios en la nube.
+  - Errores de API y web registrados en la base.
+  - Pantalla de estado: servicios, cola de IA, copias de seguridad y errores recientes.
+  - Sentry queda descartado por ahora: es un servicio en la nube y no hay presupuesto.
+- **2.4c:** staging en el mismo servidor, con un subdominio propio y promoción de la misma imagen.
+- **Fuentes y almacén: bloqueado** por la decisión pendiente con Legal sobre qué documentos del cliente se guardan y durante cuánto tiempo (§15). Mientras tanto se aplica el ADR 9: los originales no salen del navegador.
 
 ### Fase 3 — Corte a producción
 

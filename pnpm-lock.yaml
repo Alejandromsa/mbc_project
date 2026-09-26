@@ -257,6 +257,9 @@ importers:
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0
+      jszip:
+        specifier: 3.10.1
+        version: 3.10.1
 
   pruebas/fidelidad:
     devDependencies:

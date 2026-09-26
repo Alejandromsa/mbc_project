@@ -1,12 +1,14 @@
 // Organización por defecto: por ahora hay una sola (docs/arquitectura.md §7).
 import { asc, eq } from 'drizzle-orm';
 import { organizaciones, usuarios, type BaseDeDatos } from '@processiq/db';
+import { asegurarCatalogos } from './catalogos.js';
 import { claveTemporal, hashearClave } from './seguridad.js';
 
 export async function asegurarOrganizacion(db: BaseDeDatos, nombre = 'MBC'): Promise<string> {
   const [org] = await db.select({ id: organizaciones.id }).from(organizaciones).orderBy(asc(organizaciones.creadoEn)).limit(1);
   if (org) return org.id;
   const [nueva] = await db.insert(organizaciones).values({ nombre }).returning({ id: organizaciones.id });
+  await asegurarCatalogos(db, nueva!.id);   // KPIs y verbos del MVP como punto de partida
   return nueva!.id;
 }
 

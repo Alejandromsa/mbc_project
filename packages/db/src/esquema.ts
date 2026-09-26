@@ -153,3 +153,52 @@ export const ejecucionesIa = pgTable('ejecuciones_ia', {
   index('ejecuciones_ia_proceso_idx').on(t.procesoId),
   index('ejecuciones_ia_consumo_idx').on(t.organizacionId, t.creadoEn)
 ]);
+
+// ------------------------------------------------------------- catálogos
+// Administrables por organización (fase 2.4). Al crear la organización se
+// siembran con los del MVP (@processiq/dominio); en el editor libre se siguen
+// usando esos valores por defecto.
+
+/** Biblioteca de KPIs. `codigo` es el id que guardan los procesos (kpiValues): no cambia nunca. */
+export const kpis = pgTable('kpis', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizacionId: uuid('organizacion_id').notNull().references(() => organizaciones.id),
+  codigo: text('codigo').notNull(),
+  industria: text('industria').notNull(),
+  macroproceso: text('macroproceso').notNull().default(''),
+  nombre: text('nombre').notNull(),
+  unidad: text('unidad').notNull().default(''),
+  benchmark: text('benchmark').notNull().default(''),
+  descripcion: text('descripcion').notNull().default(''),
+  /** Los desactivados no se ofrecen, pero los procesos que ya los usan los conservan. */
+  activo: boolean('activo').notNull().default(true),
+  creadoEn: creado(),
+  actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow()
+}, (t) => [unique('kpis_org_codigo_uq').on(t.organizacionId, t.codigo)]);
+
+export const tipoVerbo = pgEnum('tipo_verbo', ['permitido', 'prohibido']);
+
+/** Verbos del Playbook MBB: los prohibidos llevan el motivo que ve el consultor. */
+export const verbosPlaybook = pgTable('verbos_playbook', {
+  organizacionId: uuid('organizacion_id').notNull().references(() => organizaciones.id),
+  verbo: text('verbo').notNull(),
+  tipo: tipoVerbo('tipo').notNull(),
+  motivo: text('motivo').notNull().default(''),
+  actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow()
+}, (t) => [primaryKey({ columns: [t.organizacionId, t.verbo] })]);
+
+/**
+ * Temas de cliente para el export PPTX, además de los del código (mbc, bbva).
+ * `definicion` tiene la misma forma que TEMAS_PPTX de @processiq/exportar
+ * (paleta, tipografías, logotipos en data URI, carátula).
+ */
+export const temasPptx = pgTable('temas_pptx', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizacionId: uuid('organizacion_id').notNull().references(() => organizaciones.id),
+  clave: text('clave').notNull(),
+  nombre: text('nombre').notNull(),
+  definicion: jsonb('definicion').notNull(),
+  activo: boolean('activo').notNull().default(true),
+  creadoEn: creado(),
+  actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow()
+}, (t) => [unique('temas_pptx_org_clave_uq').on(t.organizacionId, t.clave)]);
