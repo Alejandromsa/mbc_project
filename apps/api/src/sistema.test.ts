@@ -88,6 +88,7 @@ describe('observabilidad', () => {
     const textos = s.avisos.map((a: any) => a.texto).join(' | ');
     expect(textos).toContain('worker de IA no ha dado señales');
     expect(textos).toContain('La última copia de seguridad es de hace 30 h');
+    expect(textos).toContain('pesa solo 1234 bytes: probablemente está vacía');
 
     await latido(conexion.db, 'worker', { concurrencia: 2 });
     s = (await admin.get('/api/sistema')).json;

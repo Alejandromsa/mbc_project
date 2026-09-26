@@ -96,7 +96,7 @@ Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consul
   docker compose exec respaldo pg_restore --clean --if-exists -d processiq /respaldos/processiq-AAAAMMDD-HHMMSS.dump
   docker compose start api
   ```
-- Prueba de restauración: trimestral, en una base aparte (primer comando).
+- Prueba de restauración: trimestral, en una base aparte (primer comando). **Última: 26-sep-2026, correcta** (12 tablas, 3 migraciones, catálogos completos). Destapó que la primera copia automática estaba vacía (lección 22e).
 
 ## Datos del servidor actual
 

@@ -102,6 +102,16 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22d. **Hono no admite rutas nuevas después de la primera petición** («Can not add a route since the matcher is already built»).
     → **Regla:** en las pruebas, las rutas auxiliares (p. ej. una que falla a propósito) se añaden a la app antes de iniciar sesión o de hacer cualquier petición.
 
+22e. **La primera copia de seguridad de producción estaba vacía (846 bytes) y nadie lo supo hasta la prueba de restauración.**
+    - El servicio de copias hace una al arrancar, y arrancó antes de que la API creara las tablas.
+    - La siguiente no llegaba hasta 24 h después.
+    - Las pruebas de copias habían usado una base ya poblada, así que no lo detectaron.
+
+    → **Regla:**
+    - Una copia no está probada hasta que se restaura: la prueba trimestral del runbook es obligatoria.
+    - El servicio de copias espera antes de la primera (`RESPALDO_ESPERA_INICIAL_S`).
+    - «Sistema» avisa si la última copia pesa menos de 10 kB.
+
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 
