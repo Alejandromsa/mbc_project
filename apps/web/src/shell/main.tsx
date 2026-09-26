@@ -11,6 +11,7 @@ import { Auditoria, NoEncontrada, Usuarios } from './paginas/Admin';
 import { ConsumoIa } from './paginas/Ia';
 import { Catalogos } from './paginas/Catalogos';
 import { Sistema } from './paginas/Sistema';
+import { Importar } from './paginas/Importar';
 import { CambiarClave, Entrar } from './paginas/Acceso';
 import { Proceso } from './paginas/Proceso';
 import { Proyecto } from './paginas/Proyecto';
@@ -72,6 +73,7 @@ createRoot(document.getElementById('raiz')!).render(
           <Route path="/entrar" component={Entrar} />
           <Route path="/clave"><ConSesion permitirClaveTemporal><CambiarClave /></ConSesion></Route>
           <Route path="/"><ConSesion><Proyectos /></ConSesion></Route>
+          <Route path="/importar"><ConSesion><Importar /></ConSesion></Route>
           <Route path="/p/:id">{(p) => <ConSesion><Proyecto key={p.id} id={p.id} /></ConSesion>}</Route>
           <Route path="/proceso/:id">{(p) => <ConSesion><Proceso key={p.id} id={p.id} /></ConSesion>}</Route>
           <Route path="/admin/usuarios"><ConSesion soloAdmin><Usuarios /></ConSesion></Route>

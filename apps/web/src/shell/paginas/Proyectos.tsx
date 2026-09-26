@@ -5,7 +5,8 @@ import { Link, useLocation } from 'wouter';
 import { api } from '../api';
 import { ROLES_PROYECTO, fecha } from '../formato';
 import { useUsuario } from '../sesion';
-import { AreaTexto, Boton, Campo, Cargando, Dialogo, ErrorDe, Etiqueta, Vacio, useTitulo } from '../ui';
+import { descartarOferta, ofrecerImportacion, procesoDelEditorLibre } from '../importacion';
+import { AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Etiqueta, Vacio, useTitulo } from '../ui';
 
 export function Proyectos() {
   useTitulo('Proyectos');
@@ -13,6 +14,9 @@ export function Proyectos() {
   const [verArchivados, setVerArchivados] = useState(false);
   const [creando, setCreando] = useState(false);
   const consulta = useQuery({ queryKey: ['proyectos'], queryFn: api.proyectos });
+  // Trabajo del editor libre de este navegador que aún no está en un proyecto (importación asistida)
+  const [local] = useState(procesoDelEditorLibre);
+  const [ofrecer, setOfrecer] = useState(() => ofrecerImportacion(local));
 
   const todos = consulta.data?.proyectos ?? [];
   const archivados = todos.filter((p) => p.archivado).length;
@@ -25,8 +29,19 @@ export function Proyectos() {
           <h1>Proyectos</h1>
           <p className="sutil">{usuario.rol === 'admin' ? 'Todos los proyectos de la organización.' : 'Los proyectos en los que participas.'}</p>
         </div>
-        {usuario.rol !== 'lector' && <Boton variante="primario" onClick={() => setCreando(true)}>Nuevo proyecto</Boton>}
+        <div className="acciones">
+          <Link href="/importar" className="boton boton-secundario">Importar procesos</Link>
+          {usuario.rol !== 'lector' && <Boton variante="primario" onClick={() => setCreando(true)}>Nuevo proyecto</Boton>}
+        </div>
       </div>
+
+      {local && ofrecer && (
+        <Aviso tipo="info">
+          En el editor libre de este navegador tienes «{local.nombre || 'un proceso sin nombre'}» ({local.nodos} elementos).{' '}
+          <Link href="/importar">Llevarlo a un proyecto</Link>{' · '}
+          <button type="button" className="enlace" onClick={() => { descartarOferta(local); setOfrecer(false); }}>No, gracias</button>
+        </Aviso>
+      )}
 
       {consulta.isPending ? <Cargando /> : consulta.isError ? <ErrorDe error={consulta.error} /> : lista.length === 0 ? (
         <Vacio>

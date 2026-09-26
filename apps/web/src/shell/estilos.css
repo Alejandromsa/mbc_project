@@ -218,3 +218,7 @@ button.enlace { background: none; border: 0; padding: 0; font: inherit; color: v
   .encabezado { flex-direction: column; }
   .tabla { display: block; overflow-x: auto; }
 }
+
+/* ---------- Importación ---------- */
+.entrada-tabla { font: inherit; width: 100%; padding: var(--space-1) var(--space-2); border: 1px solid var(--gray-300); border-radius: var(--radius-sm); }
+.campo-archivos { margin-top: var(--space-4); }
