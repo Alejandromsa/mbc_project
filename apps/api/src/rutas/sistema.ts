@@ -19,6 +19,8 @@ const ARRANQUE = new Date();
 /** Sin latido del worker durante más de esto, se avisa. */
 const WORKER_MUERTO_S = 120;
 const RESPALDO_VIEJO_H = 26;
+/** Una copia más pequeña que esto no tiene las tablas (la de una base recién creada pesa ~40 kB). */
+const COPIA_MINIMA_BYTES = 10_000;
 
 const ErrorClienteEsquema = z.object({
   origen: z.enum(['web', 'editor']),
@@ -137,6 +139,10 @@ export function rutasSistema() {
     if (copias.visible && !copias.ultimo) avisos.push({ nivel: 'error', texto: 'No hay ninguna copia de seguridad.' });
     if (copias.visible && copias.horasDesdeUltimo !== null && copias.horasDesdeUltimo > RESPALDO_VIEJO_H) {
       avisos.push({ nivel: 'error', texto: `La última copia de seguridad es de hace ${Math.round(copias.horasDesdeUltimo)} h.` });
+    }
+    // Una copia de una base con datos pesa decenas de kB como mínimo: menos, probablemente está vacía
+    if (copias.visible && copias.ultimo && copias.ultimo.bytes < COPIA_MINIMA_BYTES) {
+      avisos.push({ nivel: 'error', texto: `La última copia de seguridad pesa solo ${copias.ultimo.bytes} bytes: probablemente está vacía. Haz una copia manual y revisa el servicio «respaldo».` });
     }
     if (copias.visible && copias.disco && copias.disco.libreBytes / copias.disco.totalBytes < 0.1) {
       avisos.push({ nivel: 'atencion', texto: 'Queda menos del 10 % de disco libre.' });
