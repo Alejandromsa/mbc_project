@@ -32,6 +32,7 @@ import { persist } from '../persistencia.js';
 import { runLinter } from '../validacion/lint.js';
 import { updateViewUi } from '../vistas/comparador.js';
 import './barra.css';
+import { aplicarCatalogos } from './catalogos.js';
 import { crearIaRemota } from './ia.js';
 
 const parametros = new URLSearchParams(location.search);
@@ -164,6 +165,12 @@ async function abrir() {
       if (datos.revisiones[0]) revision = (await api.revision(datos.revisiones[0].id)).revision;
     }
     const { proyecto } = await api.proyecto(datos.proceso.proyectoId);
+    // Catálogos de la organización (KPIs, verbos, temas PPTX) antes de pintar: el linter ya los usa
+    try {
+      aplicarCatalogos(await api.catalogos());
+    } catch {
+      avisar('atencion', 'No se pudieron cargar los catálogos de la organización: se usan los de por defecto.');
+    }
     Object.assign(ctx, {
       proceso: datos.proceso, proyecto, rol: datos.rol,
       base: revision && { id: revision.id, numero: revision.numero, estado: revision.estado },

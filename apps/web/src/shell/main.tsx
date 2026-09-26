@@ -8,6 +8,7 @@ import { Route, Router, Switch } from 'wouter';
 import { ErrorApi } from './api';
 import { Auditoria, NoEncontrada, Usuarios } from './paginas/Admin';
 import { ConsumoIa } from './paginas/Ia';
+import { Catalogos } from './paginas/Catalogos';
 import { CambiarClave, Entrar } from './paginas/Acceso';
 import { Proceso } from './paginas/Proceso';
 import { Proyecto } from './paginas/Proyecto';
@@ -51,6 +52,7 @@ createRoot(document.getElementById('raiz')!).render(
           <Route path="/admin/usuarios"><ConSesion soloAdmin><Usuarios /></ConSesion></Route>
           <Route path="/admin/auditoria"><ConSesion soloAdmin><Auditoria /></ConSesion></Route>
           <Route path="/admin/ia"><ConSesion soloAdmin><ConsumoIa /></ConSesion></Route>
+          <Route path="/admin/catalogos"><ConSesion soloAdmin><Catalogos /></ConSesion></Route>
           <Route><ConSesion><NoEncontrada /></ConSesion></Route>
         </Switch>
       </Router>

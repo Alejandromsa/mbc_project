@@ -85,6 +85,44 @@ code { font-family: var(--font-mono); font-size: var(--font-sm); }
 .detalle-json { font-family: var(--font-mono); font-size: var(--font-xs); color: var(--gray-700); max-width: 48ch; overflow-wrap: anywhere; }
 .aviso-en-linea { display: block; color: var(--warning); font-size: var(--font-xs); }
 
+/* ---------- Catálogos ---------- */
+.pestanas { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--gray-200); margin-bottom: var(--space-5); }
+.pestanas button { border: 0; background: none; font: inherit; font-weight: 600; color: var(--gray-600); padding: var(--space-2) var(--space-4); border-bottom: 2px solid transparent; cursor: pointer; }
+.pestanas button.activa { color: var(--trace-dk); border-bottom-color: var(--trace); }
+.barra-filtros { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.barra-filtros > p { flex: 1; margin: 0; }
+.barra-filtros select, .fila-alta input, .busqueda {
+  font: inherit; padding: var(--space-2) var(--space-3); border: 1px solid var(--gray-300); border-radius: var(--radius-sm); background: var(--white);
+}
+.busqueda { min-width: 240px; flex: 1; max-width: 360px; }
+.barra-filtros .boton-primario { margin-left: auto; }
+.fila-campos { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+.fila-alta { display: flex; gap: var(--space-2); margin: var(--space-3) 0 var(--space-4); flex-wrap: wrap; }
+.fila-alta .ancho { flex: 1; min-width: 280px; }
+.chips { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chips li { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-1) 2px var(--space-3); border-radius: var(--radius-full); background: var(--white); border: 1px solid var(--gray-200); font-size: var(--font-sm); }
+.chips button { border: 0; background: none; cursor: pointer; color: var(--gray-500); font-size: var(--font-md); line-height: 1; padding: 0 var(--space-1); }
+.chips button:hover { color: var(--danger); }
+.tema { display: flex; flex-direction: column; gap: var(--space-3); }
+.tema.inactivo { opacity: 0.6; }
+.tema p { margin: 0; }
+.tema-muestra { height: 96px; border-radius: var(--radius-sm); display: flex; flex-direction: column; justify-content: center; gap: var(--space-2); padding: var(--space-4); font-size: var(--font-lg); font-weight: 700; }
+.tema-muestra img { height: 22px; width: auto; align-self: flex-start; }
+.paleta { display: flex; gap: 4px; }
+.paleta span { width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(0,0,0,0.08); }
+.dialogo.dialogo-ancho { width: min(860px, calc(100vw - 32px)); }
+.editor-tema fieldset { border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: var(--space-4); margin: 0 0 var(--space-4); min-width: 0; }
+.editor-tema legend { font-weight: 700; color: var(--mbc-azul); padding: 0 var(--space-2); }
+.rejilla-colores { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--space-3); }
+.color { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-sm); }
+.color input { width: 40px; height: 32px; padding: 0; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); background: none; cursor: pointer; }
+.color span { display: flex; flex-direction: column; }
+.color small { color: var(--gray-500); font-family: var(--font-mono); }
+.rejilla-imagenes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.rejilla-imagenes input[type="file"] { max-width: 100%; font-size: var(--font-xs); }
+.vista-imagen { height: 72px; border: 1px dashed var(--gray-300); border-radius: var(--radius-sm); display: grid; place-items: center; background: var(--gray-50); overflow: hidden; }
+.vista-imagen img { max-width: 90%; max-height: 60px; }
+
 /* ---------- Presupuesto de IA ---------- */
 .presupuesto { margin-bottom: var(--space-4); }
 .presupuesto-cifras { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }

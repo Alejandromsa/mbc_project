@@ -14,6 +14,7 @@ import { rutasProcesos } from './rutas/procesos.js';
 import { rutasAuditoria } from './rutas/auditoria.js';
 import { rutasDirectorio } from './rutas/directorio.js';
 import { rutasIa } from './rutas/ia.js';
+import { rutasCatalogos } from './rutas/catalogos.js';
 import type { Escucha } from './ia/avisos.js';
 
 /** Rutas que no exigen sesión. */
@@ -91,5 +92,6 @@ export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp 
   app.route('/api', rutasProcesos());
   app.route('/api/auditoria', rutasAuditoria());
   app.route('/api/ia', rutasIa({ sondeoMs: opciones.sondeoMs }));
+  app.route('/api/catalogos', rutasCatalogos());
   return app;
 }

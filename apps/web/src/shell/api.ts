@@ -52,6 +52,27 @@ export interface ConsumoIa {
   recientes: (Pick<EjecucionIa, 'id' | 'procesoId' | 'tipo' | 'tarea' | 'modelo' | 'estado' | 'error' | 'intentos' | 'tokensEntrada' | 'tokensSalida' | 'costeUsd' | 'creadoEn' | 'terminadoEn'> & { usuario: string })[];
 }
 
+/** Catálogos con la forma de @processiq/dominio (lo que usa el editor). */
+export interface Catalogos {
+  kpis: { id: string; industry: string; macroprocess: string; name: string; unit: string; benchmark: string; description: string }[];
+  verbos: { permitidos: string[]; prohibidos: Record<string, string> };
+  temas: { clave: string; nombre: string; definicion: DefinicionTema }[];
+}
+export interface KpiAdmin {
+  id: string; codigo: string; industria: string; macroproceso: string; nombre: string; unidad: string;
+  benchmark: string; descripcion: string; activo: boolean; creadoEn: string; actualizadoEn: string;
+}
+export interface VerboAdmin { verbo: string; tipo: 'permitido' | 'prohibido'; motivo: string }
+/** Tema PPTX (misma forma que TEMAS_PPTX de @processiq/exportar). */
+export interface DefinicionTema {
+  nombre: string; autor: string; pie: string;
+  dk1: string; lt2: string; acento: string; gris: string; antetitulo: string; sep: string; chipRol: string; teal: string;
+  rosa: string; verde: string; arena: string; circulo: string;
+  font: string; fontTitulo: string; logo: string; logoInv: string; foto?: string; logoW: number; logoH: number;
+  portada: 'mbc' | 'bbva'; portadaFondo: string; portadaTexto: string; portadaSub: string; cierre: boolean;
+}
+export interface TemaAdmin { id: string; clave: string; nombre: string; definicion: DefinicionTema; activo: boolean; actualizadoEn: string }
+
 export class ErrorApi extends Error {
   readonly estado: number;
   readonly codigo: string | undefined;
@@ -133,6 +154,21 @@ export const api = {
   consumoIa: () => pedir<ConsumoIa>('GET', '/ia/consumo'),
   /** URL del progreso en vivo (SSE) de una ejecución. */
   eventosIa: (id: string) => `/api/ia/ejecuciones/${q(id)}/eventos`,
+
+  // Catálogos (lectura: cualquiera; cambios: administradores)
+  catalogos: () => pedir<Catalogos>('GET', '/catalogos'),
+  kpisAdmin: () => pedir<{ kpis: KpiAdmin[] }>('GET', '/catalogos/kpis'),
+  crearKpi: (d: Pick<KpiAdmin, 'industria' | 'macroproceso' | 'nombre' | 'unidad' | 'benchmark' | 'descripcion'>) =>
+    pedir<{ kpi: KpiAdmin }>('POST', '/catalogos/kpis', d),
+  cambiarKpi: (id: string, cambios: Partial<Pick<KpiAdmin, 'industria' | 'macroproceso' | 'nombre' | 'unidad' | 'benchmark' | 'descripcion' | 'activo'>>) =>
+    pedir<{ kpi: KpiAdmin }>('PATCH', `/catalogos/kpis/${q(id)}`, cambios),
+  verbosAdmin: () => pedir<{ verbos: VerboAdmin[] }>('GET', '/catalogos/verbos'),
+  ponerVerbo: (verbo: string, d: { tipo: VerboAdmin['tipo']; motivo?: string }) => pedir<{ verbo: VerboAdmin }>('PUT', `/catalogos/verbos/${q(verbo)}`, d),
+  quitarVerbo: (verbo: string) => pedir<void>('DELETE', `/catalogos/verbos/${q(verbo)}`),
+  temasAdmin: () => pedir<{ temas: TemaAdmin[] }>('GET', '/catalogos/temas'),
+  crearTema: (clave: string, definicion: DefinicionTema) => pedir<{ tema: TemaAdmin }>('POST', '/catalogos/temas', { clave, definicion }),
+  cambiarTema: (id: string, cambios: { definicion?: DefinicionTema; activo?: boolean }) => pedir<{ tema: TemaAdmin }>('PATCH', `/catalogos/temas/${q(id)}`, cambios),
+  borrarTema: (id: string) => pedir<void>('DELETE', `/catalogos/temas/${q(id)}`),
 
   // Administración
   usuarios: () => pedir<{ usuarios: UsuarioAdmin[] }>('GET', '/usuarios'),

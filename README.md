@@ -17,7 +17,8 @@ Plataforma de diagramación, diagnóstico y reingeniería de procesos con BPMN 2
     - La IA en el servidor para los procesos de proyectos:
       - generación, pains y copiloto como trabajos en cola, con progreso en vivo, reintentos y coste por ejecución;
       - presupuesto mensual y pantalla de consumo.
-  - Siguiente: catálogos administrables, observabilidad y staging.
+    - Catálogos administrables: KPIs, verbos del Playbook y temas PPTX de cliente.
+  - Siguiente: observabilidad (errores y estado del sistema) y staging.
 
 ## Estructura
 
