@@ -112,6 +112,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
     - El servicio de copias espera antes de la primera (`RESPALDO_ESPERA_INICIAL_S`).
     - «Sistema» avisa si la última copia pesa menos de 10 kB.
 
+22f. **Fusionar PR apilados con `--delete-branch` cerró el siguiente PR.** Al borrar la rama base del #1, GitHub cerró el #2 en lugar de reapuntarlo a `main`. Se recuperó restaurando la rama, reabriendo y cambiando la base.
+    → **Regla:** para fusionar una pila, por cada PR en orden: `gh pr edit N --base main` y después `gh pr merge N --merge`, **sin** `--delete-branch`. Las ramas se borran al final, cuando todos estén fusionados. Comprobar después con `git diff origin/main <última rama>` que el contenido es el verificado.
+
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 
