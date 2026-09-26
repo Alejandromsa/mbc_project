@@ -3,12 +3,20 @@
 # Configuracion en .env (plantilla: .env.example). Runbook: docs/runbooks/servidor-local.md
 name: processiq
 
+# Logs de Docker con rotación: sin ella crecen sin límite en el disco del servidor
+x-registro: &registro
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   web:
+    logging: *registro
     build:
       context: .
       dockerfile: infra/web.Dockerfile
-    image: processiq/web:local
+    image: processiq/web:${VERSION:-local}
     restart: unless-stopped
     ports:
       - "${PUERTO_HTTPS:-443}:443"
@@ -26,10 +34,13 @@ services:
   # API (fase 2): cuentas locales, proyectos, procesos y revisiones.
   # Aplica las migraciones de la base al arrancar.
   api:
+    logging: *registro
     build:
       context: .
       dockerfile: infra/api.Dockerfile
-    image: processiq/api:local
+      args:
+        VERSION: ${VERSION:-local}
+    image: processiq/api:${VERSION:-local}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://processiq:${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}@postgres:5432/processiq
@@ -41,6 +52,10 @@ services:
       LIMITE_IA_USUARIO_MENSUAL_USD: ${LIMITE_IA_USUARIO_MENSUAL_USD:-25}
       MODELOS_IA_PERMITIDOS: ${MODELOS_IA_PERMITIDOS:-claude-opus-5,claude-sonnet-5}
       MODELO_IA_ANALISIS: ${MODELO_IA_ANALISIS:-claude-sonnet-5}
+      # Pantalla «Sistema»: antigüedad de la última copia y disco libre
+      CARPETA_RESPALDOS_LECTURA: /respaldos
+    volumes:
+      - ${CARPETA_RESPALDOS:-./respaldos}:/respaldos:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,7 +65,8 @@ services:
   # Worker de IA (fase 2.3): ejecuta la cola de ejecuciones_ia (generaciones y
   # análisis). Misma imagen que la API; arranca cuando la API ya migró la base.
   worker:
-    image: processiq/api:local
+    logging: *registro
+    image: processiq/api:${VERSION:-local}
     restart: unless-stopped
     command: ["node", "--enable-source-maps", "dist/worker.js"]
     environment:
@@ -67,6 +83,7 @@ services:
         condition: service_healthy
 
   postgres:
+    logging: *registro
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -84,6 +101,7 @@ services:
   # Copias de seguridad de la base (pg_dump periódico a una carpeta del PC).
   # Esa carpeta debe copiarse además FUERA del PC (OneDrive, disco externo).
   respaldo:
+    logging: *registro
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -102,10 +120,11 @@ services:
         condition: service_healthy
 
   intermediario:
+    logging: *registro
     build:
       context: .
       dockerfile: infra/intermediario.Dockerfile
-    image: processiq/intermediario:local
+    image: processiq/intermediario:${VERSION:-local}
     restart: unless-stopped
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
@@ -121,6 +140,7 @@ services:
   # 5432 lo ocupa un Postgres nativo. No se usa en producción.
   #   docker compose --profile dev up -d postgres-dev
   postgres-dev:
+    logging: *registro
     profiles: ["dev"]
     image: postgres:17-alpine
     environment:

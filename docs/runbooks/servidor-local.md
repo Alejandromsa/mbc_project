@@ -138,7 +138,8 @@ Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermed
 
 | Tarea | Comando (en la carpeta del repositorio) |
 |---|---|
-| Estado | `docker compose ps` |
+| Estado | como administrador, `https://mbc.asissoft.com/proyectos/admin/sistema`: servicios, worker, cola de IA, copias, disco y errores, con avisos. El punto rojo en «Sistema» indica que hay algo que revisar. En el servidor: `docker compose ps` |
+| Un usuario reporta «Error interno (referencia abc12345)» | en «Sistema», la tabla de errores; la referencia está en el detalle. Logs: `docker compose logs api \| grep abc12345` |
 | Logs | `docker compose logs -f web` · `docker compose logs -f api` · `docker compose logs -f worker` · `docker compose logs -f intermediario` |
 | Publicar una versión nueva | `git pull && docker compose up -d --build` (la API aplica las migraciones nuevas al arrancar) |
 | Rotar el código del equipo | editar `ACCESS_CODE` en `.env` → `docker compose up -d intermediario` |

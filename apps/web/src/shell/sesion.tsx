@@ -56,16 +56,26 @@ export function ConSesion({ children, soloAdmin = false, permitirClaveTemporal =
   );
 }
 
-function EnlaceMenu({ href, children }: { href: string; children: ReactNode }) {
+function EnlaceMenu({ href, children, aviso = false }: { href: string; children: ReactNode; aviso?: boolean }) {
   const [ubicacion] = useLocation();
   // «Proyectos» sigue resaltado dentro de un proyecto o de un proceso
   const activo = href === '/'
     ? ubicacion === '/' || /^\/(p|proceso)\//.test(ubicacion)
     : ubicacion === href || ubicacion.startsWith(href + '/');
-  return <Link href={href} className={activo ? 'activo' : ''} aria-current={activo ? 'page' : undefined}>{children}</Link>;
+  return (
+    <Link href={href} className={activo ? 'activo' : ''} aria-current={activo ? 'page' : undefined}>
+      {children}{aviso && <span className="punto-aviso" title="Hay problemas: revisa la pantalla" />}
+    </Link>
+  );
 }
 
 function Marco({ usuario, children }: { usuario: Usuario; children: ReactNode }) {
+  // Administradores: punto rojo en «Sistema» si hay algún problema
+  const sistema = useQuery({
+    queryKey: ['sistema'], queryFn: api.sistema, refetchInterval: 60_000,
+    enabled: usuario.rol === 'admin' && !usuario.debeCambiarClave
+  });
+  const hayProblemas = !!sistema.data?.avisos.some((a) => a.nivel === 'error');
   // Al salir se recarga la página: no queda en memoria nada del usuario anterior.
   // (QueryClient.clear() desengancha los observadores y la guardia no se enteraba.)
   const salir = useMutation({
@@ -86,6 +96,7 @@ function Marco({ usuario, children }: { usuario: Usuario; children: ReactNode })
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/catalogos">Catálogos</EnlaceMenu>}
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/auditoria">Auditoría</EnlaceMenu>}
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/ia">IA</EnlaceMenu>}
+            {usuario.rol === 'admin' && <EnlaceMenu href="/admin/sistema" aviso={hayProblemas}>Sistema</EnlaceMenu>}
             <a href="/" title="El editor, sin proyecto (trabajo guardado en este navegador)">Editor libre</a>
           </nav>
         )}

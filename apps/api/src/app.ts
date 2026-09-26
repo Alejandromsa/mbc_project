@@ -15,10 +15,12 @@ import { rutasAuditoria } from './rutas/auditoria.js';
 import { rutasDirectorio } from './rutas/directorio.js';
 import { rutasIa } from './rutas/ia.js';
 import { rutasCatalogos } from './rutas/catalogos.js';
+import { rutasSistema } from './rutas/sistema.js';
+import { registrarError } from './observabilidad.js';
 import type { Escucha } from './ia/avisos.js';
 
 /** Rutas que no exigen sesión. */
-const PUBLICAS = new Set(['GET /api/salud', 'POST /api/sesion']);
+const PUBLICAS = new Set(['GET /api/salud', 'POST /api/sesion', 'POST /api/errores']);
 /** Rutas permitidas con contraseña temporal pendiente de cambio. */
 const CON_CLAVE_TEMPORAL = new Set(['GET /api/sesion', 'DELETE /api/sesion', 'POST /api/sesion/clave']);
 
@@ -33,14 +35,34 @@ export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp 
   const app = new Hono<Entorno>();
   const limitador = new LimitadorAccesos();
 
-  app.onError((err, c) => {
+  app.onError(async (err, c) => {
     if (err instanceof ErrorHttp) {
       return c.json({ error: { mensaje: err.message, codigo: err.codigo, detalles: err.detalles } }, err.estado);
     }
-    console.error(JSON.stringify({ evento: 'error', ruta: c.req.path, mensaje: String(err && (err as Error).message) }));
-    return c.json({ error: { mensaje: 'Error interno del servidor.' } }, 500);
+    // Inesperado: queda en «Sistema» y el usuario recibe una referencia para citarla
+    const referencia = c.get('peticionId');
+    const e = err as Error;
+    console.error(JSON.stringify({ evento: 'error', id: referencia, ruta: c.req.path, mensaje: String(e && e.message) }));
+    await registrarError(db, {
+      origen: 'api', mensaje: String(e && e.message), pila: e && e.stack, ruta: `${c.req.method} ${c.req.path}`,
+      usuarioId: c.get('usuario')?.id ?? null, agente: c.req.header('user-agent') ?? null, detalle: { referencia }
+    });
+    return c.json({ error: { mensaje: `Error interno del servidor (referencia ${referencia}).`, codigo: 'INTERNO', referencia } }, 500);
   });
   app.notFound((c) => c.json({ error: { mensaje: 'Ruta no encontrada.' } }, 404));
+
+  // Identificador de petición y registro de acceso (escrituras, errores y lo lento)
+  app.use('/api/*', async (c, next) => {
+    const id = crypto.randomUUID().slice(0, 8);
+    c.set('peticionId', id);
+    c.header('X-Request-Id', id);
+    const t0 = performance.now();
+    await next();
+    const ms = Math.round(performance.now() - t0);
+    if (!['GET', 'HEAD'].includes(c.req.method) || c.res.status >= 500 || ms > 2000) {
+      console.info(JSON.stringify({ evento: 'peticion', id, metodo: c.req.method, ruta: c.req.path, estado: c.res.status, ms, usuario: c.get('usuario')?.email }));
+    }
+  });
 
   // Contexto y protecciones comunes
   app.use('/api/*', async (c, next) => {
@@ -93,5 +115,6 @@ export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp 
   app.route('/api/auditoria', rutasAuditoria());
   app.route('/api/ia', rutasIa({ sondeoMs: opciones.sondeoMs }));
   app.route('/api/catalogos', rutasCatalogos());
+  app.route('/api', rutasSistema());
   return app;
 }
