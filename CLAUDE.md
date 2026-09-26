@@ -27,6 +27,7 @@ pnpm --filter @processiq/api dev                # API en :8790 con .env.dev (cop
 pnpm --filter @processiq/api semilla            # cuentas de prueba (*@processiq.test, clave Prueba-ProcessIQ-2026) y proyectos en todos los estados
 pnpm --filter @processiq/api exec vitest run -t "numera las revisiones"   # una prueba de la API
 pnpm --filter @processiq/db generar             # nueva migración tras cambiar packages/db/src/esquema.ts
+pnpm e2e                                        # build + shell/editor/API/Postgres de punta a punta (Playwright, ~1 min; base processiq_e2e)
 docker compose up -d --build                    # servidor (ver docs/runbooks/servidor-local.md)
 ```
 
@@ -44,10 +45,11 @@ packages/            TypeScript, exportan su fuente (./src/index.ts); Vite y Vit
   ia/                prompts, cliente de Claude en streaming, costes, construcción e interpretación
   db/                esquema Drizzle, migraciones SQL (migraciones/) y conexión; solo lo usa la API
 apps/
-  web/               src/app/: la interfaz del MVP en módulos ES (adaptadores sobre los paquetes + UI)
+  web/               dos páginas: el editor (/, src/app/, JS del MVP en módulos ES) y el shell (/proyectos/, src/shell/, React + TS)
   api/               Hono + Postgres: sesiones, usuarios, proyectos, procesos, revisiones, auditoría; cli.ts
   intermediario/     guarda la clave de Anthropic; contrato del antiguo Cloudflare Worker
 pruebas/fidelidad/   MVP congelado frente a la app nueva (fidelidad, interacciones, divergencias)
+pruebas/e2e/         flujos de la plataforma con la web construida, la API real y Postgres
 herramientas/        fronteras.mjs
 infra/               Caddyfile y Dockerfiles
 ```
@@ -57,6 +59,16 @@ infra/               Caddyfile y Dockerfiles
 - Las librerías de navegador (pptxgenjs 3.12.0, JSZip 3.10.1, mammoth 1.8.0, pdf.js 4.7.76) se instalan por npm con versión exacta y `scripts/copiar-vendor.mjs` las copia a `public/vendor/` en cada `dev`/`build`.
 - `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` están portados tal cual con `// @ts-nocheck` (deuda: tiparlos). **En esos archivos, solo el build detecta imports rotos.**
 - `vite.config.js` tiene `cssMinify: false` a propósito: la app copia variables CSS a los SVG y el minificador cambiaba las mayúsculas de los colores.
+- Shell (`apps/web/src/shell`, `proyectos/index.html`):
+  - React 19 + TanStack Query + wouter (base `/proyectos`); TypeScript estricto (`pnpm --filter @processiq/web typecheck`).
+  - `api.ts` es el cliente tipado de la API y lo comparte la integración del editor; `permisos.ts` copia las capacidades de la API solo para mostrar u ocultar botones.
+  - Rutas del lado del cliente: Caddy (`try_files`) y el plugin de `vite.config.js` sirven `proyectos/index.html` para cualquier `/proyectos/...`.
+  - `src/tokens.css` (colores, tipografía, espacios) lo comparten editor y shell.
+- Integración del editor (`src/app/plataforma/proyecto.js`):
+  - Solo se activa con `/?proceso=…` o `/?revision=…`; sin esos parámetros no hace nada y el editor es el del MVP (lo comprueban la fidelidad y la última prueba E2E).
+  - En modo proyecto, el trabajo se guarda en `processiq.proceso.<id>`, no en `processiq.v1` (`usarClaveAlmacen` de `estado.js`). Hay un borrador por proceso y se ofrece recuperarlo.
+  - `persist()` avisa por `cambios.js` para detectar cambios sin guardar (huella del contenido normalizado con `migrarProyecto`, sin `CLAVES_EFIMERAS`).
+  - «Guardar revisión» envía el contenido v1 con `padreId` = revisión abierta; la API marca el conflicto.
 - API (`apps/api`):
   - Sesión por cookie `piq_sesion` (httpOnly; en la base solo se guarda el hash del token). Las escrituras exigen `Origin` igual a `ORIGEN_PUBLICO` (CSRF). Con contraseña temporal solo se permite cambiarla.
   - Permisos en `permisos.ts`: rol de organización (`admin`/`consultor`/`lector`) y rol por proyecto (`propietario`/`editor`/`revisor`/`lector`). Un proyecto sin acceso devuelve 404, no 403.
@@ -79,6 +91,8 @@ infra/               Caddyfile y Dockerfiles
 - **Fronteras** (las comprueba `pnpm fronteras` en la CI): `dominio` no depende de ningún paquete del monorepo; los demás paquetes solo de `dominio`; `packages/*` nunca importan de `apps/*`. `dominio` solo usa ECMAScript estándar (nada de DOM ni Node en `src/`).
 - **Esquema de la base:** nunca editar una migración ya publicada. Se cambia `packages/db/src/esquema.ts`, se genera la migración nueva con `pnpm --filter @processiq/db generar` y se revisa el SQL antes de confirmarlo.
 - Cada ruta nueva de la API lleva pruebas de integración en `apps/api/src/*.test.ts` contra Postgres real (`pruebas/entorno.ts`), incluidos los casos de permiso denegado.
+- Cada flujo nuevo de la plataforma (shell o editor en modo proyecto) lleva su prueba en `pruebas/e2e/plataforma.spec.mjs`. **Cambios en `src/app/`: `pnpm fidelidad` y `pnpm e2e` en verde.**
+- Pantalla nueva o cambiada: revisar una captura (Playwright `page.screenshot`) antes de darla por buena; las pruebas verdes no ven el diseño.
 
 ## Rarezas del entorno (Windows)
 

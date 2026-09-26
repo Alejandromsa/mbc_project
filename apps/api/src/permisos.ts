@@ -46,6 +46,10 @@ export async function accesoProyecto(db: BaseDeDatos, u: UsuarioSesion, proyecto
   }
   if (!rol) throw new ErrorHttp(404, 'Proyecto no encontrado.');
   if (!puede(rol, capacidad)) throw new ErrorHttp(403, 'Tu rol en este proyecto no permite esta acción.', 'PERMISO');
-  if (p.archivado && capacidad === 'escribir') throw new ErrorHttp(409, 'El proyecto está archivado.', 'ARCHIVADO');
+  // Archivado = solo lectura. Administrar sigue permitido para poder reactivarlo;
+  // las rutas que administran limitan qué se puede tocar (proyectos.ts).
+  if (p.archivado && (capacidad === 'escribir' || capacidad === 'aprobar')) {
+    throw new ErrorHttp(409, 'El proyecto está archivado.', 'ARCHIVADO');
+  }
   return { proyecto: p, rol };
 }

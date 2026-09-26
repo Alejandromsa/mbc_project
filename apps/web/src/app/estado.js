@@ -2,7 +2,11 @@
 import { FORMAS_POR_DEFECTO, fichaVacia, normalizarFicha } from '@processiq/dominio';
 
 // =================== STATE ===================
-const STORAGE_KEY = 'processiq.v1';
+// Dónde se guarda el trabajo en el navegador. El editor libre usa siempre
+// 'processiq.v1' (como el MVP); un proceso abierto desde un proyecto usa su
+// propia clave (plataforma/proyecto.js), así no pisa el trabajo libre.
+let STORAGE_KEY = 'processiq.v1';
+function usarClaveAlmacen(clave) { STORAGE_KEY = clave; }
 const state = {
   meta: { name: '', industry: '', macroprocess: '', client: '', owner: '' },
   // Ficha de proceso corporativa (formato Minsait/cliente) — ver deriveFicha()/exportFicha()
@@ -37,4 +41,4 @@ const SHAPE_DEFAULTS = FORMAS_POR_DEFECTO;
 const emptyFicha = fichaVacia;
 const normalizeFicha = normalizarFicha;
 
-export { SHAPE_DEFAULTS, STORAGE_KEY, emptyFicha, normalizeFicha, state };
+export { SHAPE_DEFAULTS, STORAGE_KEY, emptyFicha, normalizeFicha, state, usarClaveAlmacen };

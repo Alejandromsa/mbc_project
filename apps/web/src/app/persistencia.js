@@ -1,5 +1,6 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { $ } from './dom.js';
+import { avisarCambio } from './cambios.js';
 import { STORAGE_KEY, normalizeFicha, state } from './estado.js';
 import { recordHistory } from './historial.js';
 import { updateViewUi } from './vistas/comparador.js';
@@ -47,6 +48,7 @@ function persist() {
     $('#statusSaved').innerHTML = '<span class="dot" style="background:var(--danger)"></span>Error al guardar';
   }
   recordHistory();
+  avisarCambio();
 }
 
 function loadFromStorage() {

@@ -12,6 +12,7 @@ import { rutasUsuarios } from './rutas/usuarios.js';
 import { rutasProyectos } from './rutas/proyectos.js';
 import { rutasProcesos } from './rutas/procesos.js';
 import { rutasAuditoria } from './rutas/auditoria.js';
+import { rutasDirectorio } from './rutas/directorio.js';
 
 /** Rutas que no exigen sesión. */
 const PUBLICAS = new Set(['GET /api/salud', 'POST /api/sesion']);
@@ -75,6 +76,7 @@ export function crearApp(db: BaseDeDatos, config: Config) {
   });
   app.route('/api/sesion', rutasSesion(limitador));
   app.route('/api/usuarios', rutasUsuarios());
+  app.route('/api/directorio', rutasDirectorio());
   app.route('/api/proyectos', rutasProyectos());
   app.route('/api', rutasProcesos());
   app.route('/api/auditoria', rutasAuditoria());

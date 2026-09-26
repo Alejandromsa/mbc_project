@@ -25,7 +25,11 @@ describe('semilla de desarrollo', () => {
     ]);
 
     const detalle = (await admin.get(`/api/proyectos/${proyectoId}`)).json;
-    expect(detalle.procesos).toHaveLength(3);
+    expect(detalle.procesos.map((p: any) => [p.nombre, p.ultimaRevision && [p.ultimaRevision.numero, p.ultimaRevision.estado]]).sort()).toEqual([
+      ['Gestión de siniestros', [3, 'borrador']],
+      ['Proceso sin revisiones', null],
+      ['Venta de lotes urbanos', [1, 'borrador']]
+    ]);
     expect(detalle.miembros).toHaveLength(4);
     const revisiones = (await admin.get(`/api/procesos/${procesoSiniestrosId}`)).json.revisiones;
     expect(revisiones.map((r: any) => [r.numero, r.estado])).toEqual([[3, 'borrador'], [2, 'en_revision'], [1, 'aprobada']]);

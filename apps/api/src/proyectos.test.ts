@@ -118,12 +118,24 @@ describe('procesos y revisiones', () => {
     expect(r.json.error.codigo).toBe('INMUTABLE');
   });
 
-  it('un proyecto archivado no admite escrituras', async () => {
-    const { c, p } = await equipo();
+  it('un proyecto archivado es de solo lectura hasta que se reactiva', async () => {
+    const { u, c, p } = await equipo();
+    const proc = (await c.luis.post(`/api/proyectos/${p.id}/procesos`, { nombre: 'P', contenido: EXPORT_MVP })).json;
+    await c.luis.post(`/api/revisiones/${proc.revision.id}/estado`, { estado: 'en_revision' });
     await c.ana.patch(`/api/proyectos/${p.id}`, { archivado: true });
-    const r = await c.luis.post(`/api/proyectos/${p.id}/procesos`, { nombre: 'X' });
-    expect(r.status).toBe(409);
-    expect(r.json.error.codigo).toBe('ARCHIVADO');
+
+    const bloqueos = [
+      await c.luis.post(`/api/proyectos/${p.id}/procesos`, { nombre: 'X' }),
+      await c.rosa.post(`/api/revisiones/${proc.revision.id}/estado`, { estado: 'aprobada' }),
+      await c.ana.put(`/api/proyectos/${p.id}/miembros/${u.pepe.id}`, { rol: 'lector' }),
+      await c.ana.del(`/api/proyectos/${p.id}/miembros/${u.luis.id}`),
+      await c.ana.patch(`/api/proyectos/${p.id}`, { nombre: 'Otro' })
+    ];
+    expect(bloqueos.map((r) => [r.status, r.json.error.codigo])).toEqual(Array(5).fill([409, 'ARCHIVADO']));
+    expect((await c.luis.get(`/api/procesos/${proc.proceso.id}`)).status).toBe(200);
+
+    expect((await c.ana.patch(`/api/proyectos/${p.id}`, { archivado: false })).status).toBe(200);
+    expect((await c.rosa.post(`/api/revisiones/${proc.revision.id}/estado`, { estado: 'aprobada' })).status).toBe(200);
   });
 
   it('todo queda en la auditoría', async () => {
@@ -134,5 +146,15 @@ describe('procesos y revisiones', () => {
       'proyecto.alta:ana@mbc.pe', 'proyecto.miembro:ana@mbc.pe', 'proceso.alta:luis@mbc.pe', 'sesion.inicio:rosa@mbc.pe'
     ]));
     expect((await c.luis.get('/api/auditoria')).status).toBe(403);
+  });
+
+  it('el directorio (para elegir miembros) lo ve cualquiera, solo con cuentas activas y sin datos sensibles', async () => {
+    const { u, c } = await equipo();
+    await c.admin.patch(`/api/usuarios/${u.pepe.id}`, { activo: false });
+    const r = await c.luis.get('/api/directorio');
+    expect(r.status).toBe(200);
+    expect(r.json.usuarios.map((x: any) => x.email).sort()).toEqual(['admin@mbc.pe', 'ana@mbc.pe', 'luis@mbc.pe', 'rosa@mbc.pe']);
+    expect(Object.keys(r.json.usuarios[0]).sort()).toEqual(['email', 'id', 'nombre']);
+    expect((await cliente().get('/api/directorio')).status).toBe(401);
   });
 });

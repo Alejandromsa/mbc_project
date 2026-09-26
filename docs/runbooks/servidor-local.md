@@ -14,6 +14,22 @@ ProcessIQ corre en un PC propio con IP pública fija, en contenedores Docker. Es
 
 El editor sigue funcionando sin iniciar sesión, como en el MVP: sin cuenta, el trabajo vive en el navegador (`localStorage`). Lo que se guarda en un proyecto vive en Postgres.
 
+## Direcciones para el equipo
+
+| Dirección | Qué es |
+|---|---|
+| `https://mbc.asissoft.com/proyectos/` | **Plataforma:** entrar, proyectos, procesos, revisiones y, para administradores, usuarios y auditoría |
+| `https://mbc.asissoft.com/` | **Editor libre**, igual que el MVP: sin cuenta, con el trabajo guardado en el navegador |
+| `https://mbc.asissoft.com/?proceso=…` / `?revision=…` | El editor abierto sobre un proceso de un proyecto. Se llega desde la plataforma, con el botón «Abrir en el editor» |
+
+Flujo de trabajo:
+1. Un consultor crea un proyecto y añade miembros con su rol.
+2. Crea procesos, vacíos o importando el JSON exportado desde el editor.
+3. Los abre en el editor y pulsa **«Guardar revisión»** (o Ctrl+S): cada guardado crea una versión nueva en borrador.
+4. Quien edita la envía a revisión; el revisor (o el propietario) la aprueba o la devuelve.
+
+Si se cierra el navegador con cambios sin guardar, quedan como borrador en ese navegador y el editor ofrece recuperarlos al volver a abrir el proceso.
+
 ## Usuarios
 
 Las cuentas son locales (correo y contraseña) hasta que TI registre la aplicación en Entra ID. Cada alta genera una **contraseña temporal** que se muestra una sola vez y que el usuario debe cambiar al entrar.
@@ -100,7 +116,7 @@ Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermed
 | Logs | `docker compose logs -f web` · `docker compose logs -f api` · `docker compose logs -f intermediario` |
 | Publicar una versión nueva | `git pull && docker compose up -d --build` (la API aplica las migraciones nuevas al arrancar) |
 | Rotar el código del equipo | editar `ACCESS_CODE` en `.env` → `docker compose up -d intermediario` |
-| Ver la auditoría | como administrador, `GET /api/auditoria` (pantalla en la web en la fase 2.2) |
+| Ver la auditoría | como administrador, en `https://mbc.asissoft.com/proyectos/admin/auditoria` |
 | Último respaldo | `docker compose logs --tail 5 respaldo` |
 | Parar todo | `docker compose down` — **nunca con `-v`**: borraría la base de datos y los certificados |
 | Probar en local sin tocar producción | `DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ALLOWED_ORIGINS=https://localhost:8443 CARPETA_RESPALDOS=./respaldos-prueba docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`) |
@@ -113,8 +129,10 @@ El gasto de IA queda en el log del intermediario (`"evento":"gasto_ia"`). Si se 
 docker compose --profile dev up -d postgres-dev   # Postgres de desarrollo y pruebas, puerto 5440
 cp .env.dev.example .env.dev                      # una vez
 pnpm --filter @processiq/api dev                  # API en :8790 (migra al arrancar)
-pnpm dev                                          # web en :5173; Vite reenvía /api a :8790
+pnpm dev                                          # web en :5173 (editor en /, plataforma en /proyectos/); Vite reenvía /api a :8790
 pnpm --filter @processiq/api semilla              # cuentas y proyectos de prueba (repetible)
+pnpm --filter @processiq/api semilla --desde-cero # además vacía la base antes
+pnpm e2e                                          # pruebas de punta a punta (usan su propia base, processiq_e2e)
 ```
 
 **Cuentas de prueba** (solo en la base de desarrollo; la semilla se niega a correr contra otra base que no esté en `localhost`). Todas usan la contraseña `Prueba-ProcessIQ-2026`:

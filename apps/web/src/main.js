@@ -5,3 +5,7 @@
 // Orden: catalogos-globales publica los catálogos en window.* que usa la app.
 import './app/catalogos-globales.js';
 import './app/inicio.js';
+// Fase 2: abrir y guardar procesos de un proyecto (/?proceso=… o /?revision=…).
+// Sin esos parámetros no hace nada. Va después de inicio.js: su arranque corre
+// después del del editor.
+import './app/plataforma/proyecto.js';

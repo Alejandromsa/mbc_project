@@ -10,14 +10,17 @@ Plataforma de diagramación, diagnóstico y reingeniería de procesos con BPMN 2
 
 - **Fase 1 (fundaciones), terminada.** El MVP 3.8.9 (un único `app.js` de ~10.500 líneas) quedó portado a paquetes TypeScript con pruebas **sin cambiar su comportamiento**, salvo las diferencias registradas en [docs/fase1-divergencias.md](docs/fase1-divergencias.md): un fallo del MVP corregido y librerías servidas desde la propia app. Las pruebas de fidelidad lo demuestran en cada cambio.
 - **Fase 2 (plataforma), en curso.**
-  - Hecho: Postgres y una API con cuentas locales, proyectos, procesos, revisiones versionadas con flujo de aprobación, auditoría y copias de seguridad diarias.
-  - Siguiente: las pantallas de acceso y proyectos en la web, y guardar y abrir revisiones desde el editor.
+  - Hecho:
+    - Postgres y una API con cuentas locales, proyectos, procesos, revisiones versionadas con flujo de aprobación, auditoría y copias de seguridad diarias.
+    - La plataforma web en `/proyectos/`: acceso, proyectos, miembros, revisiones, usuarios y auditoría.
+    - El editor abre y guarda revisiones de un proyecto; sin proyecto, sigue igual que el MVP.
+  - Siguiente: la IA en el servidor (jobs con endpoints de negocio).
 
 ## Estructura
 
 ```text
 apps/
-  web/            la app (Vite). src/app/ = interfaz en módulos ES sobre los paquetes
+  web/            la app (Vite): el editor (src/app/, módulos ES) y la plataforma en /proyectos/ (src/shell/, React)
   api/            API de la plataforma (Node + Hono + Postgres): cuentas, proyectos, revisiones
   intermediario/  intermediario de IA (Node + Hono): guarda la clave de Anthropic
 packages/
@@ -53,6 +56,7 @@ pnpm typecheck
 pnpm test            # unitarias de los paquetes e integración de la API (necesita postgres-dev)
 pnpm fronteras       # dependencias permitidas entre paquetes
 pnpm fidelidad       # la app frente al MVP: ejemplos, exports, interacciones, IA simulada (≈2,5 min)
+pnpm e2e             # plataforma de punta a punta: acceso, proyectos, editor, revisiones (necesita postgres-dev)
 ```
 
 ## Despliegue en el servidor

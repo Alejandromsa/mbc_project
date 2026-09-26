@@ -73,6 +73,20 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 11. **Los errores de página también son comportamiento.** El export PPTX con To-Be falla en el MVP (`M_PRUNO is not defined`, ver `docs/fase1-divergencias.md`); solo se vio porque la prueba esperaba una descarga que nunca llegó.
     → **Regla:** los escenarios comparan los errores de JavaScript de ambas apps. Ante un timeout, depurar mirando `pageerror` y la consola.
 
+## Web y pruebas E2E
+
+17. **«Salir» no llevaba a la pantalla de entrar.** `QueryClient.clear()` borra las consultas y deja a los componentes montados observando una consulta que ya no existe: la guardia nunca vio la sesión en `null`. Lo detectó la prueba E2E, no el typecheck.
+    → **Regla:** al cerrar sesión, recargar la página (`location.assign`), que además no deja datos del usuario anterior en memoria. No usar `clear()` con componentes montados.
+
+18. **La barra del editor cortaba el nombre del proceso** («Gestión de s…»). Un elemento absoluto centrado con `left: 50%` + `translateX(-50%)` calcula su ancho con solo la mitad del contenedor.
+    → **Regla:** para centrar algo absoluto con ancho según su contenido, usar `left: 0; right: 0; margin: 0 auto; width: fit-content`.
+
+19. **Las pruebas pasaron en verde y la interfaz tenía tres defectos visibles:** el nombre cortado, fechas partidas en dos líneas y el menú sin resaltar. Solo se vieron en las capturas.
+    → **Regla:** toda pantalla nueva o cambiada se revisa con una captura (`page.screenshot`) antes de darla por terminada.
+
+20. **`getByLabel('Contraseña nueva')` también encontró «Repite la contraseña nueva»**: Playwright busca por subcadena.
+    → **Regla:** con etiquetas que comparten palabras, `{ exact: true }`.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.

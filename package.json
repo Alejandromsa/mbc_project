@@ -12,7 +12,8 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "fronteras": "node herramientas/fronteras.mjs",
-    "fidelidad": "pnpm --filter @processiq/pruebas-fidelidad fidelidad"
+    "fidelidad": "pnpm --filter @processiq/pruebas-fidelidad fidelidad",
+    "e2e": "pnpm --filter @processiq/pruebas-e2e e2e"
   },
   "devDependencies": {
     "turbo": "^2.11.4",

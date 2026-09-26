@@ -60,14 +60,20 @@ jobs:
       - name: Fidelidad frente al MVP 3.8.9
         run: pnpm fidelidad
 
-      - name: Resultados de fidelidad (si fallo)
+      # Shell + editor + API + Postgres de punta a punta (usa la web que acaba de construir la fidelidad)
+      - name: E2E de la plataforma
+        run: pnpm --filter @processiq/pruebas-e2e exec playwright test
+
+      - name: Resultados de fidelidad y E2E (si fallo)
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: fidelidad-resultados
+          name: resultados-pruebas
           path: |
             pruebas/fidelidad/resultados/
             pruebas/fidelidad/playwright-report/
+            pruebas/e2e/resultados/
+            pruebas/e2e/playwright-report/
           retention-days: 14
 
       - name: Imagenes Docker
