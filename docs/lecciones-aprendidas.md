@@ -7,6 +7,7 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 1. **Barras invertidas en scripts incrustados en la shell.** Un script de Node pasado por heredoc desde la herramienta de shell perdió una barra: `'\\n'` llegó como `'\n'` y el código generado quedó con saltos de línea reales dentro de una cadena → error de sintaxis en `ia/motor.js`.
    → **Regla:** todo script que contenga `\` se escribe primero a un archivo con el editor (en el directorio temporal) y se ejecuta desde ahí. Tras generar código, compilar o hacer `node --check` en el acto.
    **Reincidencias:** `ingesta/texto.js` y `mining/event-log.js` (saltos reales en template literals) y `exportar/ficha.js` (el regex `/\.doc$/` quedó como `/.doc$/`). → **Antes de lanzar un heredoc, buscar `\` en su contenido; si aparece, NO usar heredoc.**
+   También en expresiones de `jq`/`gh --jq`: `test("^v[0-9]+\.0")` falló por la barra. → En regex dentro de comandos de shell, usar clases de caracteres (`[.]`) en lugar de escapes.
 
 2. **`sed` con barras y regex complejas no coincidió y no avisó.** Varias sustituciones con `/` y `\s` escapados no se aplicaron.
    → **Regla:** para reemplazos exactos usar el editor. Si se usa `sed`, verificar siempre después con `grep` que el cambio está.
@@ -14,9 +15,21 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 
 3. **`rm -rf resultados` falló porque la shell estaba dentro de esa carpeta** ("Device or resource busy") y la cadena `&&` se cortó sin que se notara.
    → **Regla:** no hacer `cd` a carpetas de resultados. Inspeccionarlas con rutas absolutas o subshells `( … )`.
+   **Reincidencia:** un `cd …/resultados/loadComplex6 && diff …` dejó ahí la carpeta de trabajo de la sesión (el `cd` persiste entre comandos). → **Usar variables de ruta (`R=…; diff $R/a $R/b`), nunca `cd`.**
+   **Otras dos reincidencias** (`cd apps/api/src`, `cd /c/Users/usuario`). → Si un comando necesita `cd`, empezarlo por `cd /c/Users/usuario/processiq && …` y usar rutas relativas a la raíz.
+
+4c. **Casi creo el registro DNS en el sitio equivocado.**
+    - Se pidió crear `mbc.asissoft.com` con la API de name.com, porque el dominio está registrado allí.
+    - Pero `asissoft.com` usa los nameservers de Cloudflare: la zona se movió para otro proyecto. Un registro en el DNS de name.com no lo vería nadie.
+    - Devolver los nameservers a name.com rompería `portal.asissoft.com` y el correo.
+
+    → **Regla:** antes de tocar DNS, `nslookup -type=NS <dominio> 8.8.8.8` para saber qué proveedor sirve la zona. El registrador y el proveedor de DNS pueden ser distintos.
 
 4. **`curl -w '%{http_code}' -o /dev/null` devolvió `000` en Git Bash** aunque el servidor respondía bien.
    → **Regla:** en esta máquina usar `curl -v` o `-o NUL` para ver el código real.
+
+4b. **Pasar un binario por stdin a `docker compose exec -T` desde Git Bash lo corrompe** (`pg_restore: did not find magic string`): la restauración de prueba falló aunque el respaldo estaba bien.
+   → **Regla:** los archivos binarios se usan desde dentro del contenedor que ya tiene la carpeta montada (el servicio `respaldo` monta `/respaldos`), nunca por tubería desde la shell de Windows.
 
 5. **Salida de pruebas invisible:** Vitest oculta `console.log` de las pruebas que pasan, y `/tmp` de Git Bash no es el mismo `/tmp` para Node.
    → **Regla:** para ver la salida real de una función, usar `toMatchInlineSnapshot()` con `vitest run -u` y revisar el snapshot. Si hace falta un archivo, usar rutas de Windows del directorio temporal.
@@ -37,6 +50,16 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 
 7b. **Tras `page.reload()` las fuentes no estaban precargadas** y la app pinta desde `localStorage` antes de que el arnés pueda cargarlas: el SVG de ese primer pintado dependía del timing.
     → **Regla:** después de cada recarga, llamar a `cargarFuentes(page)`; y en el paso inmediatamente posterior a una recarga, comparar solo artefactos que no midan texto (resumen, BPMN con coordenadas).
+
+7c. **La fidelidad falló de forma intermitente en corridas completas**: primero `loadComplex6` y minería, luego `loadComplex12`. Repetidos solos, pasaron 10 de 10.
+    - Siempre `edge-label-bg`, solo en etiquetas largas ("SLA 2h vencido", "No conforme"), y siempre la misma app midiendo un poco menos: hasta un 0,06 % (0,0535 px en 89,6 px).
+    - Fijé una primera tolerancia de 0,05 px a partir de los dos primeros casos y el tercero la superó. **Una tolerancia no se calibra con dos muestras.**
+    - Supuse que era el zoom y lo descarté midiendo: el ancho es idéntico al 47 %, 69 %, 100 % y 120 %. La causa sigue abierta.
+    → **Regla:**
+    - `comparar.mjs` acepta ±0,25 px solo en `x` y `width` de `rect.edge-label-bg`, unas 4 veces lo máximo observado; todo lo demás sigue byte a byte.
+    - Cualquier tolerancia nueva va igual de acotada, con su motivo en el código, calibrada con varias corridas completas y con una prueba de que sigue detectando cambios reales (+0,3 px, otra `y`, otro texto, una etiqueta menos).
+    - Un fallo que solo aparece en la corrida completa se reproduce con `--repeat-each 5` antes de tocar nada.
+    - Una hipótesis se comprueba midiendo antes de escribirla como causa en el código.
 
 8. **Captura a mitad de un proceso asíncrono.** Un comando del copiloto lanzaba una ingesta y la captura llegaba a los 150 ms.
    → **Regla:** tras una acción que dispara trabajo asíncrono, esperar a una condición observable (mensaje, modal, nodo) o dar margen suficiente, y verificar con repeticiones.

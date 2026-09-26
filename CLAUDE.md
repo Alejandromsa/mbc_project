@@ -4,7 +4,7 @@ Este archivo orienta a Claude Code (claude.ai/code) cuando trabaja con el códig
 
 ## Contexto
 
-ProcessIQ, plataforma BPMN de MBC. Este repo es la **v4**: la arquitectura objetivo está en `docs/arquitectura.md`. La **fase 1 (fundaciones)** portó el MVP 3.8.9 a paquetes TypeScript sin cambiar su comportamiento. El MVP original vive en otro repo (`nelson2206/process-iq`); aquí hay una copia congelada en `pruebas/fidelidad/referencia-mvp/`, que es el oráculo de las pruebas.
+ProcessIQ, plataforma BPMN de MBC. Este repo es la **v4**: la arquitectura objetivo está en `docs/arquitectura.md`. La **fase 1 (fundaciones)** portó el MVP 3.8.9 a paquetes TypeScript sin cambiar su comportamiento. El MVP original vive en otro repo (`nelson2206/process-iq`); aquí hay una copia congelada en `pruebas/fidelidad/referencia-mvp/`, que es el oráculo de las pruebas. La **fase 2 (plataforma)** añade Postgres y una API con cuentas locales, proyectos, procesos y revisiones (Entra ID llegará cuando TI registre la aplicación).
 
 Código, comentarios, textos de interfaz y documentación en **español**.
 
@@ -22,6 +22,11 @@ pnpm fronteras                                  # dependencias permitidas entre 
 pnpm fidelidad                                  # build de la web + comparación con el MVP (Playwright, ~2,5 min)
 pnpm --filter @processiq/motor test             # un solo paquete
 pnpm --filter @processiq/pruebas-fidelidad exec playwright test -g "loadComplex11$"   # un escenario (¡tras build!)
+docker compose --profile dev up -d postgres-dev # Postgres de desarrollo en :5440 (lo necesitan las pruebas de la API)
+pnpm --filter @processiq/api dev                # API en :8790 con .env.dev (copiar de .env.dev.example); Vite reenvía /api
+pnpm --filter @processiq/api semilla            # cuentas de prueba (*@processiq.test, clave Prueba-ProcessIQ-2026) y proyectos en todos los estados
+pnpm --filter @processiq/api exec vitest run -t "numera las revisiones"   # una prueba de la API
+pnpm --filter @processiq/db generar             # nueva migración tras cambiar packages/db/src/esquema.ts
 docker compose up -d --build                    # servidor (ver docs/runbooks/servidor-local.md)
 ```
 
@@ -37,8 +42,10 @@ packages/            TypeScript, exportan su fuente (./src/index.ts); Vite y Vit
   mining/            event logs CSV -> proceso, variantes
   analitica/         simulador, cuello de botella, automatización, mapa de valor, backlog, What-If
   ia/                prompts, cliente de Claude en streaming, costes, construcción e interpretación
+  db/                esquema Drizzle, migraciones SQL (migraciones/) y conexión; solo lo usa la API
 apps/
   web/               src/app/: la interfaz del MVP en módulos ES (adaptadores sobre los paquetes + UI)
+  api/               Hono + Postgres: sesiones, usuarios, proyectos, procesos, revisiones, auditoría; cli.ts
   intermediario/     guarda la clave de Anthropic; contrato del antiguo Cloudflare Worker
 pruebas/fidelidad/   MVP congelado frente a la app nueva (fidelidad, interacciones, divergencias)
 herramientas/        fronteras.mjs
@@ -50,7 +57,13 @@ infra/               Caddyfile y Dockerfiles
 - Las librerías de navegador (pptxgenjs 3.12.0, JSZip 3.10.1, mammoth 1.8.0, pdf.js 4.7.76) se instalan por npm con versión exacta y `scripts/copiar-vendor.mjs` las copia a `public/vendor/` en cada `dev`/`build`.
 - `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` están portados tal cual con `// @ts-nocheck` (deuda: tiparlos). **En esos archivos, solo el build detecta imports rotos.**
 - `vite.config.js` tiene `cssMinify: false` a propósito: la app copia variables CSS a los SVG y el minificador cambiaba las mayúsculas de los colores.
-- Servidor: Caddy sirve `apps/web/dist`, obtiene el certificado por TLS-ALPN (IIS ocupa el puerto 80) y enruta `/ia/*` al intermediario. La web llama a la IA en su mismo origen (`location.origin + '/ia'`). El dominio sale de `.env` (`DOMINIO`); `index.html` se sirve como plantilla (`{{.Host}}` en Open Graph).
+- API (`apps/api`):
+  - Sesión por cookie `piq_sesion` (httpOnly; en la base solo se guarda el hash del token). Las escrituras exigen `Origin` igual a `ORIGEN_PUBLICO` (CSRF). Con contraseña temporal solo se permite cambiarla.
+  - Permisos en `permisos.ts`: rol de organización (`admin`/`consultor`/`lector`) y rol por proyecto (`propietario`/`editor`/`revisor`/`lector`). Un proyecto sin acceso devuelve 404, no 403.
+  - Revisiones: el contenido es JSON v1 validado con `migrarProyecto` de `dominio`. El número se asigna bajo `select … for update` sobre el proceso. Si `padreId` no es la última revisión, se guarda igual y se responde `conflicto: true`. Una revisión `aprobada` es inmutable.
+  - Errores: `{ error: { mensaje, codigo, detalles } }`, lanzados con `ErrorHttp`. Toda escritura relevante llama a `registrar()` (auditoría).
+  - `scripts/construir.mjs` empaqueta con esbuild y copia `packages/db/migraciones` a `dist/`; la API migra al arrancar.
+- Servidor: Caddy sirve `apps/web/dist`, obtiene el certificado por TLS-ALPN (IIS ocupa el puerto 80), enruta `/api/*` a la API y `/ia/*` al intermediario. La web llama a la IA en su mismo origen (`location.origin + '/ia'`). El dominio sale de `.env` (`DOMINIO`); `index.html` se sirve como plantilla (`{{.Host}}` en Open Graph).
 
 ## Reglas de trabajo
 
@@ -59,14 +72,17 @@ infra/               Caddyfile y Dockerfiles
   - el copiloto, los comandos, deshacer, minería, ingesta de texto y de archivos, importación BPMN e IA simulada (peticiones incluidas);
   - paneles y vistas.
 
-  Si algo difiere, los artefactos quedan en `pruebas/fidelidad/resultados/<caso>/`.
+  Si algo difiere, los artefactos quedan en `pruebas/fidelidad/resultados/<caso>/`. Todo se compara byte a byte. La única tolerancia es de ±0,25 px en `x`/`width` de `rect.edge-label-bg`: con la máquina cargada, la medición de las etiquetas largas varía de forma intermitente (ver `comparar.mjs`).
 - **Nunca editar `pruebas/fidelidad/referencia-mvp/`.** Un cambio intencional de comportamiento se registra en `docs/fase1-divergencias.md` y se prueba en `divergencias.spec.mjs`.
 - Antes de tocar un área que la fidelidad no cubre, **añadir primero el escenario** y ver que pasa.
 - **Portar sin reescribir:** mover el código tal cual (con scripts que copian el texto literal y verifican con `diff`) y cambiar solo la frontera: parámetros en lugar de `state` y de globales. Los prompts y mensajes se comparan byte a byte.
 - **Fronteras** (las comprueba `pnpm fronteras` en la CI): `dominio` no depende de ningún paquete del monorepo; los demás paquetes solo de `dominio`; `packages/*` nunca importan de `apps/*`. `dominio` solo usa ECMAScript estándar (nada de DOM ni Node en `src/`).
+- **Esquema de la base:** nunca editar una migración ya publicada. Se cambia `packages/db/src/esquema.ts`, se genera la migración nueva con `pnpm --filter @processiq/db generar` y se revisa el SQL antes de confirmarlo.
+- Cada ruta nueva de la API lleva pruebas de integración en `apps/api/src/*.test.ts` contra Postgres real (`pruebas/entorno.ts`), incluidos los casos de permiso denegado.
 
 ## Rarezas del entorno (Windows)
 
 - **No usar heredocs ni `sed` con código que contenga `\`**: la shell se come las barras. Los scripts se escriben con el editor en el directorio temporal y se ejecutan desde ahí.
 - El `curl` de Git Bash devuelve `000` con `-w`/`-o /dev/null`: usar `-v` u `-o NUL`.
+- El puerto 5432 del PC lo ocupa un Postgres nativo: el de desarrollo va en el 5440. No pasar binarios por tubería a `docker compose exec -T` (se corrompen).
 - En una pestaña oculta del navegador los timers se estrangulan y el export PPTX no termina; Playwright headless no tiene ese problema.

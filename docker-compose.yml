@@ -1,4 +1,4 @@
-# ProcessIQ — servidor local (fase 1)
+# ProcessIQ — servidor local
 # Uso:  docker compose up -d --build
 # Configuracion en .env (plantilla: .env.example). Runbook: docs/runbooks/servidor-local.md
 name: processiq
@@ -21,6 +21,60 @@ services:
       - caddy_config:/config
     depends_on:
       - intermediario
+      - api
+
+  # API (fase 2): cuentas locales, proyectos, procesos y revisiones.
+  # Aplica las migraciones de la base al arrancar.
+  api:
+    build:
+      context: .
+      dockerfile: infra/api.Dockerfile
+    image: processiq/api:local
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://processiq:${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}@postgres:5432/processiq
+      ORIGEN_PUBLICO: ${ORIGEN_PUBLICO:-https://${DOMINIO}}
+      HORAS_SESION: ${HORAS_SESION:-12}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8080"
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: processiq
+      POSTGRES_USER: processiq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+    volumes:
+      # Los datos de la plataforma: copia de seguridad obligatoria (docs/runbooks/servidor-local.md)
+      - postgres_datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U processiq -d processiq"]
+      interval: 5s
+      retries: 10
+
+  # Copias de seguridad de la base (pg_dump periódico a una carpeta del PC).
+  # Esa carpeta debe copiarse además FUERA del PC (OneDrive, disco externo).
+  respaldo:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: processiq
+      PGDATABASE: processiq
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      RESPALDO_CADA_HORAS: ${RESPALDO_CADA_HORAS:-24}
+      RESPALDO_CONSERVAR: ${RESPALDO_CONSERVAR:-14}
+    volumes:
+      - ${CARPETA_RESPALDOS:-./respaldos}:/respaldos
+      - ./infra/respaldo.sh:/respaldo.sh:ro
+    entrypoint: ["/bin/sh", "/respaldo.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   intermediario:
     build:
@@ -38,6 +92,27 @@ services:
     expose:
       - "8787"
 
+  # Postgres de DESARROLLO y pruebas (perfil dev): puerto 5440 del PC porque el
+  # 5432 lo ocupa un Postgres nativo. No se usa en producción.
+  #   docker compose --profile dev up -d postgres-dev
+  postgres-dev:
+    profiles: ["dev"]
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: processiq
+      POSTGRES_USER: processiq
+      POSTGRES_PASSWORD: processiq
+    ports:
+      - "5440:5432"
+    volumes:
+      - postgres_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U processiq -d processiq"]
+      interval: 5s
+      retries: 10
+
 volumes:
   caddy_datos:
   caddy_config:
+  postgres_datos:
+  postgres_dev:

@@ -130,9 +130,9 @@ Hasta que se contraten el PaaS y la base de datos gestionada, la plataforma corr
 | Dominio | `mbc.asissoft.com`, configurable en `.env` (`DOMINIO`) | `procesos.mbc-latam.com` en el corte (fase 3) |
 | Web | Caddy sirve el build estático | La sirve el servicio web |
 | IA | Intermediario Node propio con el contrato del Worker (`/ia/v1/messages`); la clave vive en `.env` | Endpoints de negocio en la API (fase 2) |
-| Datos | Ninguno en el servidor: cada consultor guarda en su navegador, como en el MVP | Postgres (fase 2) |
-| Base de datos (fase 2) | **Postgres en Docker** en el mismo PC, con volumen y copias programadas | Supabase o Postgres gestionado |
-| Copias de seguridad | Solo certificados (volumen de Caddy) | PITR del proveedor |
+| Datos | **Postgres 17 en Docker** en el mismo PC (volumen). Sin sesión, el editor sigue guardando en el navegador, como en el MVP | Supabase o Postgres gestionado |
+| Identidad | **Cuentas locales** (correo y contraseña, scrypt) creadas por un administrador | Entra ID cuando TI registre la aplicación |
+| Copias de seguridad | `pg_dump` diario a una carpeta del PC (14 copias), que hay que copiar fuera del equipo | PITR del proveedor |
 | Entornos | Local de cada desarrollador + este servidor | Vista previa por PR, staging y producción |
 
 Límites que asume esta etapa:
@@ -448,6 +448,19 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
 - Catálogos administrables, auditoría, observabilidad y staging.
 
 *Salida:* un proyecto piloto completo en staging con usuarios reales.
+
+**Estado (25-sep-2026): en curso, por incrementos.**
+
+- **2.1, hecho.**
+  - Paquete `db` (Drizzle, migraciones SQL) y `apps/api` (Hono).
+  - Cuentas locales con contraseña temporal y cambio obligatorio.
+  - Proyectos con miembros y roles; procesos; revisiones numeradas con detección de conflicto y el ciclo borrador → en revisión → aprobada.
+  - Auditoría y copias de seguridad diarias.
+  - 22 pruebas de integración contra Postgres real, también en la CI.
+  - Entra ID queda sustituido por cuentas locales hasta que TI registre la aplicación: la sesión no cambia, solo cómo se obtiene.
+- **2.2:** en la web, pantallas de acceso, proyectos y usuarios, y "Guardar revisión" / "Abrir desde proyecto" en el editor.
+- **2.3:** IA como jobs con endpoints de negocio, progreso y registro de coste.
+- **2.4:** catálogos administrables, fuentes y almacén, observabilidad y staging.
 
 ### Fase 3 — Corte a producción
 
