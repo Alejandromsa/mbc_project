@@ -66,10 +66,12 @@ pnpm e2e             # plataforma de punta a punta: acceso, proyectos, editor, r
 
 ## Despliegue en el servidor
 
+Producción (`https://mbc.asissoft.com`) y staging (`https://staging.mbc.asissoft.com`) corren en el mismo servidor. Cada versión pasa primero por staging y se promueve la misma imagen:
+
 ```bash
-cp .env.example .env   # completar DOMINIO, POSTGRES_PASSWORD, ANTHROPIC_API_KEY, ACCESS_CODE
-docker compose up -d --build
-docker compose exec api node dist/cli.js crear-usuario --email correo@dominio --nombre "Nombre" --rol admin
+git switch main && git pull
+infra/desplegar.sh staging        # construye el commit y lo levanta en staging
+infra/desplegar.sh produccion     # la misma imagen a producción (revertir: produccion <version>)
 ```
 
-El dominio se cambia solo en `.env`. Usuarios, copias de seguridad y restauración: ver el runbook.
+Primera instalación, usuarios, copias y restauración: [docs/runbooks/servidor-local.md](docs/runbooks/servidor-local.md). Despliegue y reversión: [docs/runbooks/despliegue.md](docs/runbooks/despliegue.md). Cambios por versión: [CHANGELOG.md](CHANGELOG.md).

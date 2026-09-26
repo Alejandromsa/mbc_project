@@ -463,7 +463,11 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
 
 *Salida:* un proyecto piloto completo en staging con usuarios reales.
 
-**Estado (25-sep-2026): en curso, por incrementos.**
+**Estado (26-sep-2026): completada**, en producción y staging en el servidor propio. Salvo:
+- **Entra ID:** sustituido temporalmente por cuentas locales (ADR 12), a la espera del registro de TI.
+- **Fuentes y almacén:** bloqueado por la política de datos con Legal.
+
+Por incrementos:
 
 - **2.1, hecho.**
   - Paquete `db` (Drizzle, migraciones SQL) y `apps/api` (Hono).

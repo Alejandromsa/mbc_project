@@ -107,6 +107,8 @@ Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consul
 | Dominio | `mbc.asissoft.com`: registro A → <IP-PUBLICA>, **solo DNS** (sin proxy), creado el 25-sep-2026 |
 | DNS | `asissoft.com` está **registrado en name.com**, pero su zona la sirve **Cloudflare** (nameservers `aspen`/`roan.ns.cloudflare.com`; la movió otro proyecto). Los registros se crean en Cloudflare, no en name.com. No devolver los nameservers a name.com: dependen de ellos `portal.asissoft.com` y el correo |
 | Certificado | Let's Encrypt, emitido por Caddy el 25-sep-2026; se renueva solo |
+| Staging | `staging.mbc.asissoft.com`: registro A solo DNS creado el 26-sep-2026; su certificado lo pide y renueva el Caddy de producción ([despliegue.md](despliegue.md)) |
+| Versión desplegada | `infra/desplegar.sh versiones` (primera promoción: `40f0bd53`, 26-sep-2026) |
 | Puerto 80 | Ocupado por IIS (W3SVC): por eso no hay redirección HTTP → HTTPS |
 | Carpeta del repositorio | `C:\Users\usuario\processiq` |
 
