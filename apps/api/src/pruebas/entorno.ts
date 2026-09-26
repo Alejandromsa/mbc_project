@@ -42,7 +42,7 @@ export async function prepararBase(): Promise<Conexion> {
 }
 
 export async function vaciar(): Promise<void> {
-  await conexion.pool.query('truncate organizaciones, usuarios, sesiones, proyectos, miembros_proyecto, procesos, revisiones, ejecuciones_ia, kpis, verbos_playbook, temas_pptx, auditoria restart identity cascade');
+  await conexion.pool.query('truncate organizaciones, usuarios, sesiones, proyectos, miembros_proyecto, procesos, revisiones, ejecuciones_ia, kpis, verbos_playbook, temas_pptx, errores, latidos, auditoria restart identity cascade');
 }
 
 export async function cerrarBase(): Promise<void> {

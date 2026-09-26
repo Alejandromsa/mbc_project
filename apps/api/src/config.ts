@@ -26,6 +26,10 @@ export interface Config {
   /** Ruta de las migraciones SQL (en la imagen Docker van junto al bundle). */
   carpetaMigraciones?: string;
   ia: ConfigIaServidor;
+  /** Versión desplegada (la pone la imagen Docker); «desarrollo» si no. */
+  version?: string;
+  /** Carpeta de las copias de seguridad, montada en solo lectura (pantalla «Sistema»). */
+  carpetaRespaldos?: string;
 }
 
 const numero = (valor: string | undefined, porDefecto: number, nombre: string) => {
@@ -63,7 +67,9 @@ export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
     puerto: Number(env.PORT ?? 8080),
     horasSesion: Number(env.HORAS_SESION ?? 12),
     carpetaMigraciones: env.CARPETA_MIGRACIONES || undefined,
-    ia: leerConfigIa(env)
+    ia: leerConfigIa(env),
+    version: (env.PROCESSIQ_VERSION ?? '').trim() || 'desarrollo',
+    carpetaRespaldos: (env.CARPETA_RESPALDOS_LECTURA ?? '').trim() || undefined
   };
 }
 

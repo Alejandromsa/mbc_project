@@ -11,7 +11,9 @@ RUN pnpm install --offline --frozen-lockfile --filter "@processiq/api..." \
  && pnpm --filter @processiq/api build
 
 FROM node:22-alpine
-ENV NODE_ENV=production PORT=8080 CARPETA_MIGRACIONES=/app/dist/migraciones
+# Versión desplegada (commit): la muestra la pantalla «Sistema»
+ARG VERSION=local
+ENV NODE_ENV=production PORT=8080 CARPETA_MIGRACIONES=/app/dist/migraciones PROCESSIQ_VERSION=$VERSION
 WORKDIR /app
 COPY --from=build /repo/apps/api/dist ./dist
 USER node

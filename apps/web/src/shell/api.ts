@@ -73,6 +73,25 @@ export interface DefinicionTema {
 }
 export interface TemaAdmin { id: string; clave: string; nombre: string; definicion: DefinicionTema; activo: boolean; actualizadoEn: string }
 
+export interface EstadoSistema {
+  version: string;
+  api: { arrancadaEn: string; segundosActiva: number; node: string };
+  baseDeDatos: { latenciaMs: number; tamanoBytes: number; migraciones: number };
+  worker: { ultimoLatido: string | null; segundosSinLatido: number | null; vivo: boolean; detalle: Record<string, unknown> | null };
+  ia: { configurada: boolean; enCola: number; ejecutando: number; fallidas24h: number; completadas24h: number };
+  respaldos: { visible: false } | {
+    visible: true; cantidad: number; ultimo: { archivo: string; bytes: number; fecha: string } | null;
+    horasDesdeUltimo: number | null; disco: { libreBytes: number; totalBytes: number } | null;
+  };
+  errores: { ultimas24h: number; ultimaHora: number; grupos: GrupoError[] };
+  avisos: { nivel: 'atencion' | 'error'; texto: string }[];
+}
+export interface GrupoError { huella: string; origen: string; mensaje: string; veces: number; ultima: string; ruta: string | null; pila: string | null }
+export interface RepeticionError {
+  id: number; origen: string; mensaje: string; pila: string | null; ruta: string | null; agente: string | null;
+  detalle: Record<string, unknown>; creadoEn: string; usuario: string | null;
+}
+
 export class ErrorApi extends Error {
   readonly estado: number;
   readonly codigo: string | undefined;
@@ -169,6 +188,10 @@ export const api = {
   crearTema: (clave: string, definicion: DefinicionTema) => pedir<{ tema: TemaAdmin }>('POST', '/catalogos/temas', { clave, definicion }),
   cambiarTema: (id: string, cambios: { definicion?: DefinicionTema; activo?: boolean }) => pedir<{ tema: TemaAdmin }>('PATCH', `/catalogos/temas/${q(id)}`, cambios),
   borrarTema: (id: string) => pedir<void>('DELETE', `/catalogos/temas/${q(id)}`),
+
+  // Estado del sistema (administradores)
+  sistema: () => pedir<EstadoSistema>('GET', '/sistema'),
+  repeticionesError: (huella: string) => pedir<{ repeticiones: RepeticionError[] }>('GET', `/sistema/errores/${q(huella)}`),
 
   // Administración
   usuarios: () => pedir<{ usuarios: UsuarioAdmin[] }>('GET', '/usuarios'),

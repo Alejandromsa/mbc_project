@@ -15,6 +15,7 @@
 import { CLAVES_EFIMERAS, migrarProyecto } from '@processiq/dominio';
 import { api, ErrorApi } from '../../shell/api';
 import { ESTADOS, ROLES_PROYECTO, fecha } from '../../shell/formato';
+import { capturarErrores } from '../../shell/observabilidad';
 import { puede } from '../../shell/permisos';
 import { alCambiar } from '../cambios.js';
 import { $ } from '../dom.js';
@@ -56,6 +57,7 @@ if (pedidoRevision || pedidoProceso) {
   // inicio.js registra su arranque antes que este módulo: abrir() corre después.
   try { localStorage.removeItem(CLAVE_ABRIENDO); } catch { /* sin almacenamiento */ }
   usarClaveAlmacen(CLAVE_ABRIENDO);
+  capturarErrores('editor');   // en modo proyecto, los errores llegan a la pantalla «Sistema»
   document.addEventListener('DOMContentLoaded', () => { abrir(); });
 }
 

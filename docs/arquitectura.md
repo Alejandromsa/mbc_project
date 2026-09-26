@@ -493,10 +493,18 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
   - Pantalla «Catálogos» para administradores. Los temas se crean duplicando MBC o BBVA y se editan colores, tipografías, logotipos y carátula.
   - En un proceso de proyecto, el editor reemplaza en sitio los catálogos por defecto de `dominio` y `exportar`, así que editor, linter y PPTX los usan sin cambios. El editor libre sigue con los de fábrica.
   - Las plantillas de proceso quedan para más adelante.
-- **2.4b, siguiente:** observabilidad sin servicios en la nube.
-  - Errores de API y web registrados en la base.
-  - Pantalla de estado: servicios, cola de IA, copias de seguridad y errores recientes.
-  - Sentry queda descartado por ahora: es un servicio en la nube y no hay presupuesto.
+- **2.4b, hecho: observabilidad sin servicios en la nube.**
+  - Los errores inesperados de la API, la web, el editor (solo en modo proyecto) y el worker se guardan en la tabla `errores`.
+    - Se agrupan por huella y se purgan a los 30 días.
+    - Los de la API devuelven una referencia (`X-Request-Id`) que el usuario puede citar.
+  - El worker deja su latido en la tabla `latidos`.
+  - Pantalla «Sistema» para administradores, con avisos automáticos (punto rojo en el menú):
+    - estado de la API y de la base de datos;
+    - worker y cola de IA;
+    - copias de seguridad y disco;
+    - errores agrupados.
+  - Rotación de los logs de Docker.
+  - Sentry queda descartado por ahora: es un servicio en la nube y no hay presupuesto. Las alertas por correo necesitan un servidor de correo.
 - **2.4c:** staging en el mismo servidor, con un subdominio propio y promoción de la misma imagen.
 - **Fuentes y almacén: bloqueado** por la decisión pendiente con Legal sobre qué documentos del cliente se guardan y durante cuánto tiempo (§15). Mientras tanto se aplica el ADR 9: los originales no salen del navegador.
 

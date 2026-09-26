@@ -202,3 +202,31 @@ export const temasPptx = pgTable('temas_pptx', {
   creadoEn: creado(),
   actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow()
 }, (t) => [unique('temas_pptx_org_clave_uq').on(t.organizacionId, t.clave)]);
+
+// ------------------------------------------------------------- observabilidad
+// Sin servicios externos (fase 2.4b): los errores y los latidos quedan en la
+// base y los ve el administrador en la pantalla «Sistema».
+
+export const origenError = pgEnum('origen_error', ['api', 'web', 'editor', 'worker']);
+
+/** Errores inesperados de API, web, editor y worker. `huella` agrupa las repeticiones. Se purgan a los 30 días. */
+export const errores = pgTable('errores', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  origen: origenError('origen').notNull(),
+  mensaje: text('mensaje').notNull(),
+  pila: text('pila'),
+  /** Ruta de la API («POST /api/…») o URL de la página. */
+  ruta: text('ruta'),
+  huella: text('huella').notNull(),
+  usuarioId: uuid('usuario_id'),
+  agente: text('agente'),
+  detalle: jsonb('detalle').notNull().default(sql`'{}'::jsonb`),
+  creadoEn: creado()
+}, (t) => [index('errores_creado_idx').on(t.creadoEn), index('errores_huella_idx').on(t.huella)]);
+
+/** Último latido de cada servicio sin HTTP (el worker): si se detiene, la pantalla «Sistema» lo avisa. */
+export const latidos = pgTable('latidos', {
+  servicio: text('servicio').primaryKey(),
+  detalle: jsonb('detalle').notNull().default(sql`'{}'::jsonb`),
+  en: timestamp('en', { withTimezone: true }).notNull().defaultNow()
+});

@@ -76,6 +76,12 @@ infra/               Caddyfile y Dockerfiles
   - Se siembran con los del MVP (`asegurarCatalogos`).
   - En modo proyecto el editor **reemplaza en sitio** `KPI_LIBRARY`, `VERBS_ALLOWED`, `VERBS_FORBIDDEN` y `TEMAS_PPTX`. Así editor (`window.*`), linter y PPTX los usan por referencia sin tocar el código portado.
   - Los temas de cliente añaden su botón al menú Exportar.
+- Observabilidad (fase 2.4b; `apps/api/src/observabilidad.ts`, `rutas/sistema.ts`, `apps/web/src/shell/observabilidad.ts`):
+  - Los errores 500 de la API se registran en la tabla `errores` (la respuesta lleva la referencia `X-Request-Id`); los 4xx no se registran.
+  - La web informa a `POST /api/errores`: el shell siempre, el editor solo en modo proyecto.
+  - El worker registra sus errores y da su latido (`latidos`).
+  - `GET /api/sistema` junta todo y calcula los avisos.
+  - No hay servicios externos de monitorización.
 - API (`apps/api`):
   - Sesión por cookie `piq_sesion` (httpOnly; en la base solo se guarda el hash del token). Las escrituras exigen `Origin` igual a `ORIGEN_PUBLICO` (CSRF). Con contraseña temporal solo se permite cambiarla.
   - Permisos en `permisos.ts`: rol de organización (`admin`/`consultor`/`lector`) y rol por proyecto (`propietario`/`editor`/`revisor`/`lector`). Un proyecto sin acceso devuelve 404, no 403.

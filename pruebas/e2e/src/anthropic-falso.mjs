@@ -56,7 +56,7 @@ const worker = spawn('pnpm --filter @processiq/api exec tsx src/worker.ts', {
   stdio: 'inherit',
   env: {
     ...process.env, DATABASE_URL: URL_BASE_DATOS, ANTHROPIC_API_KEY: 'sk-ant-e2e',
-    ANTHROPIC_BASE_URL: `http://127.0.0.1:${PUERTO_ANTHROPIC}`, IA_CONCURRENCIA: '2'
+    ANTHROPIC_BASE_URL: `http://127.0.0.1:${PUERTO_ANTHROPIC}`, IA_CONCURRENCIA: '2', LATIDO_SEGUNDOS: '3'
   }
 });
 const parar = () => { worker.kill(); process.exit(0); };

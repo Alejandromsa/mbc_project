@@ -23,6 +23,8 @@ export interface Entorno {
     sesionId: string;
     ip: string;
     escucha: Escucha | undefined;
+    /** Identificador corto de la petición (cabecera X-Request-Id y referencia de los errores 500). */
+    peticionId: string;
   };
 }
 

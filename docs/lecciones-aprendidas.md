@@ -96,6 +96,12 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
     - La fila de imágenes se salía por la derecha: un `<fieldset>` tiene por defecto un ancho mínimo igual al de su contenido, y los `input type=file` no encogen en una rejilla `1fr`.
     → **Regla:** una variante de un componente se escribe con los dos selectores (`.dialogo.dialogo-ancho`). En rejillas con campos, usar `minmax(0, 1fr)`, y poner `min-width: 0` a los `fieldset`.
 
+22c. **Editar YAML con un regex genérico metió una línea donde no tocaba.** Para añadir `logging:` a cada servicio del compose usé `^  ([a-z-]+):$`, que también coincidió con `options:` dentro del ancla `x-registro`. Los volúmenes se salvaron solo porque llevan `_`.
+    → **Regla:** después de editar el compose con un script, `docker compose config --quiet` y revisar las líneas tocadas. Mejor aún: reemplazos exactos de bloques conocidos.
+
+22d. **Hono no admite rutas nuevas después de la primera petición** («Can not add a route since the matcher is already built»).
+    → **Regla:** en las pruebas, las rutas auxiliares (p. ej. una que falla a propósito) se añaden a la app antes de iniciar sesión o de hacer cualquier petición.
+
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 
