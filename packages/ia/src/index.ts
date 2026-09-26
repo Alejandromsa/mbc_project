@@ -7,6 +7,10 @@ export {
 } from './costes.js';
 export { llamarClaude, extraerJson, type ConfigIa, type UsoIa, type OpcionesLlamada, type Entorno } from './cliente.js';
 export {
+  EspecGeneracionEsquema, MAX_CHARS_REPARACION, PROMPT_REPARACION, clasificarErrorIa, promptReparacion, validarEspecGeneracion,
+  type EspecGeneracion
+} from './especificacion.js';
+export {
   promptGeneracion, timeoutGeneracion, resumenProcesoParaIa, promptTarea, combinarFuentes, interpretarPains,
   type OpcionesGeneracion, type ProcesoParaIa, type Fuente, type PainIa, type HipotesisSector, type PainsInterpretados
 } from './construccion.js';

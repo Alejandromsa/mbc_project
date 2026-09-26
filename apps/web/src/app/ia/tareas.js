@@ -4,6 +4,7 @@ import { copilotPost } from '../copiloto/copiloto.js';
 import { state } from '../estado.js';
 import { callClaude } from './motor.js';
 import { processDigestForAi } from './pains.js';
+import { iaRemota } from './remota.js';
 
 // ============================================================
 // COPILOTO REAL — enruta las acciones analiticas al API de Anthropic
@@ -20,9 +21,13 @@ async function runAiTask(kind) {
   if (state.nodes.length === 0) { alert('No hay proceso que analizar.'); return true; }
   copilotPost('ai', '_' + t.etiqueta + ': analizando el proceso con IA…_');
   try {
-    const md = await callClaude(
-      promptTarea(t.prompt, processDigestForAi()),
-      { system: AI_ROLE, effort: 'high', maxTokens: 8000 });
+    // Proceso de un proyecto: el análisis lo hace el servidor con el proceso actual
+    const remota = iaRemota();
+    const md = remota
+      ? (await remota.analizar(kind)).markdown
+      : await callClaude(
+        promptTarea(t.prompt, processDigestForAi()),
+        { system: AI_ROLE, effort: 'high', maxTokens: 8000 });
     copilotPost('ai', md);
   } catch (e) {
     copilotPost('ai', '**No se pudo completar el analisis:** ' + e.message +

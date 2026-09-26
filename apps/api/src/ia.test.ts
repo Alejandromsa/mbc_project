@@ -1,0 +1,249 @@
+// IA en el servidor: API + cola + worker contra Postgres real, con un fetch
+// falso que imita el streaming de Anthropic (sin red ni gasto).
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { eq, sql } from 'drizzle-orm';
+import { ejecucionesIa, type Conexion } from '@processiq/db';
+import { PROMPT_GENERACION, PROMPT_REPARACION, ROL_ANALISTA, usd } from '@processiq/ia';
+import { reencolarHuerfanas, tomarSiguiente } from './ia/cola.js';
+import { ejecutar } from './ia/ejecutar.js';
+import { cerrarBase, cliente, config, prepararBase, usuario, vaciar } from './pruebas/entorno.js';
+
+const EXPORT_MVP = JSON.parse(readFileSync(join(import.meta.dirname, '../../../packages/dominio/src/__fixtures__/mvp-3.8.9-siniestros.json'), 'utf8'));
+const SPEC = {
+  meta: { name: 'Atención de reclamos' },
+  nodes: [
+    { k: 'a1', type: 'start', label: 'Llega el reclamo' },
+    { k: 'a2', type: 'task', label: 'Registrar el reclamo', owner: 'Mesa de ayuda' },
+    { k: 'a3', type: 'end', label: 'Reclamo atendido' }
+  ],
+  edges: [{ from: 'a1', to: 'a2' }, { from: 'a2', to: 'a3' }]
+};
+const TEXTO = 'El cliente llama a la mesa de ayuda, que registra el reclamo y lo deriva al área responsable.';
+
+let conexion: Conexion;
+beforeAll(async () => { conexion = await prepararBase(); });
+afterAll(cerrarBase);
+beforeEach(vaciar);
+
+// ------------------------------------------------------------ Anthropic falso
+const sse = (eventos: object[]) => eventos.map((e: any) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join('');
+function respuestaClaude(texto: string, { entrada = 1000, salida = 500, modelo = 'claude-opus-5' } = {}) {
+  return new Response(sse([
+    { type: 'message_start', message: { model: modelo, usage: { input_tokens: entrada } } },
+    { type: 'content_block_delta', delta: { type: 'text_delta', text: texto } },
+    { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: salida } }
+  ]), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+}
+type Fabrica = (init: RequestInit) => Response;
+function fetchFalso(...respuestas: Fabrica[]) {
+  let i = 0;
+  return vi.fn(async (_url: string, init: RequestInit) => respuestas[Math.min(i++, respuestas.length - 1)]!(init));
+}
+const cuerpoDe = (f: ReturnType<typeof fetchFalso>, n = 0) => JSON.parse(String((f.mock.calls[n]![1] as RequestInit).body));
+
+const dependencias = (f: ReturnType<typeof fetchFalso>) => ({
+  db: conexion.db, claveAnthropic: 'sk-ant-prueba', fetch: f as unknown as typeof fetch,
+  esperar: async () => {}, intervaloVigilanciaMs: 20
+});
+async function procesarCola(f: ReturnType<typeof fetchFalso>) {
+  const e = await tomarSiguiente(conexion.db);
+  expect(e, 'había una ejecución en la cola').not.toBeNull();
+  await ejecutar(dependencias(f), e!);
+  return e!;
+}
+const fila = async (id: string) => (await conexion.db.select().from(ejecucionesIa).where(eq(ejecucionesIa.id, id)))[0]!;
+
+// ------------------------------------------------------------ equipo de prueba
+async function equipo() {
+  const u = {
+    admin: await usuario('admin@mbc.pe', 'admin'),
+    ana: await usuario('ana@mbc.pe'),       // propietaria
+    rosa: await usuario('rosa@mbc.pe')      // revisora: no escribe, no gasta IA
+  };
+  const c = { admin: cliente(), ana: cliente(), rosa: cliente() };
+  for (const k of Object.keys(c) as (keyof typeof c)[]) await c[k].entrar(`${k}@mbc.pe`);
+  const p = (await c.ana.post('/api/proyectos', { nombre: 'Reclamos' })).json.proyecto;
+  await c.ana.put(`/api/proyectos/${p.id}/miembros/${u.rosa.id}`, { rol: 'revisor' });
+  const proceso = (await c.ana.post(`/api/proyectos/${p.id}/procesos`, { nombre: 'Atención de reclamos' })).json.proceso;
+  const generar = (quien = c.ana, extra: object = {}) => quien.post('/api/ia/generaciones', {
+    procesoId: proceso.id, texto: TEXTO, etiqueta: 'texto pegado', vista: 2, modelo: 'claude-opus-5',
+    fuentes: [{ nombre: 'Texto pegado', tipo: 'texto', caracteres: TEXTO.length }], ...extra
+  });
+  return { u, c, p, proceso, generar };
+}
+
+describe('IA en el servidor', () => {
+  it('genera un proceso: encola, el worker llama a Claude, valida y guarda el resultado con su coste', async () => {
+    const { c, proceso, generar } = await equipo();
+    const r = await generar();
+    expect(r.status).toBe(202);
+    expect(r.json.ejecucion).toMatchObject({ estado: 'en_cola', tipo: 'generacion', modelo: 'claude-opus-5' });
+    expect(r.json.ejecucion.texto).toBeUndefined();
+
+    const f = fetchFalso(() => respuestaClaude(JSON.stringify(SPEC)));
+    await procesarCola(f);
+    const [url, init] = f.mock.calls[0]!;
+    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    expect((init as RequestInit).headers).toMatchObject({ 'x-api-key': 'sk-ant-prueba' });
+    const cuerpo = cuerpoDe(f);
+    expect(cuerpo.system).toBe(PROMPT_GENERACION);
+    expect(cuerpo.messages[0].content).toContain(TEXTO);
+
+    const e = (await c.ana.get(`/api/ia/ejecuciones/${r.json.ejecucion.id}`)).json.ejecucion;
+    expect(e).toMatchObject({ estado: 'completada', intentos: 1, tokensEntrada: 1000, tokensSalida: 500, error: null });
+    expect(e.costeUsd).toBeCloseTo(usd(1000, 500, 'claude-opus-5'), 6);
+    expect(e.resultado.nodes).toHaveLength(3);
+    expect((await fila(e.id)).texto).toBeNull();   // el texto de las fuentes no se conserva
+
+    // Pendiente de dibujar hasta que el editor guarde la revisión enlazada
+    expect((await c.ana.get(`/api/ia/procesos/${proceso.id}`)).json.pendientes).toHaveLength(1);
+    const rev = await c.ana.post(`/api/procesos/${proceso.id}/revisiones`, { contenido: EXPORT_MVP, mensaje: 'Generado con IA', ejecucionIaId: e.id });
+    expect(rev.status).toBe(201);
+    expect((await fila(e.id)).revisionId).toBe(rev.json.revision.id);
+    expect((await c.ana.get(`/api/ia/procesos/${proceso.id}`)).json.pendientes).toHaveLength(0);
+  });
+
+  it('reintenta lo pasajero con espera; la ejecución no se toma antes de tiempo', async () => {
+    const { c, generar } = await equipo();
+    const id = (await generar()).json.ejecucion.id;
+    const f = fetchFalso(() => new Response('{"error":{"message":"Overloaded"}}', { status: 529 }), () => respuestaClaude(JSON.stringify(SPEC)));
+    await procesarCola(f);
+    let e = await fila(id);
+    expect(e.estado).toBe('en_cola');
+    expect(e.error).toContain('reintento 2 de 3');
+    expect(e.disponibleEn.getTime()).toBeGreaterThan(Date.now());
+    expect(await tomarSiguiente(conexion.db)).toBeNull();
+
+    await conexion.db.update(ejecucionesIa).set({ disponibleEn: new Date() }).where(eq(ejecucionesIa.id, id));
+    await procesarCola(f);
+    e = await fila(id);
+    expect(e).toMatchObject({ estado: 'completada', intentos: 2, error: null });
+    expect((await c.ana.get(`/api/ia/ejecuciones/${id}`)).json.ejecucion.resultado.nodes).toHaveLength(3);
+  });
+
+  it('repara una vez una respuesta que no es JSON válido y cobra las dos llamadas', async () => {
+    const { generar } = await equipo();
+    const id = (await generar()).json.ejecucion.id;
+    const f = fetchFalso(() => respuestaClaude('Aquí tienes el proceso: { "nodes": [ roto'), () => respuestaClaude(JSON.stringify(SPEC)));
+    await procesarCola(f);
+    const e = await fila(id);
+    expect(e).toMatchObject({ estado: 'completada', tokensEntrada: 2000, tokensSalida: 1000 });
+    expect(cuerpoDe(f, 1).system).toBe(PROMPT_REPARACION);
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it('los errores definitivos no se reintentan y dejan el mensaje', async () => {
+    const { generar } = await equipo();
+    const id = (await generar()).json.ejecucion.id;
+    const f = fetchFalso(() => new Response('{}', { status: 401 }));
+    await procesarCola(f);
+    const e = await fila(id);
+    expect(e.estado).toBe('fallida');
+    expect(e.error).toContain('clave de Anthropic del servidor');
+    expect(e.texto).toBeNull();
+    expect(f).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancelar: en cola se cancela al momento; ejecutando, el worker aborta la llamada', async () => {
+    const { c, generar } = await equipo();
+    const enCola = (await generar()).json.ejecucion.id;
+    expect((await c.ana.post(`/api/ia/ejecuciones/${enCola}/cancelar`)).json.ejecucion.estado).toBe('cancelada');
+    expect(await tomarSiguiente(conexion.db)).toBeNull();
+
+    const id = (await generar()).json.ejecucion.id;
+    // Una respuesta que no termina hasta que se aborta la llamada
+    const colgada = fetchFalso((init) => new Response(new ReadableStream({
+      start(ctrl) {
+        init.signal!.addEventListener('abort', () => ctrl.error(Object.assign(new Error('abortado'), { name: 'AbortError' })));
+      }
+    }), { status: 200 }));
+    const e = await tomarSiguiente(conexion.db);
+    const enMarcha = ejecutar(dependencias(colgada), e!);
+    await vi.waitFor(() => expect(colgada).toHaveBeenCalled());
+    expect((await c.ana.post(`/api/ia/ejecuciones/${id}/cancelar`)).status).toBe(200);
+    await enMarcha;
+    expect((await fila(id)).estado).toBe('cancelada');
+  });
+
+  it('permisos, modelo permitido, IA sin configurar, proyecto archivado y presupuesto', async () => {
+    const { u, c, p, proceso, generar } = await equipo();
+    expect((await generar(c.rosa)).json.error.codigo).toBe('PERMISO');
+    expect((await generar(c.ana, { modelo: 'claude-haiku-4-5' })).json.error.codigo).toBe('MODELO');
+
+    const sinClave = cliente({ ...config, ia: { ...config.ia, configurada: false } });
+    await sinClave.entrar('ana@mbc.pe');
+    expect((await generar(sinClave)).json.error.codigo).toBe('IA_NO_CONFIGURADA');
+
+    // Gasto previo del mes: la organización llega a su presupuesto (US$ 100)
+    const gasto = (usuarioId: string, costeUsd: number) => conexion.db.insert(ejecucionesIa).values({
+      organizacionId: u.ana.organizacionId, procesoId: proceso.id, usuarioId, tipo: 'generacion', modelo: 'claude-opus-5',
+      estado: 'completada', costeUsd
+    });
+    await gasto(u.ana.id, 25);
+    expect((await generar()).json.error.codigo).toBe('LIMITE_USUARIO');
+    expect((await generar(c.admin)).status).toBe(202);
+    await gasto(u.admin.id, 80);
+    expect((await generar(c.admin)).json.error.codigo).toBe('PRESUPUESTO');
+    const estado = (await c.admin.get('/api/ia/estado')).json;
+    expect(estado).toMatchObject({ configurada: true, presupuesto: { mensualUsd: 100, gastadoUsd: 105 } });
+    expect(estado.modelos.map((m: any) => m.id)).toEqual(['claude-opus-5', 'claude-sonnet-5']);
+
+    await c.ana.patch(`/api/proyectos/${p.id}`, { archivado: true });
+    expect((await generar(c.admin)).json.error.codigo).toBe('ARCHIVADO');
+  });
+
+  it('análisis: tareas del copiloto y pains, con el modelo de análisis y el proceso que envía el editor', async () => {
+    const { c, proceso } = await equipo();
+    const tarea = await c.ana.post('/api/ia/analisis', { procesoId: proceso.id, tipo: 'suggest-kpis', contenido: EXPORT_MVP });
+    expect(tarea.status).toBe(202);
+    const f = fetchFalso(() => respuestaClaude('## KPIs sugeridos\n- Tiempo de ciclo', { modelo: 'claude-sonnet-5' }));
+    await procesarCola(f);
+    expect(cuerpoDe(f)).toMatchObject({ model: 'claude-sonnet-5', system: ROL_ANALISTA });
+    expect(cuerpoDe(f).messages[0].content).toContain('=== PROCESO A ANALIZAR ===');
+    expect((await fila(tarea.json.ejecucion.id)).resultado).toEqual({ markdown: '## KPIs sugeridos\n- Tiempo de ciclo' });
+
+    const pains = await c.ana.post('/api/ia/analisis', { procesoId: proceso.id, tipo: 'pains', contenido: EXPORT_MVP });
+    await procesarCola(fetchFalso(() => respuestaClaude('{"detectados":[],"sectoriales":[{"titulo":"Fraude"}]}')));
+    expect((await fila(pains.json.ejecucion.id)).resultado).toEqual({ datos: { detectados: [], sectoriales: [{ titulo: 'Fraude' }] } });
+
+    expect((await c.ana.post('/api/ia/analisis', { procesoId: proceso.id, tipo: 'inventada', contenido: EXPORT_MVP })).status).toBe(400);
+  });
+
+  it('el progreso se sigue por SSE hasta el estado final, con el resultado en el último evento', async () => {
+    const { c, generar } = await equipo();
+    const id = (await generar()).json.ejecucion.id;
+    const res = await c.ana.app.request(`/api/ia/ejecuciones/${id}/eventos`, { headers: { cookie: c.ana.cookie } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+    const texto = res.text();   // termina cuando el servidor cierra el stream (estado final)
+    await new Promise((r) => setTimeout(r, 120));
+    await procesarCola(fetchFalso(() => respuestaClaude(JSON.stringify(SPEC))));
+    const cuerpo = await texto;
+    const estados = [...cuerpo.matchAll(/"estado":"(\w+)"/g)].map((m) => m[1]);
+    expect(estados[0]).toBe('en_cola');
+    expect(estados.at(-1)).toBe('completada');
+    expect(cuerpo.split('event: estado').at(-1)).toContain('"nodes"');   // el resultado va en el último
+  });
+
+  it('consumo del mes por persona (solo administradores)', async () => {
+    const { c, generar } = await equipo();
+    await generar();
+    await procesarCola(fetchFalso(() => respuestaClaude(JSON.stringify(SPEC))));
+    const r = (await c.admin.get('/api/ia/consumo')).json;
+    expect(r.mes.gastadoUsd).toBeCloseTo(usd(1000, 500, 'claude-opus-5'), 6);
+    expect(r.porUsuario).toMatchObject([{ email: 'ana@mbc.pe', ejecuciones: 1 }]);
+    expect(r.recientes).toHaveLength(1);
+    expect((await c.ana.get('/api/ia/consumo')).status).toBe(403);
+  });
+
+  it('una ejecución sin latido (worker caído) vuelve a la cola sin contar el intento', async () => {
+    const { generar } = await equipo();
+    const id = (await generar()).json.ejecucion.id;
+    await tomarSiguiente(conexion.db);
+    await conexion.db.update(ejecucionesIa).set({ actualizadoEn: sql`now() - interval '10 minutes'` as unknown as Date }).where(eq(ejecucionesIa.id, id));
+    expect(await reencolarHuerfanas(conexion.db)).toBe(1);
+    expect(await fila(id)).toMatchObject({ estado: 'en_cola', intentos: 0 });
+  });
+});

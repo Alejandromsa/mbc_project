@@ -35,11 +35,36 @@ services:
       DATABASE_URL: postgres://processiq:${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}@postgres:5432/processiq
       ORIGEN_PUBLICO: ${ORIGEN_PUBLICO:-https://${DOMINIO}}
       HORAS_SESION: ${HORAS_SESION:-12}
+      # La API no llama a Anthropic (lo hace el worker): solo informa si hay clave y aplica los topes
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      PRESUPUESTO_IA_MENSUAL_USD: ${PRESUPUESTO_IA_MENSUAL_USD:-100}
+      LIMITE_IA_USUARIO_MENSUAL_USD: ${LIMITE_IA_USUARIO_MENSUAL_USD:-25}
+      MODELOS_IA_PERMITIDOS: ${MODELOS_IA_PERMITIDOS:-claude-opus-5,claude-sonnet-5}
+      MODELO_IA_ANALISIS: ${MODELO_IA_ANALISIS:-claude-sonnet-5}
     depends_on:
       postgres:
         condition: service_healthy
     expose:
       - "8080"
+
+  # Worker de IA (fase 2.3): ejecuta la cola de ejecuciones_ia (generaciones y
+  # análisis). Misma imagen que la API; arranca cuando la API ya migró la base.
+  worker:
+    image: processiq/api:local
+    restart: unless-stopped
+    command: ["node", "--enable-source-maps", "dist/worker.js"]
+    environment:
+      DATABASE_URL: postgres://processiq:${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}@postgres:5432/processiq
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      IA_CONCURRENCIA: ${IA_CONCURRENCIA:-2}
+      PULSE_URL: ${PULSE_URL:-}
+      PULSE_TOKEN: ${PULSE_TOKEN:-}
+    # Sin servidor HTTP: no hereda el healthcheck de la API
+    healthcheck:
+      disable: true
+    depends_on:
+      api:
+        condition: service_healthy
 
   postgres:
     image: postgres:17-alpine

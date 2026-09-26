@@ -1,6 +1,7 @@
 // Tipos compartidos por las rutas: el usuario de la sesión y errores HTTP.
 import type { BaseDeDatos } from '@processiq/db';
 import type { Config } from './config.js';
+import type { Escucha } from './ia/avisos.js';
 
 export type RolOrganizacion = 'admin' | 'consultor' | 'lector';
 export type RolProyecto = 'propietario' | 'editor' | 'revisor' | 'lector';
@@ -21,6 +22,7 @@ export interface Entorno {
     usuario: UsuarioSesion;
     sesionId: string;
     ip: string;
+    escucha: Escucha | undefined;
   };
 }
 

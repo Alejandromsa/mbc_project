@@ -158,7 +158,7 @@ Operación diaria, puesta en marcha y cambio de dominio: `docs/runbooks/servidor
 | Editor | Motor propio en TypeScript sobre SVG (portado de `app.js`) | Es el diferencial; React solo lo monta |
 | API | Hono sobre Node | Ligera y portable a cualquier runtime |
 | Base de datos | Drizzle ORM + migraciones versionadas | SQL explícito, tipos generados |
-| Jobs | pg-boss | Cola sobre Postgres: reintentos, programación, sin Redis |
+| Jobs | Cola sobre Postgres (tabla de ejecuciones con `SKIP LOCKED`) | Reintentos, cancelación y latido, sin Redis ni dependencias nuevas |
 | Progreso en vivo | SSE + `LISTEN/NOTIFY` de Postgres | Sin broker adicional |
 | Autenticación | OIDC con Entra ID (`openid-client`), cookie de sesión `httpOnly` | Cuentas corporativas; sesiones en Postgres |
 | IA | `@anthropic-ai/sdk` | Streaming, salida estructurada, caché de prompts |
@@ -317,6 +317,20 @@ La generación ya no depende de que el navegador mantenga abierta la conexión:
 
 **Reintentos:** automáticos con espera creciente ante cortes de red, 429 o sobrecarga. La cancelación marca el job y el worker aborta la llamada. Esto resuelve de raíz los cortes y tiempos de espera reportados en v3.8.9.
 
+**Cómo quedó implementado (fase 2.3):**
+- **La cola es la tabla `ejecuciones_ia`.**
+  - El worker toma las filas `en_cola` con `FOR UPDATE SKIP LOCKED`, da un latido mientras ejecuta y reencola las que se quedan sin latido.
+  - Los avisos van por `LISTEN/NOTIFY`: `ia_cola` despierta al worker e `ia_ejecucion` alimenta el SSE.
+  - Se cumple el ADR 4 (Postgres como cola, sin Redis) sin añadir pg-boss: la ejecución ya es el trabajo y hay una pieza menos.
+- **Resultado de una generación.**
+  - El worker guarda la especificación del proceso ya validada, y el editor la dibuja con el mismo código que el MVP (`buildProcessFromAiSpec` + auto-layout) y la guarda sola como revisión enlazada a la ejecución.
+  - Si la pestaña se cerró, el editor ofrece dibujarla al volver a abrir el proceso.
+  - Llevar el dibujo al servidor queda para cuando el auto-layout viva entero en `packages/motor`.
+- **Reintentos:** hasta 3 intentos, con esperas de 15 s y 60 s. Una sola reparación del JSON.
+- **Privacidad de las fuentes:** el texto de las fuentes se borra de la base al terminar; quedan el nombre y el tamaño de cada una.
+- **Topes y modelos:** presupuesto mensual por organización y límite por persona (US$, `.env`); modelos permitidos y modelo de análisis configurables.
+- **Modo básico:** el editor sin proyecto (`/`) sigue llamando a la IA como el MVP (intermediario o clave propia), así que ese modo no cambia.
+
 ### Endpoints de negocio
 
 | Endpoint | Sustituye a |
@@ -466,7 +480,14 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
   - Sin proyecto, el editor sigue igual que el MVP; lo comprueban las pruebas de fidelidad.
   - Un proyecto archivado pasa a solo lectura (tampoco se aprueba ni se cambian miembros) hasta que se reactiva.
   - 9 pruebas E2E con la web construida, la API real y Postgres, también en la CI.
-- **2.3:** IA como jobs con endpoints de negocio, progreso y registro de coste.
+- **2.3, hecho.**
+  - IA en el servidor: endpoints de negocio (`/api/ia/generaciones` y `/api/ia/analisis`), una cola en Postgres y el servicio `worker` (misma imagen que la API).
+  - El progreso llega por SSE; hay reintentos, reparación del JSON y cancelación.
+  - Coste por ejecución, con presupuesto mensual y límite por persona, y una pantalla de consumo para administradores.
+  - En modo proyecto, el editor usa la IA del servidor para generar, para los pains y para las tareas del copiloto.
+  - Pruebas:
+    - 10 de integración con un `fetch` que imita el streaming de Anthropic;
+    - 4 E2E con un Anthropic falso y el worker real.
 - **2.4:** catálogos administrables, fuentes y almacén, observabilidad y staging.
 
 ### Fase 3 — Corte a producción
@@ -495,7 +516,7 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
 | 2 | Monolito modular: un servicio web y un worker, un módulo por iniciativa | Microservicios | Varios equipos pueden trabajar en paralelo con fronteras comprobadas sin multiplicar lo que hay que operar |
 | 2b | Monorepo para todo lo que comparte el modelo de procesos; repositorio propio para productos independientes | Un repositorio por aplicación; un monorepo para todo el ecosistema | Lo que comparte dominio debe cambiar en el mismo PR; lo independiente se integra por API versionada y puede tener su propio control de acceso |
 | 3 | Contenedores Docker en PaaS (Render) | Funciones serverless; Azure | Jobs de varios minutos; portabilidad directa a Azure Container Apps cuando haya suscripción |
-| 4 | Postgres también como cola (pg-boss) y canal de eventos | Redis | Una pieza menos que operar |
+| 4 | Postgres también como cola y canal de eventos (tabla `ejecuciones_ia` con `SKIP LOCKED` + `LISTEN/NOTIFY`; pg-boss si hicieran falta colas genéricas) | Redis | Una pieza menos que operar |
 | 5 | Portar el motor de diagrama propio | Reescribirlo en React o sustituirlo por bpmn-js | Es el diferencial y ya está medido; reescribirlo arriesga meses de ajuste |
 | 6 | React solo para el shell | Todo vanilla | Proyectos, catálogos y administración son pantallas convencionales donde React ahorra trabajo |
 | 7 | IA como jobs durables en el servidor | Llamadas desde el navegador | Resistente a cortes, trazable, con prompts y clave fuera del cliente |

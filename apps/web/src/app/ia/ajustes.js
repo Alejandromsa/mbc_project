@@ -6,9 +6,18 @@ import { addFilesAsSources } from '../ingesta/fuentes.js';
 import { openModal } from '../ui/modal.js';
 import { escapeHtml } from '../util.js';
 import { AI_MODELS, PROXY_POR_DEFECTO, aiConfig, aiReady, callClaude, saveAiConfig } from './motor.js';
+import { iaRemota } from './remota.js';
 
 // ----------- Panel de Ajustes de IA (BYOK) -----------
 function openAiSettings() {
+  // En un proceso de proyecto la IA la gestiona el servidor: solo se informa
+  const remota = iaRemota();
+  if (remota) {
+    openModal('IA del proyecto', remota.htmlAjustes(), () => {});
+    // Como cada diálogo del editor, pone su propio texto (el anterior queda puesto)
+    const ok = $('#modalOk'); if (ok) ok.textContent = 'Entendido';
+    return;
+  }
   const cfg = aiConfig();
   const modo = cfg.modo || (cfg.key ? 'propia' : 'equipo');
   const esc = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
@@ -126,6 +135,14 @@ function attachAiListeners() {
 function updateAiModeHint() {
   const el = $('#ingestAiMode');
   if (!el) return;
+  const remota = iaRemota();
+  if (remota) {
+    el.innerHTML = remota.lista()
+      ? 'Se interpretará con <b>IA en el servidor</b>: reconstruye actividades, roles y decisiones, y el resultado se guarda en el proyecto.'
+      : 'La IA del servidor no está disponible ahora; se usará el <b>modo básico</b> por palabras clave.';
+    el.className = remota.lista() ? 'ingest-mode on' : 'ingest-mode';
+    return;
+  }
   if (aiReady()) {
     const m = (aiConfig().model || 'claude-opus-5').replace('claude-', '').replace('-5', ' 5');
     el.innerHTML = `Se interpretará con <b>IA (${escapeHtml(m)})</b>: reconstruye actividades, roles y decisiones.`;

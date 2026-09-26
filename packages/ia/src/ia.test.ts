@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Nodo } from '@processiq/dominio';
 import {
-  GEN_MAX_TOKENS, PROMPT_GENERACION, REGLAS_FUSION, combinarFuentes, estimarCosteGeneracion, extraerJson,
-  fmtUsd, interpretarPains, llamarClaude, promptGeneracion, resumenProcesoParaIa, timeoutGeneracion, usd
+  GEN_MAX_TOKENS, PROMPT_GENERACION, REGLAS_FUSION, clasificarErrorIa, combinarFuentes, estimarCosteGeneracion, extraerJson,
+  fmtUsd, interpretarPains, llamarClaude, promptGeneracion, resumenProcesoParaIa, timeoutGeneracion, usd, validarEspecGeneracion
 } from './index.js';
 
 // --------------------------------------------------------------- SSE falso
@@ -175,5 +175,43 @@ describe('construcción de prompts', () => {
     } }]);
     expect(r.sectoriales).toHaveLength(8);
     expect(r.siguienteId).toBe(21);
+  });
+});
+
+describe('modo servidor (worker de la API)', () => {
+  const servidor = { modo: 'servidor', key: 'sk-ant-servidor', model: 'claude-sonnet-5' };
+
+  it('va a la URL configurada con la clave, sin la cabecera de acceso directo del navegador', async () => {
+    const f = vi.fn(async () => flujo(respuestaTexto('ok')));
+    const r = await llamarClaude('p', { maxTokens: 100 }, servidor, { ...entorno(f as never), urlApi: 'http://127.0.0.1:9999/' });
+    expect(r).toBe('ok');
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('http://127.0.0.1:9999/v1/messages');
+    expect(init.headers).toEqual({ 'content-type': 'application/json', 'x-api-key': 'sk-ant-servidor', 'anthropic-version': '2023-06-01' });
+  });
+
+  it('sin clave o con clave inválida, mensajes para quien administra el servidor', async () => {
+    await expect(llamarClaude('p', {}, { modo: 'servidor' }, entorno(vi.fn() as never))).rejects.toThrow('ANTHROPIC_API_KEY');
+    const f = vi.fn(async () => new Response('{}', { status: 401 }));
+    await expect(llamarClaude('p', {}, servidor, entorno(f as never))).rejects.toThrow('clave de Anthropic del servidor');
+  });
+});
+
+describe('especificación de la generación', () => {
+  it('valida la forma mínima que dibuja el editor', () => {
+    expect(validarEspecGeneracion({ nodes: [{ k: 'a1', type: 'task', label: 'Registrar' }], edges: [{ from: 'a1', to: 'a2' }] }).ok).toBe(true);
+    const r = validarEspecGeneracion({ nodes: [] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errores[0]).toContain('no devolvió actividades');
+    expect(validarEspecGeneracion({ nodes: [{ label: 'sin k' }] }).ok).toBe(false);
+  });
+
+  it('clasifica los errores: se reintenta solo lo pasajero', () => {
+    expect(clasificarErrorIa(new Error('CANCELLED'))).toBe('cancelado');
+    expect(clasificarErrorIa(new Error('Error 529: Overloaded'))).toBe('transitorio');
+    expect(clasificarErrorIa(new Error('Límite de uso alcanzado (429). Espera unos segundos y reintenta.'))).toBe('transitorio');
+    expect(clasificarErrorIa(new Error('No se pudo conectar con Anthropic tras dos intentos.'))).toBe('transitorio');
+    expect(clasificarErrorIa(new Error('La clave de Anthropic del servidor no es válida o fue revocada (401)'))).toBe('definitivo');
+    expect(clasificarErrorIa(new Error('El modelo rechazó la solicitud por políticas de seguridad.'))).toBe('definitivo');
   });
 });

@@ -4,16 +4,36 @@ import { runSimulation } from '../analitica/simulador.js';
 import { $ } from '../dom.js';
 import { SHAPE_DEFAULTS, normalizeFicha, state } from '../estado.js';
 import { resetState } from '../historial.js';
-import { MAX_AI_CHARS } from '../ingesta/formatos.js';
+import { MAX_AI_CHARS, ingestAbort } from '../ingesta/formatos.js';
 import { sourcesList } from '../ingesta/fuentes.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { _esHito, actualizarSelectorNivel, fijarModeloCompleto } from '../layout/niveles.js';
 import { persist } from '../persistencia.js';
 import { ensureDecisionBranches } from '../proceso/operaciones.js';
-import { AI_SYSTEM, GEN_MAX_TOKENS, callClaude, parseJsonLoose, registrarCoste, usd } from './motor.js';
+import { AI_SYSTEM, GEN_MAX_TOKENS, aiConfig, callClaude, parseJsonLoose, registrarCoste, usd } from './motor.js';
+import { iaRemota } from './remota.js';
 
 async function aiBuildProcess(sourceText, sourceLabel, statusFn, opts) {
   const setStatus = statusFn || (() => {});
+  // Proceso de un proyecto: la genera el servidor (job con progreso, reintentos y coste)
+  const remota = iaRemota();
+  if (remota) {
+    const vista = (opts && opts.vista) || 2;
+    const r = await remota.generar({
+      texto: sourceText, etiqueta: sourceLabel, roles: (opts && opts.roles) || null, vista,
+      variasFuentes: sourcesList().length > 1,
+      fuentes: sourcesList().map(s => ({ nombre: s.nombre, tipo: s.tipo, caracteres: s.chars })),
+      modelo: aiConfig().model, onEstado: setStatus,
+      senal: ingestAbort ? ingestAbort.controller.signal : null
+    });
+    const coste = { fecha: new Date().toISOString(), modelo: r.modelo, nivel: vista,
+      chars: sourceText.length + AI_SYSTEM.length, entrada: r.tokensEntrada, salida: r.tokensSalida, usd: r.costeUsd };
+    registrarCoste(coste);   // calibra las estimaciones de este navegador, como en el MVP
+    state._ultimoCosteIa = coste;
+    buildProcessFromAiSpec(r.spec, sourceLabel);
+    remota.alGenerar(r.ejecucionId, sourceLabel, vista);
+    return r.spec;
+  }
   setStatus('⏳ Interpretando con IA… (puede tardar unos segundos)');
   const prompt = promptGeneracion(sourceText, sourceLabel, {
     roles: opts && opts.roles, vista: opts && opts.vista,

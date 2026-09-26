@@ -11,7 +11,10 @@ export const URL_PRUEBAS = process.env.TEST_DATABASE_URL ?? 'postgres://processi
 export const ORIGEN = 'https://mbc.prueba';
 export const CLAVE = 'una-clave-larga-2026';
 
-export const config: Config = { databaseUrl: URL_PRUEBAS, origenPublico: ORIGEN, puerto: 0, horasSesion: 12 };
+export const config: Config = {
+  databaseUrl: URL_PRUEBAS, origenPublico: ORIGEN, puerto: 0, horasSesion: 12,
+  ia: { configurada: true, modelosPermitidos: ['claude-opus-5', 'claude-sonnet-5'], modeloAnalisis: 'claude-sonnet-5', presupuestoMensualUsd: 100, limiteUsuarioMensualUsd: 25 }
+};
 
 let conexion: Conexion;
 
@@ -39,7 +42,7 @@ export async function prepararBase(): Promise<Conexion> {
 }
 
 export async function vaciar(): Promise<void> {
-  await conexion.pool.query('truncate organizaciones, usuarios, sesiones, proyectos, miembros_proyecto, procesos, revisiones, auditoria restart identity cascade');
+  await conexion.pool.query('truncate organizaciones, usuarios, sesiones, proyectos, miembros_proyecto, procesos, revisiones, ejecuciones_ia, auditoria restart identity cascade');
 }
 
 export async function cerrarBase(): Promise<void> {
@@ -61,9 +64,12 @@ export async function marcarClaveTemporal(email: string) {
 
 export type Respuesta = { status: number; json: any; headers: Headers };
 
-/** Cliente HTTP contra la app (sin red) que guarda la cookie de sesión. */
-export function cliente() {
-  const app = crearApp(conexion.db, config);
+/**
+ * Cliente HTTP contra la app (sin red) que guarda la cookie de sesión.
+ * `cfg` permite probar otra configuración (p. ej. la IA sin clave).
+ */
+export function cliente(cfg: Config = config) {
+  const app = crearApp(conexion.db, cfg, { sondeoMs: 50 });
   let cookie = '';
   const pedir = async (metodo: string, ruta: string, cuerpo?: unknown, extra: Record<string, string> = {}): Promise<Respuesta> => {
     const headers: Record<string, string> = { origin: ORIGEN, ...extra };

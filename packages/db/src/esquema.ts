@@ -3,7 +3,7 @@
 // (pnpm --filter @processiq/db generar) y se versionan en migraciones/.
 import { sql } from 'drizzle-orm';
 import {
-  bigserial, boolean, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid
+  bigserial, boolean, doublePrecision, index, integer, jsonb, pgEnum, pgTable, primaryKey, text, timestamp, unique, uuid
 } from 'drizzle-orm/pg-core';
 
 export const rolOrganizacion = pgEnum('rol_organizacion', ['admin', 'consultor', 'lector']);
@@ -102,3 +102,54 @@ export const auditoria = pgTable('auditoria', {
   ip: text('ip'),
   creadoEn: creado()
 }, (t) => [index('auditoria_entidad_idx').on(t.entidad, t.entidadId)]);
+
+export const tipoEjecucionIa = pgEnum('tipo_ejecucion_ia', ['generacion', 'pains', 'tarea']);
+export const estadoEjecucionIa = pgEnum('estado_ejecucion_ia', ['en_cola', 'ejecutando', 'completada', 'fallida', 'cancelada']);
+
+/**
+ * Una llamada de IA hecha por el servidor (docs/arquitectura.md §8). La fila
+ * es también el trabajo de la cola: el worker toma las «en_cola» con
+ * SKIP LOCKED y avisa de los cambios con NOTIFY.
+ */
+export const ejecucionesIa = pgTable('ejecuciones_ia', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizacionId: uuid('organizacion_id').notNull().references(() => organizaciones.id),
+  procesoId: uuid('proceso_id').notNull().references(() => procesos.id, { onDelete: 'cascade' }),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
+  tipo: tipoEjecucionIa('tipo').notNull(),
+  /** Solo en tipo «tarea»: cuál (kpis, raci, tobe…; TAREAS_IA de @processiq/ia). */
+  tarea: text('tarea'),
+  modelo: text('modelo').notNull(),
+  estado: estadoEjecucionIa('estado').notNull().default('en_cola'),
+  /**
+   * Parámetros (nivel, roles, fuentes con nombre y tamaño…). El texto de las
+   * fuentes va en `texto` y se borra al terminar: no se conservan documentos
+   * del cliente más de lo necesario.
+   */
+  parametros: jsonb('parametros').notNull().default(sql`'{}'::jsonb`),
+  texto: text('texto'),
+  /** Caracteres recibidos de la IA (progreso). */
+  progreso: integer('progreso').notNull().default(0),
+  /** generacion: la especificación del proceso; tarea: { markdown }; pains: { datos }. */
+  resultado: jsonb('resultado'),
+  error: text('error'),
+  intentos: integer('intentos').notNull().default(0),
+  /** No se toma de la cola antes de esta hora (espera entre reintentos). */
+  disponibleEn: timestamp('disponible_en', { withTimezone: true }).notNull().defaultNow(),
+  cancelar: boolean('cancelar').notNull().default(false),
+  tokensEntrada: integer('tokens_entrada').notNull().default(0),
+  tokensSalida: integer('tokens_salida').notNull().default(0),
+  costeUsd: doublePrecision('coste_usd').notNull().default(0),
+  /** Generación ya dibujada y guardada en el proyecto (o descartada por el usuario). */
+  revisionId: uuid('revision_id').references(() => revisiones.id, { onDelete: 'set null' }),
+  descartada: boolean('descartada').notNull().default(false),
+  creadoEn: creado(),
+  iniciadoEn: timestamp('iniciado_en', { withTimezone: true }),
+  terminadoEn: timestamp('terminado_en', { withTimezone: true }),
+  /** Latido del worker mientras ejecuta: si se detiene, la ejecución vuelve a la cola. */
+  actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow()
+}, (t) => [
+  index('ejecuciones_ia_cola_idx').on(t.estado, t.disponibleEn),
+  index('ejecuciones_ia_proceso_idx').on(t.procesoId),
+  index('ejecuciones_ia_consumo_idx').on(t.organizacionId, t.creadoEn)
+]);
