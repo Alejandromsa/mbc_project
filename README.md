@@ -18,7 +18,8 @@ Plataforma de diagramación, diagnóstico y reingeniería de procesos con BPMN 2
       - generación, pains y copiloto como trabajos en cola, con progreso en vivo, reintentos y coste por ejecución;
       - presupuesto mensual y pantalla de consumo.
     - Catálogos administrables: KPIs, verbos del Playbook y temas PPTX de cliente.
-  - Siguiente: observabilidad (errores y estado del sistema) y staging.
+    - Observabilidad propia: errores, latidos y la pantalla «Sistema».
+- **Fase 3 (corte), en curso:** importación asistida del trabajo que cada consultor tiene en su navegador. Hechos también los runbooks y staging.
 
 ## Estructura
 

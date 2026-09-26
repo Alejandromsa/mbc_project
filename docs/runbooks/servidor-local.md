@@ -31,6 +31,11 @@ Flujo de trabajo:
 
 Si se cierra el navegador con cambios sin guardar, quedan como borrador en ese navegador y el editor ofrece recuperarlos al volver a abrir el proceso.
 
+**Llevar a la plataforma el trabajo que cada uno tiene en su navegador** (lo del editor libre o del MVP):
+- En el mismo navegador donde se trabajó, entrar en `/proyectos/`. Aparece un aviso «Llevarlo a un proyecto», o bien botón **Importar procesos** → elegir el proyecto → Importar.
+- **Desde otro equipo:** en el editor, «Exportar → JSON»; después, **Importar procesos** → «Añadir archivos JSON» (se pueden subir varios a la vez).
+- El proceso original no se borra del navegador salvo que se pulse «Vaciar el editor libre».
+
 ## IA
 
 Hay dos caminos, y los dos usan la misma `ANTHROPIC_API_KEY` de `.env`:

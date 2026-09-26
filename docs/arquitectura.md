@@ -517,6 +517,17 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
 
 *Salida:* producción estable dos semanas sin incidentes graves.
 
+**Estado (26-sep-2026):**
+- **Importación asistida, hecha** (`/proyectos/importar`).
+  - El shell lee el trabajo del editor libre del mismo navegador (`localStorage`, mismo origen) y lo crea como proceso de un proyecto.
+  - También importa en lote los JSON exportados desde el editor en otros equipos.
+  - La lista de proyectos avisa cuando el navegador tiene trabajo sin llevar.
+  - Nada se borra del navegador salvo que el usuario lo pida.
+- **Runbooks y prueba de restauración, hechos** (`docs/runbooks/`).
+- **Pendientes que no dependen del código:**
+  - Apuntar `procesos.mbc-latam.com`: lo decide y lo hace el dueño de ese dominio. Mientras tanto, la plataforma está en `mbc.asissoft.com`.
+  - Retirar GitHub Pages y el Worker para ProcessIQ: hoy se mantienen a pedido del proyecto, y el Worker sigue para Radar de Prospectos.
+
 ### Fase 4 — Evolución del producto
 
 - Comentarios y revisión por invitados externos.
