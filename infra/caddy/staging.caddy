@@ -1,0 +1,9 @@
+# Staging (docs/runbooks/despliegue.md). Lo sirve el Caddy de PRODUCCIÓN, el
+# único que publica el 443: obtiene el certificado de staging.<dominio> y
+# reenvía al Caddy de staging por la red Docker compartida (alias web-staging).
+# Solo se monta en producción (docker-compose.yml); staging no lo tiene.
+{$DOMINIO_STAGING} {
+	import tls-{$TLS_MODO:acme}
+	encode zstd gzip
+	reverse_proxy web-staging:80
+}

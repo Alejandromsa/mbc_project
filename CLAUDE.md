@@ -29,7 +29,7 @@ pnpm --filter @processiq/api worker             # worker de IA (cola ejecuciones
 pnpm --filter @processiq/api exec vitest run -t "numera las revisiones"   # una prueba de la API
 pnpm --filter @processiq/db generar             # nueva migración tras cambiar packages/db/src/esquema.ts
 pnpm e2e                                        # build + shell/editor/API/Postgres de punta a punta (Playwright, ~1 min; base processiq_e2e)
-docker compose up -d --build                    # servidor (ver docs/runbooks/servidor-local.md)
+infra/desplegar.sh staging | produccion [version] | versiones   # servidor: staging, promoción y reversión (docs/runbooks/despliegue.md)
 ```
 
 ## Estructura
@@ -109,7 +109,7 @@ infra/               Caddyfile y Dockerfiles
 - Antes de tocar un área que la fidelidad no cubre, **añadir primero el escenario** y ver que pasa.
 - **Portar sin reescribir:** mover el código tal cual (con scripts que copian el texto literal y verifican con `diff`) y cambiar solo la frontera: parámetros en lugar de `state` y de globales. Los prompts y mensajes se comparan byte a byte.
 - **Fronteras** (las comprueba `pnpm fronteras` en la CI): `dominio` no depende de ningún paquete del monorepo; los demás paquetes solo de `dominio`; `packages/*` nunca importan de `apps/*`. `dominio` solo usa ECMAScript estándar (nada de DOM ni Node en `src/`).
-- **Esquema de la base:** nunca editar una migración ya publicada. Se cambia `packages/db/src/esquema.ts`, se genera la migración nueva con `pnpm --filter @processiq/db generar` y se revisa el SQL antes de confirmarlo.
+- **Esquema de la base:** nunca editar una migración ya publicada. Las migraciones deben ser compatibles con la versión anterior (se añade; no se borra ni se renombra en el mismo despliegue), para poder revertir con `infra/desplegar.sh produccion <anterior>`. Se cambia `packages/db/src/esquema.ts`, se genera la migración nueva con `pnpm --filter @processiq/db generar` y se revisa el SQL antes de confirmarlo.
 - Cada ruta nueva de la API lleva pruebas de integración en `apps/api/src/*.test.ts` contra Postgres real (`pruebas/entorno.ts`), incluidos los casos de permiso denegado.
 - La IA del servidor se prueba sin red ni gasto:
   - integración (`apps/api/src/ia.test.ts`), con un `fetch` falso que imita el SSE de Anthropic;

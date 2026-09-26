@@ -2,6 +2,11 @@
 
 ProcessIQ corre en un PC propio con IP pública fija, en contenedores Docker. Es la etapa previa al PaaS descrito en `docs/arquitectura.md`: las imágenes son las mismas, así que migrar después no exige rediseñar.
 
+Otros runbooks:
+- [despliegue.md](despliegue.md): staging, promoción a producción y reversión.
+- [rotacion-secretos.md](rotacion-secretos.md).
+- [incidente-ia.md](incidente-ia.md).
+
 ## Qué corre
 
 | Contenedor | Qué hace | Puerto |
@@ -146,13 +151,13 @@ Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermed
 | Estado | como administrador, `https://mbc.asissoft.com/proyectos/admin/sistema`: servicios, worker, cola de IA, copias, disco y errores, con avisos. El punto rojo en «Sistema» indica que hay algo que revisar. En el servidor: `docker compose ps` |
 | Un usuario reporta «Error interno (referencia abc12345)» | en «Sistema», la tabla de errores; la referencia está en el detalle. Logs: `docker compose logs api \| grep abc12345` |
 | Logs | `docker compose logs -f web` · `docker compose logs -f api` · `docker compose logs -f worker` · `docker compose logs -f intermediario` |
-| Publicar una versión nueva | `git pull && docker compose up -d --build` (la API aplica las migraciones nuevas al arrancar) |
+| Publicar una versión nueva | Staging primero y luego la misma imagen a producción: `infra/desplegar.sh staging` → validar → `infra/desplegar.sh produccion` (ver [despliegue.md](despliegue.md)) |
 | Rotar el código del equipo | editar `ACCESS_CODE` en `.env` → `docker compose up -d intermediario` |
 | Ver la auditoría | como administrador, en `https://mbc.asissoft.com/proyectos/admin/auditoria` |
 | Cambiar KPIs, verbos del Playbook o temas PPTX de cliente | como administrador, en `https://mbc.asissoft.com/proyectos/admin/catalogos` (aplican a los procesos de proyectos; el editor libre usa los de fábrica) |
 | Último respaldo | `docker compose logs --tail 5 respaldo` |
 | Parar todo | `docker compose down` — **nunca con `-v`**: borraría la base de datos y los certificados |
-| Probar en local sin tocar producción | `DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ALLOWED_ORIGINS=https://localhost:8443 CARPETA_RESPALDOS=./respaldos-prueba docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`) |
+| Probar en local sin tocar producción | `DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ALLOWED_ORIGINS=https://localhost:8443 CARPETA_RESPALDOS=./respaldos-prueba RED_BORDE=processiq-prueba-borde docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`) |
 
 El gasto de IA queda en el log del intermediario (`"evento":"gasto_ia"`). Si se configura `PULSE_URL`, también se reporta allí.
 

@@ -1,0 +1,22 @@
+# Staging en el mismo servidor (docs/runbooks/despliegue.md). Mismos servicios e
+# imágenes que producción, con volúmenes propios (el proyecto se llama distinto)
+# y configuración en .env.staging. Se usa con infra/desplegar.sh staging, o:
+#   docker compose -p processiq-staging --env-file .env.staging \
+#     -f docker-compose.yml -f docker-compose.staging.yml up -d
+# Su Caddy no publica puertos ni pide certificados: escucha HTTP en :80 y le
+# llega el tráfico del Caddy de producción (staging.<dominio>) por la red «borde».
+services:
+  web:
+    ports: !reset []
+    volumes: !override
+      - caddy_datos:/data
+      - caddy_config:/config
+    networks: !override
+      default: {}
+      borde:
+        aliases: [web-staging]
+
+networks:
+  borde:
+    name: ${RED_BORDE:-processiq-borde}
+    external: true

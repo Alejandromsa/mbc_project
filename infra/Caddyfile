@@ -10,6 +10,9 @@
 	# HTTP/3 necesitaria abrir tambien UDP 443 en el router: se deja en h1/h2.
 	servers {
 		protocols h1 h2
+		# Solo staging (detrás del Caddy de producción) confía en su X-Forwarded-For:
+		# PROXIES_CONFIABLES=private_ranges. En producción, nadie (solo localhost).
+		trusted_proxies static {$PROXIES_CONFIABLES:127.0.0.1/32}
 	}
 }
 
@@ -25,6 +28,10 @@
 
 (tls-interno) {
 	tls internal
+}
+
+# TLS_MODO=ninguno  HTTP simple: staging, detrás del Caddy de producción (SITIO_WEB=:80)
+(tls-ninguno) {
 }
 
 (cabeceras-seguridad) {
@@ -82,3 +89,7 @@
 		file_server
 	}
 }
+
+# Sitios opcionales montados en /etc/caddy/sitios (p. ej. staging.caddy, solo en
+# producción: reenvía staging.<dominio> al Caddy de staging). Sin archivos, nada.
+import /etc/caddy/sitios/*.caddy
