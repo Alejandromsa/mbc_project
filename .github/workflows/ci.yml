@@ -42,6 +42,10 @@ jobs:
       - name: Dependencias
         run: pnpm install --frozen-lockfile
 
+      # Excepciones aceptadas, con su motivo: docs/adr/0017-excepciones-auditoria-dependencias.md
+      - name: Auditoría de dependencias (producción)
+        run: pnpm audit --prod --audit-level=high
+
       - name: Fronteras entre paquetes
         run: pnpm fronteras
 

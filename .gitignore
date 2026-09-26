@@ -9,6 +9,7 @@ dist/
 .env.*
 !.env.example
 !.env.dev.example
+!.env.staging.example
 
 # Librerías de navegador copiadas desde node_modules en cada build
 apps/web/public/vendor/
@@ -32,3 +33,5 @@ desktop.ini
 
 # Copias de seguridad de la base (docker compose: servicio respaldo)
 respaldos/
+respaldos-*/
+despliegues.log

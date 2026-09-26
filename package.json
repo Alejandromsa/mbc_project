@@ -18,5 +18,17 @@
   "devDependencies": {
     "turbo": "^2.11.4",
     "typescript": "^7.0.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "canvas": "-"
+    },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-5p2g-fcmc-qvqq",
+        "GHSA-w3rx-r6r6-pgpr",
+        "GHSA-rmjr-87wv-gf87"
+      ]
+    }
   }
 }

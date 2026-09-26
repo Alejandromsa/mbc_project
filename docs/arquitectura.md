@@ -133,7 +133,7 @@ Hasta que se contraten el PaaS y la base de datos gestionada, la plataforma corr
 | Datos | **Postgres 17 en Docker** en el mismo PC (volumen). Sin sesión, el editor sigue guardando en el navegador, como en el MVP | Supabase o Postgres gestionado |
 | Identidad | **Cuentas locales** (correo y contraseña, scrypt) creadas por un administrador | Entra ID cuando TI registre la aplicación |
 | Copias de seguridad | `pg_dump` diario a una carpeta del PC (14 copias), que hay que copiar fuera del equipo | PITR del proveedor |
-| Entornos | Local de cada desarrollador + este servidor | Vista previa por PR, staging y producción |
+| Entornos | Local de cada desarrollador; **staging y producción en este servidor** (ADR 16) | Vista previa por PR, staging y producción |
 
 Límites que asume esta etapa:
 
@@ -505,7 +505,10 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
     - errores agrupados.
   - Rotación de los logs de Docker.
   - Sentry queda descartado por ahora: es un servicio en la nube y no hay presupuesto. Las alertas por correo necesitan un servidor de correo.
-- **2.4c:** staging en el mismo servidor, con un subdominio propio y promoción de la misma imagen.
+- **2.4c, hecho: staging en el mismo servidor** (`https://staging.mbc.asissoft.com`, ADR 16).
+  - Proyecto de Compose aparte, con base propia, detrás del Caddy de producción.
+  - Imágenes etiquetadas con el commit. `infra/desplegar.sh` despliega en staging, promueve la misma imagen a producción y revierte.
+  - También en este incremento: auditoría de dependencias en la CI (ADR 17), runbooks y registro de ADR (`docs/adr/`).
 - **Fuentes y almacén: bloqueado** por la decisión pendiente con Legal sobre qué documentos del cliente se guardan y durante cuánto tiempo (§15). Mientras tanto se aplica el ADR 9: los originales no salen del navegador.
 
 ### Fase 3 — Corte a producción

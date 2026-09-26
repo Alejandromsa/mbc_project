@@ -21,12 +21,20 @@ services:
     ports:
       - "${PUERTO_HTTPS:-443}:443"
     environment:
-      DOMINIO: ${DOMINIO:?Falta DOMINIO en .env}
+      # Dirección del sitio: el dominio; staging usa :80 (HTTP detrás del Caddy de producción)
+      DOMINIO: ${SITIO_WEB:-${DOMINIO:?Falta DOMINIO en .env}}
       TLS_MODO: ${TLS_MODO:-acme}
+      DOMINIO_STAGING: ${DOMINIO_STAGING:-staging.${DOMINIO}}
+      PROXIES_CONFIABLES: ${PROXIES_CONFIABLES:-127.0.0.1/32}
     volumes:
       # Certificados y claves de Caddy: si se borran, se vuelven a pedir a Let's Encrypt
       - caddy_datos:/data
       - caddy_config:/config
+      # Solo producción: reenvía staging.<dominio> al Caddy de staging (docker-compose.staging.yml lo quita)
+      - ./infra/caddy/staging.caddy:/etc/caddy/sitios/staging.caddy:ro
+    networks:
+      - default
+      - borde
     depends_on:
       - intermediario
       - api
@@ -161,3 +169,9 @@ volumes:
   caddy_config:
   postgres_datos:
   postgres_dev:
+
+networks:
+  # Red compartida con el proyecto de staging: por ella el Caddy de producción
+  # llega al de staging (alias web-staging). Ver docs/runbooks/despliegue.md
+  borde:
+    name: ${RED_BORDE:-processiq-borde}
