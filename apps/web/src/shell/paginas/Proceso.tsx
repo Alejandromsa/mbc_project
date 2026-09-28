@@ -5,7 +5,8 @@ import { Link } from 'wouter';
 import { api, type EstadoRevision, type Revision } from '../api';
 import { ROLES_PROYECTO, enEditor, fecha } from '../formato';
 import { puede } from '../permisos';
-import { Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Insignia, Vacio, useTitulo } from '../ui';
+import { useUsuario } from '../sesion';
+import { AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Insignia, Vacio, useTitulo } from '../ui';
 
 export function Proceso({ id }: { id: string }) {
   const cliente = useQueryClient();
@@ -14,6 +15,9 @@ export function Proceso({ id }: { id: string }) {
   const proyecto = useQuery({ queryKey: ['proyecto', proyectoId], queryFn: () => api.proyecto(proyectoId!), enabled: !!proyectoId });
   useTitulo(consulta.data?.proceso.nombre ?? 'Proceso');
   const [renombrando, setRenombrando] = useState(false);
+  const [plantillaDe, setPlantillaDe] = useState<Revision | null>(null);
+  const [plantillaCreada, setPlantillaCreada] = useState<string | null>(null);
+  const esAdmin = useUsuario().rol === 'admin';
 
   const cambiarEstado = useMutation({
     mutationFn: ({ revision, estado }: { revision: string; estado: EstadoRevision }) => api.cambiarEstado(revision, estado),
@@ -59,6 +63,7 @@ export function Proceso({ id }: { id: string }) {
           quien aprueba la aprueba o la devuelve. Las aprobadas ya no cambian.
         </p>
         <ErrorDe error={cambiarEstado.error} />
+        {plantillaCreada && <Aviso tipo="ok">Plantilla «{plantillaCreada}» creada. Ya se puede elegir al crear un proceso; se gestiona en Catálogos.</Aviso>}
         {revisiones.length === 0 ? (
           <Vacio>Todavía no hay revisiones. Abre el editor y usa «Guardar revisión».</Vacio>
         ) : (
@@ -68,13 +73,18 @@ export function Proceso({ id }: { id: string }) {
               {revisiones.map((r) => (
                 <FilaRevision key={r.id} r={r} padre={r.padreId ? numeroDe.get(r.padreId) : undefined}
                   escribe={escribe} aprueba={aprueba} ocupado={cambiarEstado.isPending}
-                  cambiar={(estado) => cambiarEstado.mutate({ revision: r.id, estado })} />
+                  cambiar={(estado) => cambiarEstado.mutate({ revision: r.id, estado })}
+                  comoPlantilla={esAdmin ? () => { setPlantillaCreada(null); setPlantillaDe(r); } : undefined} />
               ))}
             </tbody>
           </table>
         )}
       </section>
 
+      <Dialogo abierto={!!plantillaDe} titulo={plantillaDe ? `Guardar v${plantillaDe.numero} como plantilla` : ''} onCerrar={() => setPlantillaDe(null)}>
+        {plantillaDe && <ComoPlantilla revision={plantillaDe} nombreProceso={proceso.nombre}
+          onCreada={(n) => { setPlantillaDe(null); setPlantillaCreada(n); }} onCerrar={() => setPlantillaDe(null)} />}
+      </Dialogo>
       <Dialogo abierto={renombrando} titulo="Renombrar proceso" onCerrar={() => setRenombrando(false)}>
         <Renombrar id={proceso.id} nombreActual={proceso.nombre} proyectoId={proceso.proyectoId} onCerrar={() => setRenombrando(false)} />
       </Dialogo>
@@ -82,8 +92,10 @@ export function Proceso({ id }: { id: string }) {
   );
 }
 
-function FilaRevision({ r, padre, escribe, aprueba, ocupado, cambiar }: {
+function FilaRevision({ r, padre, escribe, aprueba, ocupado, cambiar, comoPlantilla }: {
   r: Revision; padre: number | undefined; escribe: boolean; aprueba: boolean; ocupado: boolean; cambiar: (e: EstadoRevision) => void;
+  /** Solo administradores: guardar esta versión como plantilla de la organización. */
+  comoPlantilla?: () => void;
 }) {
   // Si no parte de la inmediatamente anterior, alguien guardó en paralelo (conflicto)
   const ramificada = padre !== undefined && padre !== r.numero - 1;
@@ -106,6 +118,7 @@ function FilaRevision({ r, padre, escribe, aprueba, ocupado, cambiar }: {
             <Boton variante="sutil" disabled={ocupado} onClick={() => cambiar('borrador')}>Devolver</Boton>
           </>
         )}
+        {comoPlantilla && <Boton variante="sutil" onClick={comoPlantilla}>Guardar como plantilla</Boton>}
       </td>
     </tr>
   );
@@ -130,6 +143,40 @@ function Renombrar({ id, nombreActual, proyectoId, onCerrar }: { id: string; nom
       <div className="acciones">
         <Boton onClick={onCerrar}>Cancelar</Boton>
         <Boton type="submit" variante="primario" cargando={renombrar.isPending}>Guardar</Boton>
+      </div>
+    </form>
+  );
+}
+
+function ComoPlantilla({ revision, nombreProceso, onCreada, onCerrar }: {
+  revision: Revision; nombreProceso: string; onCreada: (nombre: string) => void; onCerrar: () => void;
+}) {
+  const cliente = useQueryClient();
+  const [nombre, setNombre] = useState(nombreProceso);
+  const [industria, setIndustria] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const crear = useMutation({
+    mutationFn: () => api.crearPlantilla({ revisionId: revision.id, nombre, industria, descripcion }),
+    onSuccess: ({ plantilla }) => {
+      cliente.invalidateQueries({ queryKey: ['plantillas'] });
+      cliente.invalidateQueries({ queryKey: ['catalogo', 'plantillas'] });
+      onCreada(plantilla.nombre);
+    }
+  });
+  const enviar = (e: FormEvent) => { e.preventDefault(); crear.mutate(); };
+  return (
+    <form onSubmit={enviar}>
+      <p className="sutil">
+        La plantilla copia el diagrama, la ficha y las vistas de esta versión, sin el cliente, las personas de la
+        gobernanza, el historial de cambios ni los valores medidos. Revisa que los textos no nombren al cliente.
+      </p>
+      <Campo etiqueta="Nombre de la plantilla" required maxLength={160} autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <Campo etiqueta="Industria" maxLength={80} ayuda="Si la dejas vacía, se toma la del proceso." value={industria} onChange={(e) => setIndustria(e.target.value)} />
+      <AreaTexto etiqueta="Descripción" maxLength={600} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+      <ErrorDe error={crear.error} />
+      <div className="acciones">
+        <Boton onClick={onCerrar}>Cancelar</Boton>
+        <Boton type="submit" variante="primario" cargando={crear.isPending}>Guardar plantilla</Boton>
       </div>
     </form>
   );
