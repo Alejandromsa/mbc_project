@@ -163,7 +163,7 @@ Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermed
 | Cambiar KPIs, verbos del Playbook o temas PPTX de cliente | como administrador, en `https://mbc.asissoft.com/proyectos/admin/catalogos` (aplican a los procesos de proyectos; el editor libre usa los de fábrica) |
 | Último respaldo | `docker compose logs --tail 5 respaldo` |
 | Parar todo | `docker compose down` — **nunca con `-v`**: borraría la base de datos y los certificados |
-| Probar en local sin tocar producción | `DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ALLOWED_ORIGINS=https://localhost:8443 CARPETA_RESPALDOS=./respaldos-prueba RED_BORDE=processiq-prueba-borde docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`) |
+| Probar en local sin tocar producción | `VERSION=prueba DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ORIGEN_PUBLICO=https://localhost:8443 ALLOWED_ORIGINS=https://localhost:8443 POSTGRES_PASSWORD=solo-para-probar CARPETA_RESPALDOS=./respaldos-prueba RED_BORDE=processiq-prueba-borde docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`). En el servidor, `VERSION=prueba` es imprescindible: sin ella, las imágenes de prueba se etiquetarían con la versión de producción de `.env` y la sustituirían ([desarrollo.md](../tecnica/desarrollo.md)) |
 
 El gasto de IA queda en el log del intermediario (`"evento":"gasto_ia"`). Si se configura `PULSE_URL`, también se reporta allí.
 
