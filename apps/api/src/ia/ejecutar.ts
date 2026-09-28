@@ -1,15 +1,18 @@
 // Ejecución de un trabajo de IA en el worker: arma el prompt de @processiq/ia,
-// llama a Claude en streaming, valida (con una reparación si hace falta),
-// reintenta lo pasajero, registra tokens y coste y avisa de cada cambio.
+// comprueba el presupuesto antes de cada llamada, llama a Claude en streaming,
+// valida (con una reparación si hace falta), reintenta lo pasajero, registra
+// tokens y coste (también los de llamadas cortadas a mitad) y avisa de cada cambio.
 import { eq, sql } from 'drizzle-orm';
 import { ejecucionesIa, type BaseDeDatos } from '@processiq/db';
 import {
   GEN_MAX_TOKENS, MAX_CHARS_REPARACION, PROMPT_GENERACION, PROMPT_PAINS, PROMPT_REPARACION, ROL_ANALISTA, TAREAS_IA,
-  clasificarErrorIa, extraerJson, llamarClaude, promptGeneracion, promptReparacion, promptTarea, timeoutGeneracion,
+  clasificarErrorIa, extraerJson, llamarClaude, marcarErrorIa, promptGeneracion, promptReparacion, promptTarea, timeoutGeneracion,
   usd, validarEspecGeneracion, type OpcionesLlamada, type UsoIa
 } from '@processiq/ia';
+import type { TopesIa } from '../config.js';
 import { CANAL_EJECUCION, avisar } from './avisos.js';
 import type { EjecucionIa } from './cola.js';
+import { sinPresupuesto } from './presupuesto.js';
 
 /** Intentos por ejecución ante errores pasajeros (red, 429, sobrecarga). */
 export const MAX_INTENTOS = 3;
@@ -30,6 +33,8 @@ export interface DependenciasIa {
   db: BaseDeDatos;
   claveAnthropic: string;
   urlAnthropic?: string | undefined;
+  /** Presupuesto mensual y límite por persona: se comprueban antes de cada llamada. */
+  topes: TopesIa;
   /** Pruebas: fetch y espera falsos. */
   fetch?: typeof fetch;
   esperar?: (ms: number) => Promise<void>;
@@ -37,8 +42,8 @@ export interface DependenciasIa {
   intervaloVigilanciaMs?: number;
   /** El worker se está apagando: lo que esté a medias vuelve a la cola sin contar el intento. */
   apagando?: () => boolean;
-  /** Gasto de cada llamada (log y Pulse). */
-  reportarGasto?: (uso: UsoIa & { ejecucionId: string }) => void;
+  /** Gasto de cada llamada (log y Pulse); `parcial` si la respuesta se cortó a mitad. */
+  reportarGasto?: (uso: UsoIa & { ejecucionId: string; parcial?: boolean }) => void;
 }
 
 type Llamar = (prompt: string, opts: OpcionesLlamada) => Promise<string>;
@@ -101,26 +106,38 @@ export async function ejecutar(dep: DependenciasIa, e: EjecucionIa): Promise<voi
     } catch { /* la siguiente vuelta lo reintenta */ }
   }, dep.intervaloVigilanciaMs ?? 2000);
 
-  const llamar: Llamar = (prompt, opts) => llamarClaude(prompt, {
-    ...opts,
-    onProgress: (caracteres) => {
-      const ahora = Date.now();
-      if (ahora - ultimoAvisoProgreso < 1000) return;
-      ultimoAvisoProgreso = ahora;
-      actualizar({ progreso: caracteres }).catch(() => {});
-    },
-    onUsage: (u) => {
-      uso.entrada += u.entrada;
-      uso.salida += u.salida;
-      uso.usd += usd(u.entrada, u.salida, u.modelo);
-      dep.reportarGasto?.({ ...u, ejecucionId: e.id });
-    }
-  }, { modo: 'servidor', key: dep.claveAnthropic, model: e.modelo }, {
-    proxyPorDefecto: '', host: '', urlApi: dep.urlAnthropic,
-    fetch: dep.fetch, esperar: dep.esperar,
-    senalCancelacion: ctrl.signal,
-    cancelado: () => cancelado || !!dep.apagando?.()
-  });
+  const sumarUso = (u: UsoIa, parcial: boolean) => {
+    uso.entrada += u.entrada;
+    uso.salida += u.salida;
+    uso.usd += usd(u.entrada, u.salida, u.modelo);
+    dep.reportarGasto?.({ ...u, ejecucionId: e.id, ...(parcial ? { parcial } : {}) });
+  };
+
+  const llamar: Llamar = async (prompt, opts) => {
+    // El presupuesto se comprobó al encolar, pero desde entonces pudo gastarse (otras
+    // ejecuciones, intentos anteriores o la llamada previa a esta reparación)
+    const sin = await sinPresupuesto(db, dep.topes, e.organizacionId, e.usuarioId, uso.usd).catch((err: Error) => {
+      throw marcarErrorIa(new Error(`No se pudo comprobar el presupuesto de IA (${err.message}).`), 'transitorio');
+    });
+    if (sin) throw marcarErrorIa(new Error(`${sin.mensaje} La ejecución se detuvo antes de llamar a la IA.`), 'definitivo');
+    return llamarClaude(prompt, {
+      ...opts,
+      onProgress: (caracteres) => {
+        const ahora = Date.now();
+        if (ahora - ultimoAvisoProgreso < 1000) return;
+        ultimoAvisoProgreso = ahora;
+        actualizar({ progreso: caracteres }).catch(() => {});
+      },
+      onUsage: (u) => sumarUso(u, false),
+      // Cortada a mitad (cancelar, inactividad, red, apagado): Anthropic cobra lo consumido
+      onUsoParcial: (u) => sumarUso(u, true)
+    }, { modo: 'servidor', key: dep.claveAnthropic, model: e.modelo }, {
+      proxyPorDefecto: '', host: '', urlApi: dep.urlAnthropic,
+      fetch: dep.fetch, esperar: dep.esperar,
+      senalCancelacion: ctrl.signal,
+      cancelado: () => cancelado || !!dep.apagando?.()
+    });
+  };
 
   // Tokens y coste se suman: los intentos fallidos y la reparación también se cobran
   const conCoste = () => ({

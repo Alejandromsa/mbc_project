@@ -2,9 +2,17 @@
 // usan ia/generacion.js, ia/tareas.js e ia/pains.js a través de ia/remota.js:
 // cada llamada es una ejecución en la API (job con reintentos y coste) y su
 // progreso llega por SSE. El navegador envía datos, nunca prompts.
-import { fmtUsd, precioModelo } from '@processiq/ia';
+import { PRECIOS_IA, fmtUsd, precioModelo } from '@processiq/ia';
 import { api } from '../../shell/api';
 import { escapeHtml } from '../util.js';
+
+const nombreModelo = (id) => (PRECIOS_IA[id] ? PRECIOS_IA[id].nombre : id);
+
+/** El servidor no permitía el modelo elegido y usó otro (respuesta de POST /api/ia/generaciones). */
+function textoSustitucion(s) {
+  return 'El servidor de IA no permite ' + nombreModelo(s.pedido) + ': esta generación usa ' + nombreModelo(s.usado) +
+    '. Los modelos permitidos los decide quien administra ProcessIQ.';
+}
 
 function textoEstado(e) {
   if (e.estado === 'en_cola') return e.error ? 'Reintentando en el servidor… (' + e.error + ')' : 'En cola en el servidor de IA…';
@@ -16,8 +24,11 @@ function textoEstado(e) {
   return '';
 }
 
-/** Espera el final de una ejecución siguiendo su progreso (SSE; se reconecta solo ante cortes de red). */
-function seguir(id, { onEstado, senal } = {}) {
+/**
+ * Espera el final de una ejecución siguiendo su progreso (SSE; se reconecta solo ante cortes de red).
+ * `nota` antecede al texto de progreso (el diálogo de ingesta tapa la barra de avisos).
+ */
+function seguir(id, { onEstado, senal, nota = '' } = {}) {
   return new Promise((resolver, rechazar) => {
     let terminado = false;
     const fuente = new EventSource(api.eventosIa(id));
@@ -36,7 +47,8 @@ function seguir(id, { onEstado, senal } = {}) {
     fuente.addEventListener('estado', (ev) => {
       if (terminado) return;
       const e = JSON.parse(ev.data);
-      if (onEstado) onEstado(textoEstado(e));
+      const texto = textoEstado(e);
+      if (onEstado) onEstado(texto && nota ? nota + ' ' + texto : texto);
       if (e.estado === 'completada') { cerrar(); resolver(e); }
       else if (e.estado === 'fallida') { cerrar(); rechazar(new Error(e.error || 'La IA no pudo completar la tarea.')); }
       else if (e.estado === 'cancelada') { cerrar(); rechazar(new Error('CANCELLED')); }
@@ -67,7 +79,6 @@ function motivoNoDisponible(estado, soloLectura) {
 export function crearIaRemota(o) {
   let estado = o.estado;
   const refrescar = () => { api.estadoIa().then((s) => { estado = s; }).catch(() => {}); };
-  const permitidos = () => estado.modelos.map((m) => m.id);
 
   return {
     lista: () => !motivoNoDisponible(estado, o.soloLectura),
@@ -75,11 +86,18 @@ export function crearIaRemota(o) {
 
     async generar({ texto, etiqueta, roles, vista, variasFuentes, fuentes, modelo, onEstado, senal }) {
       try {
-        const { ejecucion } = await api.generarIa({
-          procesoId: o.procesoId, texto, etiqueta, roles, vista, variasFuentes, fuentes,
-          modelo: permitidos().includes(modelo) ? modelo : permitidos()[0]
+        // Se envía el modelo elegido tal cual: el servidor decide y avisa si usa otro
+        const { ejecucion, modeloSustituido } = await api.generarIa({
+          procesoId: o.procesoId, texto, etiqueta, roles, vista, variasFuentes, fuentes, modelo
         });
-        const e = await seguir(ejecucion.id, { onEstado, senal });
+        let nota = '';
+        if (modeloSustituido) {
+          o.avisar('atencion', textoSustitucion(modeloSustituido));
+          // También en el progreso de la ingesta, que tapa la barra de avisos mientras genera
+          nota = nombreModelo(modeloSustituido.pedido) + ' no está permitido en el servidor: se usa ' + nombreModelo(modeloSustituido.usado) + '.';
+          if (onEstado) onEstado(nota + ' ' + textoEstado(ejecucion));
+        }
+        const e = await seguir(ejecucion.id, { onEstado, senal, nota });
         return { spec: e.resultado, ejecucionId: e.id, modelo: e.modelo, tokensEntrada: e.tokensEntrada, tokensSalida: e.tokensSalida, costeUsd: e.costeUsd };
       } finally {
         refrescar();

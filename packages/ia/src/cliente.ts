@@ -27,7 +27,33 @@ export interface OpcionesLlamada {
   onProgress?: (caracteres: number) => void;
   /** Se llama antes de los errores: una respuesta cortada también se cobra. */
   onUsage?: (uso: UsoIa) => void;
+  /**
+   * Solo lo pasa el worker de la API. Si la respuesta se corta a mitad
+   * (cancelación, inactividad, corte de red o apagado del worker), recibe lo
+   * que se sabía hasta el corte: la entrada de message_start y la salida de
+   * message_delta, si llegó. Anthropic cobra ese consumo aunque no termine.
+   * El editor no lo pasa, así que su historial de costes no cambia.
+   */
+  onUsoParcial?: (uso: UsoIa) => void;
 }
+
+/** Clase de un fallo de la IA: decide si el worker lo reintenta (clasificarErrorIa). */
+export type ClaseErrorIa = 'cancelado' | 'transitorio' | 'definitivo';
+
+/**
+ * Marca la clase en el propio error (propiedad `claseIa`) sin tocar el mensaje,
+ * que el editor muestra y la fidelidad compara. No es enumerable: no aparece
+ * al serializar ni al copiar el error.
+ */
+export function marcarErrorIa<E extends Error>(error: E, clase: ClaseErrorIa): E {
+  Object.defineProperty(error, 'claseIa', { value: clase, enumerable: false, writable: true, configurable: true });
+  return error;
+}
+
+const errorIa = (mensaje: string, clase: ClaseErrorIa) => marcarErrorIa(new Error(mensaje), clase);
+
+/** Errores a mitad del stream (evento `error`) que suelen pasar solos: se reintentan. */
+const TIPOS_SSE_TRANSITORIOS = new Set(['overloaded_error', 'api_error', 'rate_limit_error']);
 
 export interface Entorno {
   /** Intermediario por defecto si la configuración no trae uno. */
@@ -55,9 +81,9 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
   const equipo = cfg.modo === 'equipo';
   const servidor = cfg.modo === 'servidor';
   const key = (cfg.key || '').trim(), codigo = (cfg.codigo || '').trim();
-  if (equipo && !codigo) throw new Error('Falta el código de acceso del equipo. Configúralo en Ajustes de IA (✨).');
+  if (equipo && !codigo) throw errorIa('Falta el código de acceso del equipo. Configúralo en Ajustes de IA (✨).', 'definitivo');
   if (!equipo && !key) {
-    throw new Error(servidor ? 'El servidor no tiene configurada la clave de Anthropic (ANTHROPIC_API_KEY).' : 'Falta la API key. Configúrala en Ajustes de IA (✨).');
+    throw errorIa(servidor ? 'El servidor no tiene configurada la clave de Anthropic (ANTHROPIC_API_KEY).' : 'Falta la API key. Configúrala en Ajustes de IA (✨).', 'definitivo');
   }
   // Modo equipo: la clave NO sale del intermediario; aquí solo viaja el código.
   const destino = equipo
@@ -116,13 +142,13 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
     limpiar();
     if (String(e.message) === 'CANCELLED') throw e;
     if (e.name === 'AbortError') {
-      if (cancelado()) throw new Error('CANCELLED');
-      throw new Error('La IA tardó más de ' + Math.round(timeoutMs / 1000) + 's y se canceló. Prueba con un documento más corto o con el modelo Sonnet (más rápido) en Ajustes de IA.');
+      if (cancelado()) throw errorIa('CANCELLED', 'cancelado');
+      throw errorIa('La IA tardó más de ' + Math.round(timeoutMs / 1000) + 's y se canceló. Prueba con un documento más corto o con el modelo Sonnet (más rápido) en Ajustes de IA.', 'transitorio');
     }
     // "Failed to fetch" no distingue la causa (el navegador la oculta).
-    throw new Error(equipo
+    throw errorIa(equipo
       ? 'No se pudo conectar con el servicio de IA (' + destino.replace('/v1/messages', '') + ') tras dos intentos. Puede ser un corte de conexión, un proxy corporativo o un bloqueador de anuncios/privacidad del navegador. Vuelve a intentarlo; si persiste, prueba desde otra red. (' + e.message + ')'
-      : 'No se pudo conectar con Anthropic tras dos intentos. Revisa tu conexión a internet. (' + e.message + ')');
+      : 'No se pudo conectar con Anthropic tras dos intentos. Revisa tu conexión a internet. (' + e.message + ')', 'transitorio');
   }
   if (!res.ok) {
     let msg = 'Error ' + res.status;
@@ -134,13 +160,14 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
     if (res.status === 403 && equipo) msg = 'El intermediario rechazó este origen (403): abre la app desde su dominio oficial (' + entorno.host + ' no esta en ALLOWED_ORIGINS).';
     if (res.status === 429) msg = 'Límite de uso alcanzado (429). Espera unos segundos y reintenta.';
     limpiar();
-    throw new Error(msg);
+    // 429 y 5xx (529 = sobrecarga) pasan solos; el resto no cambia al repetir
+    throw errorIa(msg, res.status === 429 || res.status >= 500 ? 'transitorio' : 'definitivo');
   }
 
   // Solo se acumulan los deltas de TEXTO (el razonamiento llega en bloques
   // thinking y se ignora). Un bloque 'fallback' descarta lo recibido: el modelo
   // de respaldo repite la respuesta entera.
-  let texto = '', stop: string | null = null, errorSse: string | null = null, buf = '';
+  let texto = '', stop: string | null = null, errorSse: string | null = null, tipoErrorSse = '', buf = '';
   const uso: UsoIa = { modelo: body.model, entrada: 0, salida: 0 };
   const tokensEntrada = (u: Record<string, number>) => (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
   const lector = res.body!.getReader();
@@ -175,24 +202,31 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
           }
         } else if (d.type === 'error') {
           errorSse = (d.error && d.error.message) || 'error desconocido';
+          tipoErrorSse = (d.error && typeof d.error.type === 'string') ? d.error.type : '';
         }
       }
     }
   } catch (err) {
     const e = err as Error;
+    // Cortada a mitad: lo recibido hasta aquí también se cobra (solo el worker lo pide)
+    if (opts.onUsoParcial && (uso.entrada || uso.salida)) { try { opts.onUsoParcial(uso); } catch { /* nada */ } }
     if (e.name === 'AbortError') {
-      if (cancelado()) throw new Error('CANCELLED');
-      throw new Error('La IA dejó de responder durante ' + Math.round(timeoutMs / 1000) + ' s y se canceló. Vuelve a intentarlo; si se repite, prueba con un documento más corto o con el modelo Sonnet (más rápido) en Ajustes de IA.');
+      if (cancelado()) throw errorIa('CANCELLED', 'cancelado');
+      throw errorIa('La IA dejó de responder durante ' + Math.round(timeoutMs / 1000) + ' s y se canceló. Vuelve a intentarlo; si se repite, prueba con un documento más corto o con el modelo Sonnet (más rápido) en Ajustes de IA.', 'transitorio');
     }
-    throw new Error('Se cortó la conexión mientras la IA respondía (' + e.message + ').');
+    throw errorIa('Se cortó la conexión mientras la IA respondía (' + e.message + ').', 'transitorio');
   } finally {
     limpiar();
   }
   if (opts.onUsage && (uso.entrada || uso.salida)) { try { opts.onUsage(uso); } catch { /* nada */ } }
-  if (errorSse) throw new Error('La IA devolvió un error a mitad de la respuesta: ' + errorSse);
-  if (stop === 'refusal') throw new Error('El modelo rechazó la solicitud por políticas de seguridad.');
+  if (errorSse) {
+    const e = new Error('La IA devolvió un error a mitad de la respuesta: ' + errorSse);
+    // Sin tipo en el evento, clasificarErrorIa decide por el texto
+    throw tipoErrorSse ? marcarErrorIa(e, TIPOS_SSE_TRANSITORIOS.has(tipoErrorSse) ? 'transitorio' : 'definitivo') : e;
+  }
+  if (stop === 'refusal') throw errorIa('El modelo rechazó la solicitud por políticas de seguridad.', 'definitivo');
   // Lo que se corta es la RESPUESTA, no el texto de entrada.
-  if (stop === 'max_tokens') throw new Error('El proceso que generó la IA es más largo de lo que puede devolver en una sola respuesta (' + body.max_tokens.toLocaleString('es-PE') + ' tokens). Tu texto está bien: vuelve a generarlo eligiendo el nivel "Actividad" o "Ejecutivo", o divide el procedimiento por capítulos.');
+  if (stop === 'max_tokens') throw errorIa('El proceso que generó la IA es más largo de lo que puede devolver en una sola respuesta (' + body.max_tokens.toLocaleString('es-PE') + ' tokens). Tu texto está bien: vuelve a generarlo eligiendo el nivel "Actividad" o "Ejecutivo", o divide el procedimiento por capítulos.', 'definitivo');
   return texto.trim();
 }
 

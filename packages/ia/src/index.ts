@@ -5,7 +5,7 @@ export {
   precioModelo, usd, fmtUsd, mediana, estimarCosteGeneracion,
   type PrecioModelo, type CosteEjecucion, type EstimacionCoste
 } from './costes.js';
-export { llamarClaude, extraerJson, type ConfigIa, type UsoIa, type OpcionesLlamada, type Entorno } from './cliente.js';
+export { llamarClaude, extraerJson, marcarErrorIa, type ConfigIa, type UsoIa, type OpcionesLlamada, type Entorno, type ClaseErrorIa } from './cliente.js';
 export {
   EspecGeneracionEsquema, MAX_CHARS_REPARACION, PROMPT_REPARACION, clasificarErrorIa, promptReparacion, validarEspecGeneracion,
   type EspecGeneracion

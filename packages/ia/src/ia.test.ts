@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Nodo } from '@processiq/dominio';
 import {
   GEN_MAX_TOKENS, PROMPT_GENERACION, REGLAS_FUSION, clasificarErrorIa, combinarFuentes, estimarCosteGeneracion, extraerJson,
-  fmtUsd, interpretarPains, llamarClaude, promptGeneracion, resumenProcesoParaIa, timeoutGeneracion, usd, validarEspecGeneracion
+  fmtUsd, interpretarPains, llamarClaude, marcarErrorIa, promptGeneracion, resumenProcesoParaIa, timeoutGeneracion, usd, validarEspecGeneracion
 } from './index.js';
 
 // --------------------------------------------------------------- SSE falso
@@ -197,6 +197,115 @@ describe('modo servidor (worker de la API)', () => {
   });
 });
 
+// --------------------------------------------------- respuestas cortadas a mitad
+const INICIO = sse([
+  { type: 'message_start', message: { model: 'claude-opus-5', usage: { input_tokens: 700 } } },
+  { type: 'content_block_delta', delta: { type: 'text_delta', text: '{"nodes":' } }
+]);
+/** Llega el inicio de la respuesta y después se corta la red o no llega nada más hasta que se aborta. */
+function cortada(corte: 'red' | 'colgada', inicio = INICIO) {
+  return async (_url: string, init: RequestInit) => {
+    let n = 0;
+    return new Response(new ReadableStream<Uint8Array>({
+      pull(ctrl) {
+        if (n++ === 0) { ctrl.enqueue(new TextEncoder().encode(inicio)); return; }
+        if (corte === 'red') { ctrl.error(new TypeError('terminated')); return; }
+        return new Promise<void>((listo) => init.signal!.addEventListener('abort', () => {
+          ctrl.error(Object.assign(new Error('abortada'), { name: 'AbortError' }));
+          listo();
+        }));
+      }
+    }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
+}
+/** El error con el que falla la promesa. */
+async function falloDe(p: Promise<unknown>): Promise<Error & { claseIa?: string }> {
+  try { await p; } catch (e) { return e as Error; }
+  throw new Error('la llamada no falló');
+}
+
+describe('llamadas cortadas a mitad', () => {
+  const servidor = { modo: 'servidor', key: 'sk-ant-servidor', model: 'claude-opus-5' };
+
+  it('corte de red: onUsoParcial recibe la entrada de message_start; onUsage no se llama', async () => {
+    const uso = vi.fn(), parcial = vi.fn();
+    const e = await falloDe(llamarClaude('p', { onUsage: uso, onUsoParcial: parcial }, servidor, entorno(cortada('red') as never)));
+    expect(e.message).toBe('Se cortó la conexión mientras la IA respondía (terminated).');
+    expect(parcial).toHaveBeenCalledExactlyOnceWith({ modelo: 'claude-opus-5', entrada: 700, salida: 0 });
+    expect(uso).not.toHaveBeenCalled();
+  });
+
+  it('inactividad y cancelación también informan lo recibido, con la salida de message_delta si llegó', async () => {
+    const parcial = vi.fn();
+    const conSalida = INICIO + sse([{ type: 'message_delta', delta: {}, usage: { output_tokens: 40 } }]);
+    const e = await falloDe(llamarClaude('p', { timeoutMs: 30, onUsoParcial: parcial }, servidor, entorno(cortada('colgada', conSalida) as never)));
+    expect(e.message).toMatch(/^La IA dejó de responder durante 0 s y se canceló/);
+    expect(parcial).toHaveBeenCalledExactlyOnceWith({ modelo: 'claude-opus-5', entrada: 700, salida: 40 });
+
+    const ctrl = new AbortController();
+    const cancelada = vi.fn();
+    const p = llamarClaude('p', { onUsoParcial: cancelada }, servidor,
+      { ...entorno(cortada('colgada') as never), senalCancelacion: ctrl.signal, cancelado: () => ctrl.signal.aborted });
+    setTimeout(() => ctrl.abort(), 20);
+    expect((await falloDe(p)).message).toBe('CANCELLED');
+    expect(cancelada).toHaveBeenCalledExactlyOnceWith({ modelo: 'claude-opus-5', entrada: 700, salida: 0 });
+  });
+
+  it('el editor (sin onUsoParcial) se comporta igual que antes: nada que informar', async () => {
+    const uso = vi.fn();
+    const e = await falloDe(llamarClaude('p', { onUsage: uso }, equipo, entorno(cortada('red') as never)));
+    expect(e.message).toBe('Se cortó la conexión mientras la IA respondía (terminated).');
+    expect(uso).not.toHaveBeenCalled();
+  });
+
+  it('un fallo antes de la respuesta no informa uso: no hubo consumo', async () => {
+    const parcial = vi.fn();
+    await falloDe(llamarClaude('p', { onUsoParcial: parcial }, servidor, entorno((async () => new Response('{}', { status: 529 })) as never)));
+    expect(parcial).not.toHaveBeenCalled();
+  });
+});
+
+describe('clase de los errores de llamarClaude', () => {
+  const servidor = { modo: 'servidor', key: 'sk-ant-servidor', model: 'claude-opus-5' };
+  const con = (status: number, cuerpo = '{}') => (async () => new Response(cuerpo, { status })) as never;
+  const clase = async (f: never, opts = {}, cfg: object = servidor, extra = {}) => {
+    const e = await falloDe(llamarClaude('p', opts, cfg, { ...entorno(f), ...extra }));
+    return { mensaje: e.message, clase: e.claseIa };
+  };
+
+  it('marca la clase en el error sin cambiar el mensaje', async () => {
+    expect(await clase(con(529, '{"error":{"message":"Overloaded"}}'))).toEqual({ mensaje: 'Error 529: Overloaded', clase: 'transitorio' });
+    expect(await clase(con(500, '{"error":{"message":"Internal"}}'))).toEqual({ mensaje: 'Error 500: Internal', clase: 'transitorio' });
+    expect(await clase(con(429))).toEqual({ mensaje: 'Límite de uso alcanzado (429). Espera unos segundos y reintenta.', clase: 'transitorio' });
+    expect(await clase(con(401))).toEqual({ mensaje: 'La clave de Anthropic del servidor no es válida o fue revocada (401): revisa ANTHROPIC_API_KEY.', clase: 'definitivo' });
+    expect(await clase(con(400, '{"error":{"message":"bad"}}'))).toEqual({ mensaje: 'Error 400: bad', clase: 'definitivo' });
+    expect((await clase((async () => { throw new TypeError('Failed to fetch'); }) as never)).clase).toBe('transitorio');
+    expect((await clase(cortada('red') as never)).clase).toBe('transitorio');
+    expect((await clase(cortada('colgada') as never, { timeoutMs: 30 })).clase).toBe('transitorio');
+    expect((await clase((async () => flujo(respuestaTexto('', [], 'refusal'))) as never)).clase).toBe('definitivo');
+    expect((await clase((async () => flujo(respuestaTexto('{', [], 'max_tokens'))) as never)).clase).toBe('definitivo');
+    expect((await clase(vi.fn() as never, {}, { modo: 'servidor' })).clase).toBe('definitivo');
+    expect(await clase(cortada('colgada') as never, { timeoutMs: 30 }, servidor, { cancelado: () => true }))
+      .toEqual({ mensaje: 'CANCELLED', clase: 'cancelado' });
+  });
+
+  it('errores a mitad del stream: por el tipo del evento; sin tipo, sin marca (decide el texto)', async () => {
+    const conError = (error: object) => (async () => flujo(respuestaTexto('x', [{ type: 'error', error }]))) as never;
+    expect(await clase(conError({ type: 'overloaded_error', message: 'Overloaded' })))
+      .toEqual({ mensaje: 'La IA devolvió un error a mitad de la respuesta: Overloaded', clase: 'transitorio' });
+    expect((await clase(conError({ type: 'api_error', message: 'Internal server error' }))).clase).toBe('transitorio');
+    expect((await clase(conError({ type: 'invalid_request_error', message: 'mal' }))).clase).toBe('definitivo');
+    expect((await clase(conError({ message: 'raro' }))).clase).toBeUndefined();
+  });
+
+  it('la marca no se enumera: el error se serializa y se copia igual que antes', async () => {
+    const e = await falloDe(llamarClaude('p', {}, servidor, entorno(con(529))));
+    expect(Object.keys(e)).toEqual([]);
+    expect(JSON.stringify(e)).toBe('{}');
+    expect({ ...e }).toEqual({});
+  });
+});
+
 describe('especificación de la generación', () => {
   it('valida la forma mínima que dibuja el editor', () => {
     expect(validarEspecGeneracion({ nodes: [{ k: 'a1', type: 'task', label: 'Registrar' }], edges: [{ from: 'a1', to: 'a2' }] }).ok).toBe(true);
@@ -213,5 +322,24 @@ describe('especificación de la generación', () => {
     expect(clasificarErrorIa(new Error('No se pudo conectar con Anthropic tras dos intentos.'))).toBe('transitorio');
     expect(clasificarErrorIa(new Error('La clave de Anthropic del servidor no es válida o fue revocada (401)'))).toBe('definitivo');
     expect(clasificarErrorIa(new Error('El modelo rechazó la solicitud por políticas de seguridad.'))).toBe('definitivo');
+  });
+
+  it('manda la clase marcada en el error; el texto solo si no la trae', () => {
+    // La marca gana aunque el texto diga otra cosa
+    expect(clasificarErrorIa(marcarErrorIa(new Error('Error 529: Overloaded'), 'definitivo'))).toBe('definitivo');
+    expect(clasificarErrorIa(marcarErrorIa(new Error('Un mensaje cualquiera'), 'transitorio'))).toBe('transitorio');
+    expect(clasificarErrorIa(marcarErrorIa(new Error('otro'), 'cancelado'))).toBe('cancelado');
+    // Una marca que no es una clase conocida se ignora
+    expect(clasificarErrorIa(Object.assign(new Error('Error 503: x'), { claseIa: 'rara' }))).toBe('transitorio');
+    expect(clasificarErrorIa('Se cortó la conexión mientras la IA respondía')).toBe('transitorio');
+    expect(clasificarErrorIa(null)).toBe('definitivo');
+  });
+
+  it('los errores de llamarClaude se clasifican por su marca', async () => {
+    const f = async () => new Response('{"error":{"type":"invalid_request_error","message":"overloaded es una palabra del cuerpo"}}', { status: 400 });
+    const e = await falloDe(llamarClaude('p', {}, equipo, entorno(f as never)));
+    // Por el texto sería «transitorio» (contiene «overloaded»); el estado 400 lo marca definitivo
+    expect(e.message).toBe('Error 400: overloaded es una palabra del cuerpo');
+    expect(clasificarErrorIa(e)).toBe('definitivo');
   });
 });

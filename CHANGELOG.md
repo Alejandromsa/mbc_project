@@ -7,6 +7,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 - **Trabajo en equipo:** guías en `docs/equipo/` (convenciones, nueva iniciativa o aplicación, Claude Code), registro de iniciativas y reservas en `docs/iniciativas/`, plantilla de PR.
 - **Plantillas de proceso:** un administrador guarda una revisión como plantilla (sin datos del cliente) y cualquiera crea con ella un proceso nuevo, que nace con la versión 1 copiada. Se gestionan en «Catálogos».
 - **Operación:** copias de seguridad a hora fija (03:00 de Lima; staging a las 03:30), con una copia inmediata si la última tiene más de 24 h. Limpieza automática de imágenes viejas al promover a producción (`infra/desplegar.sh limpiar`).
+- **IA:** el consumo de las llamadas cortadas a mitad (cancelación, inactividad, corte de red o parada del worker) se suma al coste de la ejecución y llega a Pulse; el worker vuelve a comprobar el presupuesto mensual y el límite por persona antes de cada llamada, reintentos incluidos; si el modelo elegido no está permitido, el servidor usa otro y el editor lo avisa; un aviso de la cola despierta a todos los bucles del worker; los reintentos se deciden por la clase marcada en el error, no por su texto.
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { eq, sql } from 'drizzle-orm';
 import { ejecucionesIa, type Conexion } from '@processiq/db';
 import { PROMPT_GENERACION, PROMPT_REPARACION, ROL_ANALISTA, usd } from '@processiq/ia';
+import { despertador } from './ia/avisos.js';
 import { reencolarHuerfanas, tomarSiguiente } from './ia/cola.js';
 import { ejecutar } from './ia/ejecutar.js';
 import { cerrarBase, cliente, config, prepararBase, usuario, vaciar } from './pruebas/entorno.js';
@@ -43,15 +44,37 @@ function fetchFalso(...respuestas: Fabrica[]) {
 }
 const cuerpoDe = (f: ReturnType<typeof fetchFalso>, n = 0) => JSON.parse(String((f.mock.calls[n]![1] as RequestInit).body));
 
-const dependencias = (f: ReturnType<typeof fetchFalso>) => ({
+const dependencias = (f: ReturnType<typeof fetchFalso>, extra: object = {}) => ({
   db: conexion.db, claveAnthropic: 'sk-ant-prueba', fetch: f as unknown as typeof fetch,
-  esperar: async () => {}, intervaloVigilanciaMs: 20
+  esperar: async () => {}, intervaloVigilanciaMs: 20, topes: config.ia, ...extra
 });
-async function procesarCola(f: ReturnType<typeof fetchFalso>) {
+async function procesarCola(f: ReturnType<typeof fetchFalso>, extra: object = {}) {
   const e = await tomarSiguiente(conexion.db);
   expect(e, 'había una ejecución en la cola').not.toBeNull();
-  await ejecutar(dependencias(f), e!);
+  await ejecutar(dependencias(f, extra), e!);
   return e!;
+}
+/** Empieza la respuesta (message_start con 1000 tokens de entrada y algo de texto) y después se corta la red o se queda colgada hasta que se aborta. */
+function cortada(corte: 'red' | 'colgada'): Fabrica {
+  return (init) => {
+    let n = 0;
+    return new Response(new ReadableStream<Uint8Array>({
+      pull(ctrl) {
+        if (n++ === 0) {
+          ctrl.enqueue(new TextEncoder().encode(sse([
+            { type: 'message_start', message: { model: 'claude-opus-5', usage: { input_tokens: 1000 } } },
+            { type: 'content_block_delta', delta: { type: 'text_delta', text: '{"nodes":[' } }
+          ])));
+          return;
+        }
+        if (corte === 'red') { ctrl.error(new TypeError('terminated')); return; }
+        return new Promise<void>((listo) => init.signal!.addEventListener('abort', () => {
+          ctrl.error(Object.assign(new Error('abortada'), { name: 'AbortError' }));
+          listo();
+        }));
+      }
+    }), { status: 200, headers: { 'content-type': 'text/event-stream' } });
+  };
 }
 const fila = async (id: string) => (await conexion.db.select().from(ejecucionesIa).where(eq(ejecucionesIa.id, id)))[0]!;
 
@@ -167,10 +190,9 @@ describe('IA en el servidor', () => {
     expect((await fila(id)).estado).toBe('cancelada');
   });
 
-  it('permisos, modelo permitido, IA sin configurar, proyecto archivado y presupuesto', async () => {
+  it('permisos, IA sin configurar, proyecto archivado y presupuesto', async () => {
     const { u, c, p, proceso, generar } = await equipo();
     expect((await generar(c.rosa)).json.error.codigo).toBe('PERMISO');
-    expect((await generar(c.ana, { modelo: 'claude-haiku-4-5' })).json.error.codigo).toBe('MODELO');
 
     const sinClave = cliente({ ...config, ia: { ...config.ia, configurada: false } });
     await sinClave.entrar('ana@mbc.pe');
@@ -192,6 +214,99 @@ describe('IA en el servidor', () => {
 
     await c.ana.patch(`/api/proyectos/${p.id}`, { archivado: true });
     expect((await generar(c.admin)).json.error.codigo).toBe('ARCHIVADO');
+  });
+
+  it('modelo: si el pedido no está permitido, usa el primero permitido y lo dice en la respuesta', async () => {
+    const { c, proceso, generar } = await equipo();
+    const r = await generar(c.ana, { modelo: 'claude-haiku-4-5' });
+    expect(r.status).toBe(202);
+    expect(r.json.modeloSustituido).toEqual({ pedido: 'claude-haiku-4-5', usado: 'claude-opus-5' });
+    expect(r.json.ejecucion.modelo).toBe('claude-opus-5');
+    const f = fetchFalso(() => respuestaClaude(JSON.stringify(SPEC)));
+    await procesarCola(f);
+    expect(cuerpoDe(f).model).toBe('claude-opus-5');
+    const [auditada] = (await conexion.pool.query(`select detalle from auditoria where accion = 'ia.generacion'`)).rows;
+    expect(auditada.detalle).toMatchObject({ modelo: 'claude-opus-5', modeloPedido: 'claude-haiku-4-5' });
+
+    // Permitido o sin pedir: sin sustitución
+    expect((await generar(c.ana, { modelo: 'claude-sonnet-5' })).json).toMatchObject({ modeloSustituido: null, ejecucion: { modelo: 'claude-sonnet-5' } });
+    const sinModelo = await c.ana.post('/api/ia/generaciones', { procesoId: proceso.id, texto: TEXTO });
+    expect(sinModelo.json).toMatchObject({ modeloSustituido: null, ejecucion: { modelo: 'claude-opus-5' } });
+  });
+
+  it('una llamada cortada a mitad suma lo consumido hasta el corte (cancelación y corte de red), también en el gasto informado', async () => {
+    const { c, generar } = await equipo();
+    const gasto = vi.fn();
+    const coste1000 = usd(1000, 0, 'claude-opus-5');
+
+    // Cancelada mientras la IA respondía
+    const id = (await generar()).json.ejecucion.id;
+    const e = await tomarSiguiente(conexion.db);
+    const enMarcha = ejecutar(dependencias(fetchFalso(cortada('colgada')), { reportarGasto: gasto }), e!);
+    await vi.waitFor(async () => expect((await fila(id)).progreso).toBeGreaterThan(0));   // ya llegó el inicio de la respuesta
+    expect((await c.ana.post(`/api/ia/ejecuciones/${id}/cancelar`)).status).toBe(200);
+    await enMarcha;
+    const cancelada = await fila(id);
+    expect(cancelada).toMatchObject({ estado: 'cancelada', tokensEntrada: 1000, tokensSalida: 0 });
+    expect(cancelada.costeUsd).toBeCloseTo(coste1000, 9);
+    expect(gasto).toHaveBeenCalledExactlyOnceWith({ modelo: 'claude-opus-5', entrada: 1000, salida: 0, ejecucionId: id, parcial: true });
+
+    // Corte de red: se reintenta y lo consumido queda sumado
+    const id2 = (await generar()).json.ejecucion.id;
+    await procesarCola(fetchFalso(cortada('red')));
+    const cortadaRed = await fila(id2);
+    expect(cortadaRed).toMatchObject({ estado: 'en_cola', tokensEntrada: 1000 });
+    expect(cortadaRed.error).toContain('Se cortó la conexión mientras la IA respondía');
+    expect(cortadaRed.costeUsd).toBeCloseTo(coste1000, 9);
+    // El reintento suma lo suyo encima
+    await conexion.db.update(ejecucionesIa).set({ disponibleEn: new Date() }).where(eq(ejecucionesIa.id, id2));
+    await procesarCola(fetchFalso(() => respuestaClaude(JSON.stringify(SPEC))));
+    expect(await fila(id2)).toMatchObject({ estado: 'completada', tokensEntrada: 2000, tokensSalida: 500 });
+  });
+
+  it('el worker vuelve a comprobar el presupuesto justo antes de llamar, también en los reintentos', async () => {
+    const { u, c, proceso, generar } = await equipo();
+    const gasto = (usuarioId: string, costeUsd: number) => conexion.db.insert(ejecucionesIa).values({
+      organizacionId: u.ana.organizacionId, procesoId: proceso.id, usuarioId, tipo: 'generacion', modelo: 'claude-opus-5', estado: 'completada', costeUsd
+    });
+    const ANTES = ' La ejecución se detuvo antes de llamar a la IA.';
+
+    // Reintento: el primer intento falla por sobrecarga y, mientras espera, la persona llega a su límite
+    const id = (await generar()).json.ejecucion.id;
+    const f = fetchFalso(() => new Response('{"error":{"message":"Overloaded"}}', { status: 529 }), () => respuestaClaude(JSON.stringify(SPEC)));
+    await procesarCola(f);
+    expect((await fila(id)).estado).toBe('en_cola');
+    await gasto(u.ana.id, 25);
+    await conexion.db.update(ejecucionesIa).set({ disponibleEn: new Date() }).where(eq(ejecucionesIa.id, id));
+    await procesarCola(f);
+    expect(await fila(id)).toMatchObject({
+      estado: 'fallida', intentos: 2, tokensEntrada: 0, costeUsd: 0, texto: null,
+      error: 'Alcanzaste tu límite mensual de IA (US$ 25). Un administrador puede ampliarlo.' + ANTES
+    });
+    expect(f).toHaveBeenCalledTimes(1);   // el segundo intento no llamó a Claude
+
+    // Encolada con presupuesto; antes de que el worker la tome, otra persona agota el de la organización
+    const id2 = (await generar(c.admin)).json.ejecucion.id;
+    await gasto(u.admin.id, 75);   // 25 + 75 = US$ 100
+    const g = fetchFalso(() => respuestaClaude(JSON.stringify(SPEC)));
+    await procesarCola(g);
+    expect(await fila(id2)).toMatchObject({
+      estado: 'fallida', costeUsd: 0,
+      error: 'Se alcanzó el presupuesto mensual de IA de la organización (US$ 100). Un administrador puede ampliarlo.' + ANTES
+    });
+    expect(g).not.toHaveBeenCalled();
+  });
+
+  it('antes de reparar también: cuenta lo que la ejecución ya gastó y aún no está en la base', async () => {
+    const { generar } = await equipo();
+    const id = (await generar()).json.ejecucion.id;
+    // La primera respuesta no es JSON y cuesta más de US$ 25, el límite de la persona
+    const f = fetchFalso(() => respuestaClaude('no es JSON', { entrada: 1000, salida: 1_000_000 }), () => respuestaClaude(JSON.stringify(SPEC)));
+    await procesarCola(f);
+    const e = await fila(id);
+    expect(e).toMatchObject({ estado: 'fallida', tokensEntrada: 1000, tokensSalida: 1_000_000 });   // lo gastado queda registrado
+    expect(e.error).toMatch(/^Alcanzaste tu límite mensual de IA \(US\$ 25\)/);
+    expect(f).toHaveBeenCalledTimes(1);   // no se llamó a reparar
   });
 
   it('análisis: tareas del copiloto y pains, con el modelo de análisis y el proceso que envía el editor', async () => {
@@ -245,5 +360,27 @@ describe('IA en el servidor', () => {
     await conexion.db.update(ejecucionesIa).set({ actualizadoEn: sql`now() - interval '10 minutes'` as unknown as Date }).where(eq(ejecucionesIa.id, id));
     expect(await reencolarHuerfanas(conexion.db)).toBe(1);
     expect(await fila(id)).toMatchObject({ estado: 'en_cola', intentos: 0 });
+  });
+});
+
+describe('despertador del worker', () => {
+  it('un aviso despierta a todos los bucles que esperan, no solo al último', async () => {
+    const reloj = despertador();
+    const despiertos: number[] = [];
+    const t0 = Date.now();
+    const bucles = [1, 2, 3].map((n) => reloj.esperar(10_000).then(() => { despiertos.push(n); }));
+    reloj.despertar();
+    await Promise.all(bucles);
+    expect(despiertos.sort()).toEqual([1, 2, 3]);
+    expect(Date.now() - t0).toBeLessThan(1000);
+  });
+
+  it('sin aviso la espera vence sola; un aviso sin nadie esperando no adelanta la siguiente espera', async () => {
+    const reloj = despertador();
+    await reloj.esperar(10);   // vence sola
+    reloj.despertar();         // nadie espera: no pasa nada
+    const t0 = Date.now();
+    await reloj.esperar(30);
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(25);
   });
 });
