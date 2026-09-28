@@ -49,11 +49,21 @@ Cómo sumar iniciativas y aplicaciones a ProcessIQ sin pisarse. Estas guías son
 
 ## Qué obliga GitHub y qué es acuerdo
 
-El repositorio es privado y está en el plan gratuito. En ese plan **no hay protección de ramas ni revisión obligatoria por `CODEOWNERS`** (GitHub responde «Upgrade to GitHub Pro»). Por eso las reglas 4, 8 y 9 son hoy un acuerdo del equipo, no un bloqueo técnico.
+El repositorio es **público** (ADR 18): cualquiera puede leerlo, pero solo los colaboradores pueden escribir.
 
-Lo que sí se comprueba solo, en cada PR (`.github/workflows/ci.yml`):
-- auditoría de dependencias, fronteras entre paquetes, tipos, build;
+**Obligatorio (lo bloquea GitHub):**
+- `main` solo acepta cambios por PR, sin push directo ni `--force`;
+- el PR solo se fusiona con la CI (`verificar`) en verde y con la rama al día con `main`: si `main` avanzó, hay que traerla (y regenerar la migración si hace falta) antes de fusionar;
+- el escaneo de secretos rechaza el push que contenga una clave reconocible.
+
+La CI (`.github/workflows/ci.yml`) ejecuta en cada PR:
+- auditoría de dependencias, fronteras entre paquetes, tipos y build;
 - pruebas unitarias y de integración contra Postgres;
 - fidelidad frente al MVP, E2E de la plataforma e imágenes Docker.
 
-Con GitHub Pro (cuenta personal) o Team (organización) se pueden activar la protección de `main`, la CI obligatoria y `CODEOWNERS`. La plantilla está lista en `.github/CODEOWNERS`.
+**Acuerdo del equipo (GitHub no lo impide):**
+- la revisión de plataforma en los PR del núcleo: no hay aprobaciones obligatorias, porque hoy hay una sola persona con permiso de escritura;
+- que solo el responsable de operación despliegue;
+- los dueños de `.github/CODEOWNERS`, que se activarán cuando existan los equipos.
+
+**Público significa público:** todo lo que se sube (código, fichas, capturas, mensajes de commit, comentarios de PR) lo puede leer cualquiera. Configura tu correo `noreply` de GitHub antes de tu primer commit (`git config user.email <id>+<usuario>@users.noreply.github.com`).

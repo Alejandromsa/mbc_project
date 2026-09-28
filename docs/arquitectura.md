@@ -243,7 +243,7 @@ processiq/
 - Las apps dependen de los paquetes, nunca al revés.
 - Ningún paquete toca el DOM, salvo `motor` (render) y `web`.
 
-**Repositorio:** privado y nuevo, `processiq`. El repo actual sigue publicando el MVP hasta el corte y queda como referencia histórica. Los prompts, la lógica de servidor y los fixtures de evaluación no deben estar en un repositorio público.
+**Repositorio:** nuevo, `Alejandromsa/mbc_project`. El repositorio del MVP sigue publicando la versión actual hasta el corte y queda como referencia histórica. Nació privado; desde el 28-sep-2026 es **público** (ADR 18): los prompts y la lógica del servidor están a la vista, y los secretos, los fixtures reales y los datos del servidor siguen fuera.
 
 ---
 

@@ -36,5 +36,6 @@ respaldos/
 respaldos-*/
 despliegues.log
 
-# Notas personales de Claude Code para este repositorio (docs/equipo/trabajar-con-claude.md)
-CLAUDE.local.md
+# Archivos locales que nunca se publican: notas personales de Claude Code (CLAUDE.local.md)
+# y datos del servidor (servidor-datos.local.md). Ver docs/adr/0018-repositorio-publico.md
+*.local.md

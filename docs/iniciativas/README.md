@@ -82,7 +82,7 @@ Todas las de `.env.example`, `.env.dev.example`, `.env.staging.example` y las de
 
 | Número | Dueño |
 |---|---|
-| 1 a 17 | `nucleo` (ver `docs/adr/README.md`) |
-| **Siguiente libre: 18** | — |
+| 1 a 18 | `nucleo` (ver `docs/adr/README.md`) |
+| **Siguiente libre: 19** | — |
 
 Al reservar un número, se añade su fila y se sube el «siguiente libre».

@@ -5,6 +5,13 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 ## Sin publicar
 
 - **Trabajo en equipo:** guías en `docs/equipo/` (convenciones, nueva iniciativa o aplicación, Claude Code), registro de iniciativas y reservas en `docs/iniciativas/`, plantilla de PR.
+- **Repositorio público** (28-sep-2026, ADR 18):
+  - historial auditado y reescrito: correo `noreply` del autor y sin datos de red del servidor;
+  - `main` protegida, escaneo de secretos, avisos de Dependabot y reporte privado de vulnerabilidades;
+  - `SECURITY.md` y `CONTRIBUTING.md`;
+  - el repositorio anterior queda privado y archivado como `mbc_project-historico`.
+
+  **Los identificadores de commit cambiaron.** La versión desplegada `40f0bd53` (imagen `processiq/*:40f0bd53`) es el commit `cc23c141` del historial público.
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 

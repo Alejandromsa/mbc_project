@@ -1,8 +1,8 @@
 # Dueños por carpeta (docs/arquitectura.md §5, docs/equipo/README.md).
 #
-# En el plan gratuito de GitHub, en un repositorio privado, este archivo no obliga
-# a nada: la revisión de plataforma es hoy un acuerdo del equipo. Con GitHub Pro
-# o Team se activa junto con la protección de main.
+# El repositorio es público (ADR 18): GitHub ya admite CODEOWNERS, pero hoy no
+# se exige su aprobación porque solo hay una persona con escritura. Cuando existan
+# los equipos, activar «Require review from Code Owners» en la protección de main.
 #
 # Descomentar y sustituir por los equipos reales de GitHub cuando existan:
 # un propietario que no existe en la organización invalida la línea.
