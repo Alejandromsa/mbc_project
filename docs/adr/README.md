@@ -11,6 +11,7 @@ Cada decisión con consecuencias duraderas queda registrada: contexto, decisión
 | [15](0015-observabilidad-propia.md) | Observabilidad propia en la base, sin servicios en la nube | Vigente (mientras no haya presupuesto) |
 | [16](0016-staging-mismo-servidor.md) | Staging en el mismo servidor, detrás del Caddy de producción | Vigente (mientras no haya PaaS) |
 | [17](0017-excepciones-auditoria-dependencias.md) | Excepciones de la auditoría de dependencias | Vigente; revisar en cada actualización |
+| [18](0018-repositorio-publico.md) | Repositorio público, sin licencia, con el historial depurado y `main` protegida | Vigente |
 
 Plantilla para una nueva: copiar cualquiera de las anteriores. Una decisión que se sustituye no se borra: se marca «Sustituida por N».
 
