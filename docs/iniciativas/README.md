@@ -41,7 +41,7 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 
 | Nombre | Tipo | Dueño |
 |---|---|---|
-| `organizaciones`, `usuarios`, `sesiones`, `proyectos`, `miembros_proyecto`, `procesos`, `revisiones`, `auditoria`, `ejecuciones_ia`, `kpis`, `verbos_playbook`, `temas_pptx`, `errores`, `latidos` | Tablas | `nucleo` |
+| `organizaciones`, `usuarios`, `sesiones`, `proyectos`, `miembros_proyecto`, `procesos`, `revisiones`, `auditoria`, `ejecuciones_ia`, `kpis`, `verbos_playbook`, `temas_pptx`, `plantillas_proceso`, `errores`, `latidos` | Tablas | `nucleo` |
 | `rol_organizacion`, `rol_proyecto`, `estado_revision`, `tipo_ejecucion_ia`, `estado_ejecucion_ia`, `tipo_verbo`, `origen_error` | Tipos enumerados | `nucleo` |
 | `ia_cola`, `ia_ejecucion` | Canales `LISTEN/NOTIFY` | `nucleo` |
 

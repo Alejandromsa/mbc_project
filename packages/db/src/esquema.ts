@@ -203,6 +203,30 @@ export const temasPptx = pgTable('temas_pptx', {
   actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow()
 }, (t) => [unique('temas_pptx_org_clave_uq').on(t.organizacionId, t.clave)]);
 
+/**
+ * Plantillas de proceso: un proceso completo (contenido v1) del que se parte
+ * al crear otro en un proyecto. Se crean desde una revisión, sin lo que es de
+ * un cliente concreto (cliente, personas de la gobernanza, historial de la
+ * ficha y valores medidos de KPI).
+ */
+export const plantillasProceso = pgTable('plantillas_proceso', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizacionId: uuid('organizacion_id').notNull().references(() => organizaciones.id),
+  nombre: text('nombre').notNull(),
+  descripcion: text('descripcion').notNull().default(''),
+  industria: text('industria').notNull().default(''),
+  contenido: jsonb('contenido').notNull(),
+  schemaVersion: integer('schema_version').notNull(),
+  /** Tareas, eventos y demás elementos del diagrama: orienta al elegirla sin cargar el contenido. */
+  nodos: integer('nodos').notNull().default(0),
+  activo: boolean('activo').notNull().default(true),
+  creadoPor: uuid('creado_por').references(() => usuarios.id, { onDelete: 'set null' }),
+  /** Revisión de la que salió (se conserva la plantilla aunque se borre). */
+  origenRevisionId: uuid('origen_revision_id').references(() => revisiones.id, { onDelete: 'set null' }),
+  creadoEn: creado(),
+  actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow()
+}, (t) => [unique('plantillas_proceso_org_nombre_uq').on(t.organizacionId, t.nombre)]);
+
 // ------------------------------------------------------------- observabilidad
 // Sin servicios externos (fase 2.4b): los errores y los latidos quedan en la
 // base y los ve el administrador en la pantalla «Sistema».

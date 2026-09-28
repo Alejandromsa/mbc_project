@@ -170,12 +170,19 @@ function AnadirMiembro({ proyectoId, miembros, onCerrar }: { proyectoId: string;
   );
 }
 
+type Origen = 'vacio' | 'plantilla' | 'archivo';
+
 function NuevoProceso({ proyectoId, onCerrar }: { proyectoId: string; onCerrar: () => void }) {
   const [, navegar] = useLocation();
   const cliente = useQueryClient();
   const [nombre, setNombre] = useState('');
+  const [origen, setOrigen] = useState<Origen>('vacio');
+  const [plantillaId, setPlantillaId] = useState('');
   const [archivo, setArchivo] = useState<{ nombre: string; contenido: unknown } | null>(null);
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
+  const plantillas = useQuery({ queryKey: ['plantillas'], queryFn: api.plantillas });
+  const activas = (plantillas.data?.plantillas ?? []).filter((p) => p.activo);
+  const elegida = activas.find((p) => p.id === plantillaId) ?? activas[0];
 
   const leer = async (f: File | undefined) => {
     setErrorArchivo(null);
@@ -192,7 +199,10 @@ function NuevoProceso({ proyectoId, onCerrar }: { proyectoId: string; onCerrar: 
   };
 
   const crear = useMutation({
-    mutationFn: () => api.crearProceso(proyectoId, archivo ? { nombre, contenido: archivo.contenido, mensaje: `Importado de ${archivo.nombre}` } : { nombre }),
+    mutationFn: () => api.crearProceso(proyectoId,
+      origen === 'archivo' && archivo ? { nombre, contenido: archivo.contenido, mensaje: `Importado de ${archivo.nombre}` }
+        : origen === 'plantilla' && elegida ? { nombre, plantillaId: elegida.id }
+          : { nombre }),
     onSuccess: ({ proceso }) => {
       cliente.invalidateQueries({ queryKey: ['proyecto', proyectoId] });
       onCerrar();
@@ -203,17 +213,34 @@ function NuevoProceso({ proyectoId, onCerrar }: { proyectoId: string; onCerrar: 
 
   return (
     <form onSubmit={enviar}>
-      <div className="campo">
-        <label htmlFor="archivo-proceso">Partir de un JSON exportado del editor (opcional)</label>
-        <input id="archivo-proceso" type="file" accept=".json,application/json" onChange={(e) => leer(e.target.files?.[0])} />
-        <small>Sin archivo, el proceso nace vacío y lo dibujas en el editor.</small>
-      </div>
+      <Selector etiqueta="Partir de" value={origen} onChange={(e) => { setOrigen(e.target.value as Origen); setErrorArchivo(null); }}
+        opciones={[
+          { valor: 'vacio', texto: 'Un proceso vacío' },
+          ...(activas.length ? [{ valor: 'plantilla', texto: 'Una plantilla de la organización' }] : []),
+          { valor: 'archivo', texto: 'Un JSON exportado del editor' }
+        ]} />
+      {origen === 'vacio' && <p className="sutil">El proceso nace vacío y lo dibujas en el editor.</p>}
+      {origen === 'plantilla' && elegida && (
+        <>
+          <Selector etiqueta="Plantilla" value={elegida.id} onChange={(e) => setPlantillaId(e.target.value)}
+            opciones={activas.map((p) => ({ valor: p.id, texto: `${p.nombre}${p.industria ? ` · ${p.industria}` : ''} (${p.nodos} elementos)` }))} />
+          {elegida.descripcion && <p className="sutil">{elegida.descripcion}</p>}
+          <p className="sutil">Se crea con la versión 1 copiada de la plantilla y el cliente de este proyecto.</p>
+        </>
+      )}
+      {origen === 'archivo' && (
+        <div className="campo">
+          <label htmlFor="archivo-proceso">Archivo JSON («Exportar → JSON» del editor)</label>
+          <input id="archivo-proceso" type="file" accept=".json,application/json" onChange={(e) => leer(e.target.files?.[0])} />
+        </div>
+      )}
       {errorArchivo && <Aviso tipo="error">{errorArchivo}</Aviso>}
       <Campo etiqueta="Nombre del proceso" required maxLength={200} value={nombre} onChange={(e) => setNombre(e.target.value)} />
       <ErrorDe error={crear.error} />
       <div className="acciones">
         <Boton onClick={onCerrar}>Cancelar</Boton>
-        <Boton type="submit" variante="primario" cargando={crear.isPending} disabled={!!errorArchivo}>Crear proceso</Boton>
+        <Boton type="submit" variante="primario" cargando={crear.isPending}
+          disabled={!!errorArchivo || (origen === 'archivo' && !archivo)}>Crear proceso</Boton>
       </div>
     </form>
   );

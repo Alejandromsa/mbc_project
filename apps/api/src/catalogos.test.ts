@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { eq, sql } from 'drizzle-orm';
-import { kpis, type Conexion } from '@processiq/db';
+import { kpis, plantillasProceso, type Conexion } from '@processiq/db';
 import { KPI_LIBRARY, VERBS_ALLOWED, VERBS_FORBIDDEN } from '@processiq/dominio';
 import { asegurarCatalogos } from './catalogos.js';
 import { cerrarBase, cliente, prepararBase, usuario, vaciar } from './pruebas/entorno.js';
@@ -97,5 +99,75 @@ describe('catálogos administrables', () => {
     expect((await c.ana.get('/api/catalogos')).json.temas).toEqual([]);
     expect((await c.admin.del(`/api/catalogos/temas/${r.json.tema.id}`)).status).toBe(204);
     expect((await c.admin.get('/api/catalogos/temas')).json.temas).toEqual([]);
+  });
+});
+
+describe('plantillas de proceso', () => {
+  const ejemplo = () => JSON.parse(readFileSync(join(import.meta.dirname, '../../../packages/dominio/src/__fixtures__/mvp-3.8.9-venta-lotes.json'), 'utf8'));
+
+  /** Un proyecto de Ana con un proceso y su primera revisión (el ejemplo del MVP, con cliente y personas). */
+  async function conRevision(c: { ana: ReturnType<typeof cliente> }) {
+    const proyecto = (await c.ana.post('/api/proyectos', { nombre: 'Piloto', cliente: 'Cliente Demo' })).json.proyecto;
+    const creado = (await c.ana.post(`/api/proyectos/${proyecto.id}/procesos`, { nombre: 'Venta', contenido: ejemplo() })).json;
+    return { proyecto, revisionId: creado.revision.id as string };
+  }
+
+  it('el administrador la crea desde una revisión sin los datos del cliente; los demás solo la usan', async () => {
+    const { c } = await equipo();
+    const { proyecto, revisionId } = await conRevision(c);
+
+    expect((await c.ana.post('/api/catalogos/plantillas', { revisionId, nombre: 'Venta de lotes' })).status).toBe(403);
+    const r = await c.admin.post('/api/catalogos/plantillas', { revisionId, nombre: 'Venta de lotes', descripcion: 'Del piloto' });
+    expect(r.status).toBe(201);
+    expect(r.json.plantilla).toMatchObject({ nombre: 'Venta de lotes', descripcion: 'Del piloto', industria: 'Transversal', nodos: 33, activo: true, autor: 'admin' });
+    expect(r.json.plantilla.contenido).toBeUndefined();
+    const id = r.json.plantilla.id;
+    expect((await c.admin.post('/api/catalogos/plantillas', { revisionId, nombre: 'Venta de lotes' })).json.error.codigo).toBe('DUPLICADO');
+
+    const [fila] = await conexion.db.select().from(plantillasProceso).where(eq(plantillasProceso.id, id));
+    const guardado = fila!.contenido as any;
+    expect(guardado.meta.client).toBe('');
+    expect(guardado.ficha.gobernanza).toEqual([]);
+    expect(guardado.ficha.cambios).toEqual([]);
+    expect(guardado.kpiValues).toBeUndefined();
+    expect(JSON.stringify(guardado)).not.toContain('Rolleri');   // la persona de la gobernanza
+
+    // Ana la ve y crea un proceso a partir de ella: nombre propio y el cliente de su proyecto
+    expect((await c.ana.get('/api/catalogos/plantillas')).json.plantillas.map((p: any) => p.nombre)).toEqual(['Venta de lotes']);
+    const nuevo = await c.ana.post(`/api/proyectos/${proyecto.id}/procesos`, { nombre: 'Venta Lima', plantillaId: id });
+    expect(nuevo.status).toBe(201);
+    expect(nuevo.json.revision.numero).toBe(1);
+    const rev = (await c.ana.get(`/api/revisiones/${nuevo.json.revision.id}`)).json.revision;
+    expect(rev.mensaje).toBe('Creado desde la plantilla «Venta de lotes»');
+    expect(rev.contenido.meta).toMatchObject({ name: 'Venta Lima', client: 'Cliente Demo' });
+    expect(rev.contenido.nodes).toHaveLength(33);
+    expect(rev.contenido.ficha.gobernanza).toEqual([]);
+  });
+
+  it('una plantilla oculta no se ofrece ni se usa; se renombra, se borra y no se mezcla con contenido', async () => {
+    const { c } = await equipo();
+    const { proyecto, revisionId } = await conRevision(c);
+    const id = (await c.admin.post('/api/catalogos/plantillas', { revisionId, nombre: 'Base' })).json.plantilla.id;
+
+    expect((await c.ana.post(`/api/proyectos/${proyecto.id}/procesos`, { nombre: 'X', plantillaId: id, contenido: ejemplo() })).status).toBe(400);
+    expect((await c.ana.patch(`/api/catalogos/plantillas/${id}`, { activo: false })).status).toBe(403);
+    const oculta = await c.admin.patch(`/api/catalogos/plantillas/${id}`, { activo: false });
+    expect(oculta.json.plantilla).toMatchObject({ nombre: 'Base', activo: false });
+    expect((await c.ana.get('/api/catalogos/plantillas')).json.plantillas).toEqual([]);
+    expect((await c.admin.get('/api/catalogos/plantillas')).json.plantillas).toHaveLength(1);
+    expect((await c.ana.post(`/api/proyectos/${proyecto.id}/procesos`, { nombre: 'X', plantillaId: id })).status).toBe(404);
+
+    const renombrada = await c.admin.patch(`/api/catalogos/plantillas/${id}`, { nombre: 'Base comercial', activo: true });
+    expect(renombrada.json.plantilla).toMatchObject({ nombre: 'Base comercial', activo: true, descripcion: '' });
+    expect((await c.admin.del(`/api/catalogos/plantillas/${id}`)).status).toBe(204);
+    expect((await c.admin.del(`/api/catalogos/plantillas/${id}`)).status).toBe(404);
+    // El proceso del que salió sigue intacto
+    expect((await c.ana.get(`/api/revisiones/${revisionId}`)).json.revision.contenido.ficha.gobernanza.length).toBeGreaterThan(0);
+  });
+
+  it('solo desde revisiones a las que el administrador llega y que existen', async () => {
+    const { c } = await equipo();
+    expect((await c.admin.post('/api/catalogos/plantillas', { revisionId: '00000000-0000-4000-8000-000000000000', nombre: 'Nada' })).status).toBe(404);
+    expect((await c.admin.post('/api/catalogos/plantillas', { revisionId: 'no-es-uuid', nombre: 'Nada' })).status).toBe(400);
   });
 });

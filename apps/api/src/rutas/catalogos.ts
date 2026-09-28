@@ -1,15 +1,18 @@
-// Catálogos administrables: KPIs, verbos del Playbook y temas PPTX de cliente.
-// Los lee cualquiera con sesión (el editor los usa en los procesos de
-// proyectos); solo los administradores los cambian.
+// Catálogos administrables: KPIs, verbos del Playbook, temas PPTX de cliente y
+// plantillas de proceso. Los lee cualquiera con sesión (el editor los usa en los
+// procesos de proyectos; las plantillas, al crear un proceso); solo los
+// administradores los cambian.
 import { Hono } from 'hono';
 import { and, asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { kpis, temasPptx, verbosPlaybook } from '@processiq/db';
+import { kpis, plantillasProceso, revisiones, temasPptx, usuarios, verbosPlaybook } from '@processiq/db';
+import { migrarProyecto } from '@processiq/dominio';
 import { registrar } from '../auditoria.js';
-import { catalogosParaEditor } from '../catalogos.js';
+import { catalogosParaEditor, contenidoDePlantilla } from '../catalogos.js';
 import { ErrorHttp, type Entorno } from '../contexto.js';
 import { exigirAdmin } from '../permisos.js';
 import { cuerpo, esUuid } from '../validar.js';
+import { accesoProceso } from './procesos.js';
 
 const texto = (max: number) => z.string().trim().max(max);
 
@@ -52,6 +55,27 @@ const TemaEsquema = z.object({
 });
 const CambioTemaEsquema = z.object({ definicion: DefinicionTemaEsquema.optional(), activo: z.boolean().optional() })
   .refine((v) => Object.keys(v).length > 0, 'Nada que cambiar');
+
+const PlantillaEsquema = z.object({
+  /** Revisión de la que sale la plantilla (de un proyecto de la organización). */
+  revisionId: z.string().uuid(),
+  nombre: texto(160).min(1),
+  descripcion: texto(600).default(''),
+  industria: texto(80).default('')
+});
+const CambioPlantillaEsquema = z.object({
+  nombre: texto(160).min(1).optional(),
+  descripcion: texto(600).optional(),
+  industria: texto(80).optional(),
+  activo: z.boolean().optional()
+}).refine((v) => Object.keys(v).length > 0, 'Nada que cambiar');
+
+/** Lo que se lista de una plantilla (sin el contenido, que puede ser grande). */
+const resumenPlantilla = {
+  id: plantillasProceso.id, nombre: plantillasProceso.nombre, descripcion: plantillasProceso.descripcion,
+  industria: plantillasProceso.industria, nodos: plantillasProceso.nodos, activo: plantillasProceso.activo,
+  autor: usuarios.nombre, creadoEn: plantillasProceso.creadoEn, actualizadoEn: plantillasProceso.actualizadoEn
+};
 
 export function rutasCatalogos() {
   const r = new Hono<Entorno>();
@@ -171,6 +195,77 @@ export function rutasCatalogos() {
       .where(and(eq(temasPptx.id, id), eq(temasPptx.organizacionId, yo.organizacionId))).returning({ clave: temasPptx.clave });
     if (!borrados.length) throw new ErrorHttp(404, 'Tema no encontrado.');
     await registrar(c, 'catalogo.tema.baja', 'tema_pptx', id, { clave: borrados[0]!.clave });
+    return c.body(null, 204);
+  });
+
+  // ------------------------------------------------------------ Plantillas de proceso
+  /** Cualquiera con sesión ve las activas (para crear procesos a partir de ellas); los administradores, todas. */
+  r.get('/plantillas', async (c) => {
+    const yo = c.get('usuario');
+    const deLaOrganizacion = eq(plantillasProceso.organizacionId, yo.organizacionId);
+    const lista = await c.get('db').select(resumenPlantilla).from(plantillasProceso)
+      .leftJoin(usuarios, eq(usuarios.id, plantillasProceso.creadoPor))
+      .where(yo.rol === 'admin' ? deLaOrganizacion : and(deLaOrganizacion, eq(plantillasProceso.activo, true)))
+      .orderBy(asc(plantillasProceso.nombre));
+    return c.json({ plantillas: lista });
+  });
+
+  r.post('/plantillas', async (c) => {
+    const db = c.get('db'), yo = c.get('usuario');
+    exigirAdmin(yo);
+    const d = await cuerpo(c, PlantillaEsquema);
+    const [rev] = await db.select({ procesoId: revisiones.procesoId, contenido: revisiones.contenido })
+      .from(revisiones).where(eq(revisiones.id, d.revisionId)).limit(1);
+    if (!rev) throw new ErrorHttp(404, 'Revisión no encontrada.');
+    await accesoProceso(db, yo, rev.procesoId, 'leer');   // de un proyecto de su organización
+    const v1 = migrarProyecto(rev.contenido);
+    if (!v1.ok) throw new ErrorHttp(400, 'La revisión no es un proceso válido.', 'PROCESO_INVALIDO', v1.errores);
+    const [existe] = await db.select({ id: plantillasProceso.id }).from(plantillasProceso)
+      .where(and(eq(plantillasProceso.organizacionId, yo.organizacionId), eq(plantillasProceso.nombre, d.nombre))).limit(1);
+    if (existe) throw new ErrorHttp(409, `Ya hay una plantilla llamada «${d.nombre}».`, 'DUPLICADO');
+    const contenido = contenidoDePlantilla(v1.proyecto);
+    const [p] = await db.insert(plantillasProceso).values({
+      organizacionId: yo.organizacionId, nombre: d.nombre, descripcion: d.descripcion,
+      industria: d.industria || contenido.meta.industry || '', contenido, schemaVersion: contenido.schemaVersion,
+      nodos: contenido.nodes.length, creadoPor: yo.id, origenRevisionId: d.revisionId
+    }).returning({ id: plantillasProceso.id });
+    await registrar(c, 'catalogo.plantilla.alta', 'plantilla_proceso', p!.id, { nombre: d.nombre, revisionId: d.revisionId });
+    const [creada] = await db.select(resumenPlantilla).from(plantillasProceso)
+      .leftJoin(usuarios, eq(usuarios.id, plantillasProceso.creadoPor)).where(eq(plantillasProceso.id, p!.id));
+    return c.json({ plantilla: creada }, 201);
+  });
+
+  r.patch('/plantillas/:id', async (c) => {
+    const db = c.get('db'), yo = c.get('usuario');
+    exigirAdmin(yo);
+    const id = c.req.param('id');
+    if (!esUuid(id)) throw new ErrorHttp(404, 'Plantilla no encontrada.');
+    const d = await cuerpo(c, CambioPlantillaEsquema);
+    if (d.nombre) {
+      const [otra] = await db.select({ id: plantillasProceso.id }).from(plantillasProceso)
+        .where(and(eq(plantillasProceso.organizacionId, yo.organizacionId), eq(plantillasProceso.nombre, d.nombre))).limit(1);
+      if (otra && otra.id !== id) throw new ErrorHttp(409, `Ya hay una plantilla llamada «${d.nombre}».`, 'DUPLICADO');
+    }
+    const [p] = await db.update(plantillasProceso).set({ ...d, actualizadoEn: new Date() })
+      .where(and(eq(plantillasProceso.id, id), eq(plantillasProceso.organizacionId, yo.organizacionId)))
+      .returning({ id: plantillasProceso.id });
+    if (!p) throw new ErrorHttp(404, 'Plantilla no encontrada.');
+    await registrar(c, 'catalogo.plantilla.cambio', 'plantilla_proceso', id, d);
+    const [cambiada] = await db.select(resumenPlantilla).from(plantillasProceso)
+      .leftJoin(usuarios, eq(usuarios.id, plantillasProceso.creadoPor)).where(eq(plantillasProceso.id, id));
+    return c.json({ plantilla: cambiada });
+  });
+
+  r.delete('/plantillas/:id', async (c) => {
+    const yo = c.get('usuario');
+    exigirAdmin(yo);
+    const id = c.req.param('id');
+    if (!esUuid(id)) throw new ErrorHttp(404, 'Plantilla no encontrada.');
+    const borradas = await c.get('db').delete(plantillasProceso)
+      .where(and(eq(plantillasProceso.id, id), eq(plantillasProceso.organizacionId, yo.organizacionId)))
+      .returning({ nombre: plantillasProceso.nombre });
+    if (!borradas.length) throw new ErrorHttp(404, 'Plantilla no encontrada.');
+    await registrar(c, 'catalogo.plantilla.baja', 'plantilla_proceso', id, { nombre: borradas[0]!.nombre });
     return c.body(null, 204);
   });
 
