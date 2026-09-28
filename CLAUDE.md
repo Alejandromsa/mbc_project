@@ -87,7 +87,8 @@ docs/iniciativas/    registro de iniciativas y reservas (rutas, tablas, puertos�
   - `persist()` avisa por `cambios.js` para detectar cambios sin guardar (huella del contenido normalizado con `migrarProyecto`, sin `CLAVES_EFIMERAS`).
   - «Guardar revisión» envía el contenido v1 con `padreId` = revisión abierta; la API marca el conflicto.
 - Catálogos administrables (fase 2.4a; `apps/api/src/catalogos.ts`, `rutas/catalogos.ts`, `apps/web/src/app/plataforma/catalogos.js`):
-  - KPIs (`codigo` = id que guardan los procesos, nunca cambia), verbos del Playbook y temas PPTX de cliente, por organización.
+  - KPIs (`codigo` = id que guardan los procesos, nunca cambia), verbos del Playbook, temas PPTX de cliente y plantillas de proceso (`plantillas_proceso`), por organización.
+  - Plantillas: se crean desde una revisión con `contenidoDePlantilla` (quita cliente, gobernanza, historial de la ficha, `kpiValues` y la simulación) y se usan con `plantillaId` al crear un proceso (`rutas/procesos.ts`), que pone el nombre y el cliente del proyecto.
   - Se siembran con los del MVP (`asegurarCatalogos`).
   - En modo proyecto el editor **reemplaza en sitio** `KPI_LIBRARY`, `VERBS_ALLOWED`, `VERBS_FORBIDDEN` y `TEMAS_PPTX`. Así editor (`window.*`), linter y PPTX los usan por referencia sin tocar el código portado.
   - Los temas de cliente añaden su botón al menú Exportar.

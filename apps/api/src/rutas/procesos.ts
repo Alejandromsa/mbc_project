@@ -3,7 +3,7 @@ import { Hono } from 'hono';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { migrarProyecto } from '@processiq/dominio';
-import { ejecucionesIa, procesos, revisiones, usuarios, type BaseDeDatos } from '@processiq/db';
+import { ejecucionesIa, plantillasProceso, procesos, revisiones, usuarios, type BaseDeDatos } from '@processiq/db';
 import { registrar } from '../auditoria.js';
 import { ErrorHttp, type Entorno, type UsuarioSesion } from '../contexto.js';
 import { accesoProyecto, type Capacidad } from '../permisos.js';
@@ -13,8 +13,10 @@ const NuevoProcesoEsquema = z.object({
   nombre: z.string().trim().min(1).max(200),
   /** Proceso inicial (export JSON del editor o v1); si falta, el proceso nace sin revisiones. */
   contenido: z.unknown().optional(),
+  /** Plantilla de la organización de la que parte (en lugar de `contenido`). */
+  plantillaId: z.string().uuid().optional(),
   mensaje: z.string().trim().max(500).default('')
-});
+}).refine((d) => d.contenido === undefined || d.plantillaId === undefined, 'Indica el contenido o la plantilla, no ambos.');
 const RenombrarEsquema = z.object({ nombre: z.string().trim().min(1).max(200) });
 const RevisionEsquema = z.object({
   contenido: z.unknown(),
@@ -63,18 +65,32 @@ export function rutasProcesos() {
     if (!esUuid(proyectoId)) throw new ErrorHttp(404, 'Proyecto no encontrado.');
     const { proyecto } = await accesoProyecto(db, yo, proyectoId, 'escribir');
     const datos = await cuerpo(c, NuevoProcesoEsquema);
-    const v1 = datos.contenido === undefined ? null : contenidoV1(datos.contenido);
+    let v1 = datos.contenido === undefined ? null : contenidoV1(datos.contenido);
+    let mensaje = datos.mensaje || 'Versión inicial';
+    if (datos.plantillaId) {
+      const [plantilla] = await db.select({ nombre: plantillasProceso.nombre, contenido: plantillasProceso.contenido })
+        .from(plantillasProceso)
+        .where(and(eq(plantillasProceso.id, datos.plantillaId), eq(plantillasProceso.organizacionId, proyecto.organizacionId), eq(plantillasProceso.activo, true)))
+        .limit(1);
+      if (!plantilla) throw new ErrorHttp(404, 'Plantilla no encontrada.');
+      v1 = contenidoV1(plantilla.contenido);
+      // El proceso nuevo lleva su nombre y el cliente del proyecto
+      v1.meta = { ...v1.meta, name: datos.nombre, client: proyecto.cliente };
+      mensaje = datos.mensaje || `Creado desde la plantilla «${plantilla.nombre}»`;
+    }
     const res = await db.transaction(async (tx) => {
       const [p] = await tx.insert(procesos).values({ proyectoId: proyecto.id, nombre: datos.nombre, creadoPor: yo.id }).returning();
       let revision = null;
       if (v1) {
         [revision] = await tx.insert(revisiones).values({
-          procesoId: p!.id, numero: 1, autorId: yo.id, mensaje: datos.mensaje || 'Versión inicial', schemaVersion: v1.schemaVersion, contenido: v1
+          procesoId: p!.id, numero: 1, autorId: yo.id, mensaje, schemaVersion: v1.schemaVersion, contenido: v1
         }).returning({ id: revisiones.id, numero: revisiones.numero, estado: revisiones.estado });
       }
       return { proceso: p!, revision };
     });
-    await registrar(c, 'proceso.alta', 'proceso', res.proceso.id, { proyectoId: proyecto.id, nombre: datos.nombre, conRevision: !!res.revision });
+    await registrar(c, 'proceso.alta', 'proceso', res.proceso.id, {
+      proyectoId: proyecto.id, nombre: datos.nombre, conRevision: !!res.revision, ...(datos.plantillaId ? { plantillaId: datos.plantillaId } : {})
+    });
     return c.json(res, 201);
   });
 
