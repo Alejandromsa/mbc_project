@@ -259,7 +259,7 @@ El Anthropic falso decide la respuesta por la petición: una generación (`max_t
 
 ### Qué necesita la E2E
 
-- Postgres de desarrollo en marcha: `docker compose --profile dev up -d postgres-dev`.
+- Postgres de desarrollo en marcha: `docker compose -f docker-compose.dev.yml up -d`.
 - La web construida (`pnpm e2e` la construye).
 - Chromium de Playwright. Fidelidad y E2E usan la misma versión (1.63.0), así que basta instalarlo una vez.
 - Los puertos 4480, 8792 y 8793 libres. Una sola corrida a la vez por PC.
@@ -312,7 +312,7 @@ La protección de `main` exige que `verificar` esté en verde y que la rama est�
 
 `<caso>` es el nombre del escenario: el ejemplo (`loadComplex6`), `copiloto-<ejemplo>`, `comandos`, `mineria`, `texto-<texto>`, `importar-bpmn`, `ia-generacion`, `ia-tareas`, `ingesta-archivos` o `paneles-<ejemplo>`. Las pruebas de `divergencias.spec.mjs` no escriben artefactos.
 
-Todas esas carpetas están en `.gitignore`. **Playwright no borra las carpetas de caso de la fidelidad** entre corridas (solo `resultados/playwright/`): una carpeta vieja no significa un fallo actual. Bórrala antes de una corrida si vas a comparar.
+Todas esas carpetas están en `.gitignore`. Cada corrida de la fidelidad empieza borrando las carpetas de caso de la anterior (`globalSetup`, [limpiar-resultados.mjs](../../pruebas/fidelidad/src/limpiar-resultados.mjs)); `resultados/playwright/` lo vacía Playwright. Lo que hay en `resultados/` es siempre de la última corrida.
 
 Para abrir los informes y trazas:
 

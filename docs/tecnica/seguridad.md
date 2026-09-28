@@ -53,6 +53,8 @@ Solo un puerto llega desde internet: el 443 de Caddy. El resto de servicios no p
 | `postgres` | Solo red interna | Base de datos |
 | `respaldo` | Sin red de entrada | `pg_dump` periódico |
 
+El Postgres de desarrollo ([docker-compose.dev.yml](../../docker-compose.dev.yml), proyecto `processiq-dev`) tiene la contraseña fija de desarrollo, así que solo escucha en `127.0.0.1:5440`.
+
 Rutas de la API que no exigen sesión (`PUBLICAS` en [app.ts](../../apps/api/src/app.ts)):
 
 | Ruta | Para qué |
@@ -194,7 +196,9 @@ Reglas:
 
 ### Tabla `auditoria`
 
-Cada escritura relevante llama a `registrar()` ([auditoria.ts](../../apps/api/src/auditoria.ts)). Cada fila guarda usuario, acción, entidad, id de la entidad, detalle (JSON), IP y fecha.
+Cada escritura relevante llama a `registrar()` ([auditoria.ts](../../apps/api/src/auditoria.ts)). Cada fila guarda usuario, organización, acción, entidad, id de la entidad, detalle (JSON), IP y fecha.
+
+La organización es la del autor. Sin autor (una entrada fallida, la línea de comandos), es la de la cuenta afectada. Queda vacía si no hay ninguna: por ejemplo, un intento de entrar con un correo que no existe.
 
 | Grupo | Acciones | Detalle guardado |
 |---|---|---|
@@ -204,10 +208,13 @@ Cada escritura relevante llama a `registrar()` ([auditoria.ts](../../apps/api/sr
 | Procesos y revisiones | `proceso.alta`, `proceso.cambio`, `revision.alta`, `revision.estado` | Número, conflicto, estado anterior y nuevo |
 | IA | `ia.generacion`, `ia.analisis`, `ia.cancelacion` | Ejecución, modelo, caracteres y **nombres** de las fuentes (no su texto) |
 | Catálogos | `catalogo.kpi.alta`, `catalogo.kpi.cambio`, `catalogo.verbo`, `catalogo.verbo.baja`, `catalogo.tema.alta`, `catalogo.tema.cambio`, `catalogo.tema.baja` | Qué se cambió |
+| Línea de comandos ([cli.ts](../../apps/api/src/cli.ts)) | `cli.usuario.alta`, `cli.usuario.restablecer_clave` | Sin autor (`usuario_id` nulo), sin IP y con `origen: cli`; correo y, en el alta, rol |
 
-La consultan los administradores en `/proyectos/admin/auditoria` (`GET /api/auditoria`, hasta 500 eventos por consulta).
+La consultan los administradores en `/proyectos/admin/auditoria` (`GET /api/auditoria`, hasta 500 eventos por consulta). **Cada administrador ve solo los eventos de su organización.** Los que no tienen organización no los ve nadie en la plataforma: siguen en la base y en el registro de acceso.
 
-No se registran: las lecturas, las exportaciones (se hacen en el navegador), descartar una generación de IA y lo que se hace por la línea de comandos (`cli.js`). Los despliegues quedan en `despliegues.log` del servidor, fuera del repositorio.
+«Sistema» (`/api/sistema`), en cambio, es del **servidor entero**: cualquier administrador ve el estado, la cola de IA, las copias y los errores de todas las organizaciones, con el correo de quien tuvo cada error. Hoy hay una sola organización; con varias, hará falta un rol de operación del servidor.
+
+No se registran: las lecturas, las exportaciones (se hacen en el navegador) y descartar una generación de IA. Los despliegues quedan en `despliegues.log` del servidor, fuera del repositorio.
 
 ### Otros registros
 
@@ -242,7 +249,7 @@ No hay `Content-Security-Policy` (ver [§16](#16-qué-no-está-cubierto-todavía
 
 | Secreto | Archivo en el servidor | Lo usa |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | `.env` (producción), `.env.staging` | `intermediario` y `worker`. La `api` la recibe solo para saber si la IA está configurada |
+| `ANTHROPIC_API_KEY` | `.env` (producción), `.env.staging` | `intermediario` y `worker`. La `api` no la recibe: Compose le pasa solo `IA_CONFIGURADA=si` cuando existe |
 | `ACCESS_CODE` (código del equipo) | `.env`, `.env.staging` | `intermediario` |
 | `POSTGRES_PASSWORD` | `.env`, `.env.staging` | `postgres`, `api`, `worker`, `respaldo` |
 | `PULSE_TOKEN` (opcional) | `.env` | `intermediario`, `worker` |
@@ -333,7 +340,7 @@ Cuidado: si un código mete datos del proceso en el mensaje de un `Error`, esos 
 | Librerías del navegador | Versión exacta (pptxgenjs 3.12.0, JSZip 3.10.1, mammoth 1.8.0, pdf.js 4.7.76; también React y las demás dependencias de ejecución de la web) y servidas desde la propia web. Regla: nada desde un CDN |
 | Resto de dependencias | Rangos `^` en `package.json`, resueltos siempre por el lockfile |
 | GitHub | Avisos de Dependabot y escaneo de secretos ([ADR 18](../adr/0018-repositorio-publico.md)) |
-| Runners | Solo los de GitHub. No hay runners propios: un PR desde un fork podría ejecutar código en el servidor |
+| Runners | Solo los de GitHub. No hay runners propios: un PR desde un fork podría ejecutar código en el servidor. El despliegue a staging lo inicia el propio servidor, que consulta `main` cada 10 minutos ([despliegue.md](../runbooks/despliegue.md#despliegue-automático-a-staging-sondeo)) |
 | Imágenes | `api` e `intermediario` corren como usuario `node`, no como root. La de la API solo lleva el bundle de esbuild y las migraciones; la del intermediario, solo dependencias de producción |
 
 ## 13. Semilla de desarrollo
@@ -372,6 +379,7 @@ Límites conocidos:
 |---|---|
 | [sesion.test.ts](../../apps/api/src/sesion.test.ts) | scrypt; reglas de contraseña; cookie `HttpOnly`/`Secure`/`SameSite`; 401 sin cookie; mensaje genérico; salir invalida; CSRF por `Origin`; bloqueo tras 10 fallos; contraseña temporal; alta y desactivación |
 | [proyectos.test.ts](../../apps/api/src/proyectos.test.ts) | 404 sin acceso; solo el propietario administra; el lector no crea proyectos; revisor no escribe y editor no aprueba; archivados; auditoría; directorio sin datos sensibles |
+| [auditoria.test.ts](../../apps/api/src/auditoria.test.ts) | Con dos organizaciones, cada administrador ve solo la suya (también con filtros); entradas fallidas; la línea de comandos queda auditada; la migración rellena la organización de las filas anteriores |
 | [ia.test.ts](../../apps/api/src/ia.test.ts) (API) | Permisos, modelo permitido, IA sin configurar, proyecto archivado y presupuesto |
 | [sistema.test.ts](../../apps/api/src/sistema.test.ts) | 500 registrado con referencia; los 4xx no; informes de la web con límite por IP |
 | [semilla.test.ts](../../apps/api/src/semilla.test.ts) | Cada cuenta de prueba se comporta según su caso (temporal, inactiva, externa…) |
@@ -392,15 +400,14 @@ Más detalle en [pruebas.md](pruebas.md).
 | Antivirus de archivos | No aplica hoy: los documentos no se suben. Solo se suben imágenes de temas PPTX (PNG o JPEG en data URI, máx. ~1,5 MB, solo administradores) | ClamAV en el worker cuando se guarden originales |
 | Límite de uso por persona y por endpoint | Solo en «Entrar» y `/api/errores`, y en memoria | Contadores en Postgres |
 | Sesiones | Sin caducidad por inactividad; entrar no cierra las sesiones anteriores. Las filas caducadas las purga el worker cada hora | — |
-| Auditoría | Sin política de retención; la base no impide editar o borrar filas; `cli.js` y las exportaciones no se auditan | — |
+| Auditoría | Sin política de retención; la base no impide editar o borrar filas; las exportaciones no se auditan | — |
+| «Sistema» | Es del servidor entero: con varias organizaciones, cada administrador vería los errores (y el correo de quien los tuvo) de todas | Rol de operación del servidor cuando haya más de una organización |
 | Copias de seguridad | Sin cifrar y en el mismo PC | Copiarlas fuera del equipo; PITR en la nube |
 | Cifrado del disco del servidor | **Por confirmar** | — |
 | Tráfico interno | Sin TLS entre contenedores (misma máquina) | — |
 | Envío de datos a Anthropic | Sin política acordada con Legal ni revisión de la Ley 29733 | [arquitectura.md §4 y §8](../arquitectura.md#8-ia-en-producción) |
 | Invitados externos | No existen | Enlace de solo lectura con caducidad (fase 4) |
 | Intermediario | Código compartido, sin límite de peticiones | Desaparece cuando todo pase por la API |
-| `postgres-dev` | Publica el puerto 5440 en todas las interfaces del PC, con la contraseña fija de desarrollo | Recomendado: publicarlo solo en la interfaz de bucle local, en [docker-compose.yml](../../docker-compose.yml) |
-| `ANTHROPIC_API_KEY` en la `api` | La recibe aunque no llama a Anthropic | Pasarle solo un indicador de «configurada» |
 | Fijación de versiones | Acciones de GitHub por etiqueta mayor (`@v7`) e imágenes base por etiqueta (`node:22-alpine`, `caddy:2-alpine`, `postgres:17-alpine`), no por hash | — |
 | Existencia de procesos | Un proceso de un proyecto sin acceso y uno inexistente responden 404 con mensajes distintos. Los ids son UUID aleatorios. (El cambio de estado de una revisión ya comprueba el acceso antes que el estado) | Mismo mensaje en los dos casos |
 | Contenedor de Caddy | Usa la imagen oficial sin cambiar de usuario | **Por confirmar** si corre como root |

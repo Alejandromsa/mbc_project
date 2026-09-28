@@ -66,20 +66,19 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - ⏳ Si el servidor no permite el modelo elegido, el editor usa otro sin avisar.
 - ⏳ `despertador()` despierta solo a un bucle del worker; los demás tardan hasta 10 s.
 - ⏳ `clasificarErrorIa` decide los reintentos por el texto del mensaje de error.
-- ⏳ La cabecera del intermediario dice que es temporal; sigue sirviendo al editor libre.
+- ✅ La cabecera del intermediario dice que es temporal; sigue sirviendo al editor libre (`plataforma/operacion`).
 - 🔜 Salida estructurada, caché de prompts y versión del prompt en `ejecuciones_ia` (previstas en la arquitectura).
 - 🔜 Dibujar en el servidor el proceso generado por la IA (hoy lo dibuja el editor al abrirlo).
 
 ### 5.2 Seguridad y operación
 
-- ⏳ `GET /api/auditoria` y «Sistema» no filtran por organización (hoy hay una sola).
-- ⏳ Lo que se hace con `cli.js` no queda en la auditoría.
-- ⏳ `postgres-dev` publica el puerto 5440 en todas las interfaces; debe ser solo `127.0.0.1`.
-- ⏳ El contenedor `api` recibe `ANTHROPIC_API_KEY` aunque no la usa.
-- ⏳ `docker compose --profile dev up -d postgres-dev` exige `DOMINIO` y `POSTGRES_PASSWORD` aunque no los use.
-- ⏳ El intermediario en desarrollo lee `.env` y no `.env.dev`; falta documentar `ALLOWED_ORIGINS`.
-- ⏳ `HORAS_SESION` y `PORT` no se validan; `RESPALDO_ESPERA_INICIAL_S` no llega al contenedor; `desplegar.sh` solo lee `RED_BORDE` de la terminal.
-- ⏳ Despliegue automático a staging al fusionar en `main`, por sondeo desde el servidor (sin runners propios: [ADR 18](adr/0018-repositorio-publico.md)). Producción sigue siendo manual.
+- ✅ `GET /api/auditoria` filtra por la organización del administrador. «Sistema» sigue siendo del servidor entero, documentado ([seguridad.md §8](tecnica/seguridad.md#8-auditoría-y-registros)).
+- ✅ Lo que se hace con `cli.js` queda en la auditoría (`cli.…`).
+- ✅ El Postgres de desarrollo está en `docker-compose.dev.yml`, solo en `127.0.0.1:5440` y sin `.env`.
+- ✅ El contenedor `api` recibe `IA_CONFIGURADA`, no `ANTHROPIC_API_KEY`.
+- ✅ El intermediario en desarrollo lee `.env.dev` (o `.env` si no existe); `ALLOWED_ORIGINS` documentada.
+- ✅ `HORAS_SESION` y `PORT` validadas; `RESPALDO_ESPERA_INICIAL_S` llega al contenedor; `desplegar.sh` lee `RED_BORDE` también de los `.env`.
+- ✅ Despliegue automático a staging desde `main`, por sondeo desde el servidor (`infra/sondear-main.sh`; sin runners propios: [ADR 18](adr/0018-repositorio-publico.md)). Producción sigue siendo manual. 🙋 Falta instalar la tarea programada en el servidor (`infra/instalar-sondeo.ps1`).
 - 🔜 Cabecera `Content-Security-Policy` (antes hay que servir Montserrat desde la propia web).
 - 🔜 Alertas por correo o webhook (necesita el SMTP o el webhook).
 - 🔜 `CODEOWNERS` real y revisión obligatoria (necesita el equipo).
@@ -101,4 +100,4 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 
 - 🔜 `arquitectura.md` §7 y §8 describen tablas y rutas previstas que no coinciden con las reales (`/api/ia/analisis/{tipo}`, SSE con `Last-Event-ID`, `fuentes`, `exportaciones`…): marcar qué está hecho y cómo.
 - 🔜 Comentario desfasado en `esquema.ts` sobre las claves de `ejecuciones_ia.tarea`.
-- 🔜 La fidelidad no borra las carpetas de resultados entre corridas: quedan restos que parecen fallos.
+- ✅ La fidelidad no borra las carpetas de resultados entre corridas: quedan restos que parecen fallos (`plataforma/operacion`).
