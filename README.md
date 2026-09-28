@@ -5,6 +5,7 @@ Plataforma de diagramación, diagnóstico y reingeniería de procesos con BPMN 2
 - **Arquitectura objetivo:** [docs/arquitectura.md](docs/arquitectura.md)
 - **Servidor actual (PC propio, Docker):** [docs/runbooks/servidor-local.md](docs/runbooks/servidor-local.md)
 - **Historia y lecciones del MVP:** [docs/mvp/HANDOFF.md](docs/mvp/HANDOFF.md)
+- **Trabajo en equipo** (nuevas iniciativas o aplicaciones, convenciones, Claude Code): [docs/equipo/README.md](docs/equipo/README.md). Registro de iniciativas: [docs/iniciativas/README.md](docs/iniciativas/README.md)
 
 ## Estado
 
@@ -43,7 +44,7 @@ pruebas/
 herramientas/     comprobación de fronteras entre paquetes
 bench/            banco de calidad de layout y PPTX (fixtures reales fuera del repo)
 infra/            Caddyfile y Dockerfiles
-docs/             arquitectura, runbooks, lecciones aprendidas y documentación del MVP
+docs/             arquitectura, ADR, runbooks, trabajo en equipo (equipo/), registro de iniciativas (iniciativas/), lecciones y MVP
 ```
 
 ## Desarrollo

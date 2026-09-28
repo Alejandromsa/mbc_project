@@ -104,7 +104,8 @@ export class ErrorApi extends Error {
   }
 }
 
-async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise<T> {
+/** Petición a la API con los errores, la sesión y la red tratados igual en todo el shell (también en los módulos de iniciativa). */
+export async function pedir<T>(metodo: string, ruta: string, cuerpo?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch('/api' + ruta, {

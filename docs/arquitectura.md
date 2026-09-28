@@ -448,8 +448,8 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
   - la comprobación de fronteras;
   - 32 escenarios de fidelidad frente al MVP (los 14 ejemplos idénticos).
 - Diferencias con el MVP: `docs/fase1-divergencias.md` (un fallo del MVP corregido y las librerías servidas desde la app).
+- Trabajo en equipo (28-sep-2026): guías en `docs/equipo/` (convenciones, puntos de registro, módulo o app, Claude Code) y registro de iniciativas y reservas en `docs/iniciativas/`. La estructura de módulo (`apps/*/src/modulos/<clave>/`) la estrena la primera iniciativa.
 - Pendiente:
-  - plantilla de módulo de iniciativa;
   - entornos de vista previa;
   - equipos reales en `CODEOWNERS`;
   - banco con los BPMN reales de cliente (no están en el servidor);
@@ -574,4 +574,4 @@ Por incrementos:
 | Presupuesto mensual de IA y de infraestructura | Fijarlo con la cotización del PaaS y el histórico de Pulse | Fase 2 |
 | Responsable de operación (despliegues, incidentes, restauraciones) | Nombrarlo | Fase 3 |
 | Equipo de plataforma (dueño de dominio, base de datos, IA, infraestructura y CI) | Nombrarlo; sin él, el modelo compartido se degrada con varios equipos | Fase 1 |
-| Inventario de iniciativas | Clasificar cada una con el criterio de §5: módulo, app del monorepo o repositorio propio | Antes de que arranque cada equipo |
+| Inventario de iniciativas | Clasificar cada una con el criterio de §5 (módulo, app del monorepo o repositorio propio) y registrarla en `docs/iniciativas/README.md` | Antes de que arranque cada equipo |
