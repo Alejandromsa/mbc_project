@@ -391,7 +391,7 @@ Más detalle en [pruebas.md](pruebas.md).
 | Redirección de HTTP a HTTPS | No hay: el puerto 80 es de IIS | Ver [servidor-local.md](../runbooks/servidor-local.md#problemas-conocidos) si se libera |
 | Antivirus de archivos | No aplica hoy: los documentos no se suben. Solo se suben imágenes de temas PPTX (PNG o JPEG en data URI, máx. ~1,5 MB, solo administradores) | ClamAV en el worker cuando se guarden originales |
 | Límite de uso por persona y por endpoint | Solo en «Entrar» y `/api/errores`, y en memoria | Contadores en Postgres |
-| Sesiones | Sin caducidad por inactividad; las filas caducadas no se purgan; entrar no cierra las sesiones anteriores | — |
+| Sesiones | Sin caducidad por inactividad; entrar no cierra las sesiones anteriores. Las filas caducadas las purga el worker cada hora | — |
 | Auditoría | Sin política de retención; la base no impide editar o borrar filas; `cli.js` y las exportaciones no se auditan | — |
 | Copias de seguridad | Sin cifrar y en el mismo PC | Copiarlas fuera del equipo; PITR en la nube |
 | Cifrado del disco del servidor | **Por confirmar** | — |
@@ -402,7 +402,7 @@ Más detalle en [pruebas.md](pruebas.md).
 | `postgres-dev` | Publica el puerto 5440 en todas las interfaces del PC, con la contraseña fija de desarrollo | Recomendado: publicarlo solo en la interfaz de bucle local, en [docker-compose.yml](../../docker-compose.yml) |
 | `ANTHROPIC_API_KEY` en la `api` | La recibe aunque no llama a Anthropic | Pasarle solo un indicador de «configurada» |
 | Fijación de versiones | Acciones de GitHub por etiqueta mayor (`@v7`) e imágenes base por etiqueta (`node:22-alpine`, `caddy:2-alpine`, `postgres:17-alpine`), no por hash | — |
-| Existencia de revisiones | `POST /api/revisiones/:id/estado` responde `409` (aprobada o transición inválida) antes de comprobar el acceso: quien conozca el id de una revisión ajena sabe que existe. Los ids son UUID aleatorios | Comprobar el acceso antes que el estado |
+| Existencia de procesos | Un proceso de un proyecto sin acceso y uno inexistente responden 404 con mensajes distintos. Los ids son UUID aleatorios. (El cambio de estado de una revisión ya comprueba el acceso antes que el estado) | Mismo mensaje en los dos casos |
 | Contenedor de Caddy | Usa la imagen oficial sin cambiar de usuario | **Por confirmar** si corre como root |
 
 ## 17. Cómo informar de una vulnerabilidad

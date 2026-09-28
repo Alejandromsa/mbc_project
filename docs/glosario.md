@@ -176,6 +176,8 @@ Actualizado: 28-sep-2026.
 
 **Paquete.** Bloque de código compartido del monorepo (modelo, motor de diagrama, BPMN, exportación, documentos, minería, analítica, IA, base de datos). → [Paquetes](tecnica/paquetes.md)
 
+**Plantilla de proceso.** Proceso de referencia de la organización del que se parte al crear otro en un proyecto. La crea un administrador desde una revisión («Guardar como plantilla»), sin el cliente ni las personas de la gobernanza. → [Manual §4.1](manual/README.md#41-crear-un-proceso) · [§9.3](manual/README.md#93-catálogos) · [API](tecnica/api.md#plantillas-de-proceso)
+
 **Playbook MBB.** Estándar de MBC para levantar y diagramar procesos: nombres de actividades y decisiones, granularidad, layout, tipos de ejecución y metadatos obligatorios. El panel «Lint» aplica sus reglas. → [Playbook MBB](mvp/PLAYBOOK_MBB.md) · [Manual §5.15](manual/README.md#515-validación-del-playbook-panel-lint)
 
 **Presupuesto de IA.** Tope mensual de gasto en IA de la organización, en dólares a precio de lista. Hay además un **límite por persona**. Al alcanzarlos, la IA del servidor deja de estar disponible hasta el mes siguiente o hasta que se amplíen. → [Manual §6.11](manual/README.md#611-límites-de-gasto)

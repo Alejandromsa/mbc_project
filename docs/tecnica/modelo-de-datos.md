@@ -33,6 +33,9 @@ erDiagram
   organizaciones ||--o{ kpis : "organizacion_id"
   organizaciones ||--o{ verbos_playbook : "organizacion_id"
   organizaciones ||--o{ temas_pptx : "organizacion_id"
+  organizaciones ||--o{ plantillas_proceso : "organizacion_id"
+  usuarios ||--o{ plantillas_proceso : "creado_por (set null)"
+  revisiones ||--o{ plantillas_proceso : "origen_revision_id (set null)"
   usuarios ||--o{ sesiones : "usuario_id (cascade)"
   usuarios ||--o{ miembros_proyecto : "usuario_id (cascade)"
   usuarios ||--o{ proyectos : "creado_por"
@@ -95,6 +98,11 @@ erDiagram
     uuid id PK
     text clave
   }
+  plantillas_proceso {
+    uuid id PK
+    text nombre
+    jsonb contenido
+  }
   auditoria {
     bigserial id PK
   }
@@ -119,10 +127,11 @@ erDiagram
 | `revisiones.proceso_id` → `procesos` | `cascade` | …y con ellos sus revisiones… |
 | `ejecuciones_ia.proceso_id` → `procesos` | `cascade` | …y sus ejecuciones de IA. |
 | `ejecuciones_ia.revision_id` → `revisiones` | `set null` | Borrar la revisión deja la ejecución sin enlace. |
+| `plantillas_proceso.creado_por` → `usuarios`, `plantillas_proceso.origen_revision_id` → `revisiones` | `set null` | La plantilla sobrevive a su autor y a la revisión de la que salió. |
 | Todas las que apuntan a `organizaciones` | `no action` | No se puede borrar una organización con datos. |
 | `proyectos.creado_por`, `procesos.creado_por`, `revisiones.autor_id`, `ejecuciones_ia.usuario_id` → `usuarios` | `no action` | No se puede borrar un usuario que creó algo: se desactiva (`activo = false`). |
 
-> La API no borra organizaciones, usuarios, proyectos, procesos ni revisiones: solo desactiva usuarios y archiva proyectos. Borra filas de `sesiones`, `miembros_proyecto`, `verbos_playbook`, `temas_pptx` y `errores` (purga). La semilla de desarrollo (`pnpm --filter @processiq/api semilla`) sí borra los proyectos de las cuentas de prueba, y ahí actúan las cascadas.
+> La API no borra organizaciones, usuarios, proyectos, procesos ni revisiones: solo desactiva usuarios y archiva proyectos. Borra filas de `sesiones` (también las caducadas, cada hora desde el worker), `miembros_proyecto`, `verbos_playbook`, `temas_pptx`, `plantillas_proceso` y `errores` (purga). La semilla de desarrollo (`pnpm --filter @processiq/api semilla`) sí borra los proyectos de las cuentas de prueba, y ahí actúan las cascadas.
 
 ---
 
@@ -202,7 +211,7 @@ Una fila por sesión abierta (cookie `piq_sesion`).
 
 - Restricción única `sesiones_token_hash_unique (token_hash)`; índice `sesiones_usuario_idx (usuario_id)`.
 - Se borran al cerrar sesión, al desactivar al usuario, al restablecerle la contraseña (todas) y al cambiarla él mismo (todas menos la actual).
-- Una sesión caducada deja de valer (la API filtra `expira_en > now()`), pero **ningún proceso borra las filas caducadas**: se acumulan.
+- Una sesión caducada deja de valer (la API filtra `expira_en > now()`) y el worker borra cada hora las filas caducadas (`purgarSesionesCaducadas`).
 
 ### Trabajo
 
@@ -364,6 +373,28 @@ Temas de cliente para el export PPTX, **además** de los del código (`mbc` y `b
 | `actualizado_en` | timestamptz | no | `now()` | Último cambio. |
 
 Restricción única `temas_pptx_org_clave_uq (organizacion_id, clave)`.
+
+#### `plantillas_proceso`
+
+Procesos completos de los que se parte al crear otro en un proyecto. Se crean desde una revisión y sin lo que es de un cliente concreto ([§6.7](#67-catálogos)).
+
+| Columna | Tipo | Nulo | Por defecto | Significado |
+|---|---|:-:|---|---|
+| `id` | uuid | no | `gen_random_uuid()` | Clave primaria. |
+| `organizacion_id` | uuid | no | — | FK → `organizaciones` (`no action`). |
+| `nombre` | text | no | — | Nombre visible; único en la organización. |
+| `descripcion` | text | no | `''` | Para elegirla. |
+| `industria` | text | no | `''` | Si no se indica, la de `meta.industry` del proceso. |
+| `contenido` | jsonb | no | — | Contenido v1 ([§8](#8-contenido-json-v1-de-una-revisión)) ya limpio. |
+| `schema_version` | integer | no | — | Versión del esquema de `contenido`. |
+| `nodos` | integer | no | `0` | Elementos del diagrama, para mostrarlo sin leer el contenido. |
+| `activo` | boolean | no | `true` | Solo las activas se ofrecen al crear un proceso. |
+| `creado_por` | uuid | sí | — | FK → `usuarios` (`set null`). |
+| `origen_revision_id` | uuid | sí | — | FK → `revisiones` (`set null`): de dónde salió. |
+| `creado_en` | timestamptz | no | `now()` | Alta. |
+| `actualizado_en` | timestamptz | no | `now()` | Último cambio. |
+
+Restricción única `plantillas_proceso_org_nombre_uq (organizacion_id, nombre)`.
 
 ### Control
 
@@ -576,7 +607,7 @@ Nadie actualiza ni borra filas de `auditoria`, y no hay purga.
 
 ### 6.6 Sesiones
 
-Ver la tabla [`sesiones`](#sesiones): se crea al entrar, expira a las `HORAS_SESION` horas y se borra al salir o por cambios de la cuenta. Las caducadas no se purgan.
+Ver la tabla [`sesiones`](#sesiones): se crea al entrar, expira a las `HORAS_SESION` horas y se borra al salir o por cambios de la cuenta. El worker borra cada hora las caducadas (`purgarSesionesCaducadas`).
 
 ### 6.7 Catálogos
 
@@ -610,6 +641,12 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
   - `logoW` (≤ 6), `logoH` (≤ 3), `portada` (`mbc` | `bbva`) y `cierre` (booleano).
 - Se pueden desactivar o borrar.
 
+**Plantillas de proceso:**
+
+- Las crea un administrador desde una revisión de un proyecto al que llega. `contenidoDePlantilla` guarda una copia del contenido v1 sin `meta.client`, sin las personas de `ficha.gobernanza`, sin `ficha.cambios`, sin `kpiValues` y con `simResults` a `null`. El texto libre no se limpia.
+- Al crear un proceso con `plantillaId`, la v1 es una copia del contenido con `meta.name` = el nombre del proceso y `meta.client` = el cliente del proyecto. El mensaje es «Creado desde la plantilla «X»».
+- Ocultar una plantilla (`activo = false`) la deja de ofrecer; borrarla no toca los procesos creados con ella.
+
 **Uso:** `GET /api/catalogos` devuelve solo lo activo, con la forma de `@processiq/dominio`. En modo proyecto, el editor reemplaza en sitio los catálogos por defecto ([ADR 14](../adr/0014-catalogos-en-sitio.md)).
 
 ---
@@ -622,6 +659,7 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
 | [0001_ejecuciones_ia.sql](../../packages/db/migraciones/0001_ejecuciones_ia.sql) | 25-sep-2026 | Tipos `estado_ejecucion_ia`, `tipo_ejecucion_ia`. Tabla `ejecuciones_ia` con sus FK e índices de cola, proceso y consumo. |
 | [0002_catalogos.sql](../../packages/db/migraciones/0002_catalogos.sql) | 26-sep-2026 | Tipo `tipo_verbo`. Tablas `kpis`, `temas_pptx`, `verbos_playbook`. |
 | [0003_observabilidad.sql](../../packages/db/migraciones/0003_observabilidad.sql) | 26-sep-2026 | Tipo `origen_error`. Tablas `errores` y `latidos`. |
+| [0004_plantillas_proceso.sql](../../packages/db/migraciones/0004_plantillas_proceso.sql) | 28-sep-2026 | Tabla `plantillas_proceso`. |
 
 Todas solo añaden: ninguna borra ni renombra. Cada migración tiene su instantánea en `migraciones/meta/NNNN_snapshot.json` y una entrada en [meta/_journal.json](../../packages/db/migraciones/meta/_journal.json) (`idx`, `when` en milisegundos, `tag`).
 
@@ -973,5 +1011,5 @@ Lo mínimo absoluto que acepta `migrarProyecto` es `{ "nodes": [], "edges": [] }
 | `clientes` | Texto libre en `proyectos.cliente`. |
 | `fuentes`, `fragmentos` (`sourceRefs`) | No existen ([§8.12](#812-fuentes-y-sourcerefs)); bloqueadas por la política de datos. |
 | `exportaciones` | No existen: los exports se generan en el navegador y no se guardan. |
-| `plantillas` | Pospuestas (fase 2.4a). |
+| `plantillas` | Existe como `plantillas_proceso` (28-sep-2026). |
 | `jobs` (pg-boss) | Sustituida por `ejecuciones_ia` como cola ([ADR 13](../adr/0013-cola-ia-en-postgres.md)). |

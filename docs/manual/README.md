@@ -186,11 +186,12 @@ Cada proceso de un proyecto guarda su historia como **revisiones** numeradas (v1
 Necesitas rol de editor o propietario.
 
 1. En el proyecto, pulsa «Nuevo proceso».
-2. Opcional: en «Partir de un JSON exportado del editor (opcional)», elige un archivo `.json` exportado con «Exportar → JSON · proyecto». Si el JSON trae nombre, se rellena solo.
+2. En «Partir de», elige:
+   - **Un proceso vacío:** lo dibujas o lo generas en el editor.
+   - **Una plantilla de la organización** (solo aparece si hay alguna): elige la plantilla en «Plantilla». Debajo ves su descripción. El proceso nace con la versión 1 copiada de la plantilla, con el nombre que le des y el cliente de tu proyecto.
+   - **Un JSON exportado del editor:** elige un archivo `.json` exportado con «Exportar → JSON · proyecto». Si el JSON trae nombre, se rellena solo; su contenido queda como v1.
 3. Escribe el **Nombre del proceso** (por ejemplo, «Proceso de compras»).
 4. Pulsa «Crear proceso».
-
-Sin archivo, el proceso nace vacío y lo dibujas o lo generas en el editor. Con archivo, su contenido queda como v1.
 
 ### 4.2 Abrir un proceso en el editor
 
@@ -798,6 +799,21 @@ Para crear un tema:
 6. Pulsa «Guardar tema».
 
 En la lista de temas, «Ocultar» lo quita del menú sin borrarlo, «Mostrar» lo devuelve y «Eliminar» lo borra.
+
+#### Plantillas de proceso
+
+Una plantilla es un proceso de referencia del que se parte al crear otro («Nuevo proceso → Partir de → Una plantilla de la organización»).
+
+Para crear una:
+
+1. Abre el proceso que quieres usar como referencia (su página, con la lista de revisiones).
+2. En la versión que quieras, pulsa «Guardar como plantilla».
+3. Escribe el **Nombre de la plantilla**, la **Industria** (si la dejas vacía, se toma la del proceso) y una **Descripción** que ayude a elegirla.
+4. Pulsa «Guardar plantilla».
+
+La plantilla copia el diagrama, la ficha y las vistas de esa versión, **sin** el cliente, las personas de la gobernanza, el historial de cambios de la ficha ni los valores medidos de KPI. Los textos libres (objetivo, notas de las tareas) se copian tal cual: **revisa que no nombren al cliente** antes de guardarla.
+
+En «Catálogos → Plantillas de proceso», «Editar» cambia el nombre, la industria o la descripción; «Ocultar» deja de ofrecerla sin borrarla; «Mostrar» la devuelve y «Eliminar» la borra. Los procesos creados con una plantilla no cambian si la plantilla cambia o se borra.
 
 ### 9.4 Auditoría
 

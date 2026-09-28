@@ -49,7 +49,7 @@ Permiso: **público** = sin sesión; **usuario** = cualquier sesión válida; **
 | PATCH | `/api/proyectos/:id` | administrar | Cambia datos del proyecto o lo archiva/reactiva |
 | PUT | `/api/proyectos/:id/miembros/:usuarioId` | administrar | Añade un miembro o cambia su rol |
 | DELETE | `/api/proyectos/:id/miembros/:usuarioId` | administrar | Quita un miembro |
-| POST | `/api/proyectos/:id/procesos` | escribir | Crea un proceso (con o sin revisión inicial) |
+| POST | `/api/proyectos/:id/procesos` | escribir | Crea un proceso: vacío, desde un JSON o desde una plantilla |
 | GET | `/api/procesos/:id` | leer | Proceso y lista de revisiones (sin contenido) |
 | PATCH | `/api/procesos/:id` | escribir | Renombra el proceso |
 | POST | `/api/procesos/:id/revisiones` | escribir | Guarda una revisión nueva |
@@ -76,11 +76,16 @@ Permiso: **público** = sin sesión; **usuario** = cualquier sesión válida; **
 | POST | `/api/catalogos/temas` | admin | Crea un tema PPTX |
 | PATCH | `/api/catalogos/temas/:id` | admin | Cambia la definición o activa/desactiva un tema |
 | DELETE | `/api/catalogos/temas/:id` | admin | Borra un tema |
+| GET | `/api/catalogos/plantillas` | usuario ³ | Plantillas de proceso (activas; el admin ve todas) |
+| POST | `/api/catalogos/plantillas` | admin | Crea una plantilla desde una revisión |
+| PATCH | `/api/catalogos/plantillas/:id` | admin | Renombra, cambia la descripción o la industria, oculta o muestra |
+| DELETE | `/api/catalogos/plantillas/:id` | admin | Borra una plantilla |
 | GET | `/api/sistema` | admin | Estado de API, base, worker, IA, copias y errores, con avisos |
 | GET | `/api/sistema/errores/:huella` | admin | Últimas repeticiones de un error |
 
 ¹ También con la contraseña temporal pendiente de cambio (ver [Contraseña temporal](#contraseña-temporal)).
 ² `escribir` para pasar de `borrador` a `en_revision`; `aprobar` para aprobar o devolver.
+³ Un usuario que no es admin solo recibe las activas.
 
 ## Convenciones generales
 
@@ -397,7 +402,7 @@ El primer administrador se crea por línea de comandos, dentro del contenedor de
 - **Cuerpo:** `rol` (`propietario` | `editor` | `revisor` | `lector`).
 - Añade el miembro o, si ya lo es, cambia su rol. La cuenta debe ser **activa** y de la misma organización.
 - **Respuesta 200:** `{ "ok": true }`.
-- **Errores:** 404 «Usuario no encontrado.».
+- **Errores:** 404 «Usuario no encontrado.»; 409 `ULTIMO_PROPIETARIO` si baja de rol al único propietario.
 - **Auditoría:** `proyecto.miembro` con `{ usuarioId, rol }`.
 
 ### `DELETE /api/proyectos/:id/miembros/:usuarioId`
@@ -431,11 +436,13 @@ El objeto `revision` de las listas es:
 |---|---|---|
 | `nombre` | string | 1–200 |
 | `contenido` | JSON | opcional: proceso inicial (export del editor o v1) |
-| `mensaje` | string | máx. 500, por defecto `""` (si queda vacío se usa «Versión inicial») |
+| `plantillaId` | UUID | opcional: plantilla activa de la organización de la que parte (en lugar de `contenido`) |
+| `mensaje` | string | máx. 500, por defecto `""` (si queda vacío se usa «Versión inicial», o «Creado desde la plantilla «X»») |
 
-- **Respuesta 201:** `{ "proceso": {…}, "revision": { "id", "numero": 1, "estado": "borrador" } | null }`. Sin `contenido`, el proceso nace sin revisiones.
-- **Errores:** 400 `PROCESO_INVALIDO`, 409 `ARCHIVADO`.
-- **Auditoría:** `proceso.alta` con `{ proyectoId, nombre, conRevision }`.
+- **Desde una plantilla:** la v1 es una copia de su contenido, con `meta.name` = `nombre` y `meta.client` = el cliente del proyecto.
+- **Respuesta 201:** `{ "proceso": {…}, "revision": { "id", "numero": 1, "estado": "borrador" } | null }`. Sin `contenido` ni `plantillaId`, el proceso nace sin revisiones.
+- **Errores:** 400 `PROCESO_INVALIDO`; 400 `VALIDACION` si llegan `contenido` y `plantillaId` a la vez; 404 si la plantilla no existe, está oculta o es de otra organización; 409 `ARCHIVADO`.
+- **Auditoría:** `proceso.alta` con `{ proyectoId, nombre, conRevision }` y, si parte de una plantilla, `plantillaId`.
 
 ### `GET /api/procesos/:id`
 
@@ -498,6 +505,7 @@ El objeto `revision` de las listas es:
 - Una revisión `aprobada` es **inmutable**: para cambiarla, guarda una nueva.
 - **Respuesta 200:** `{ "revision": { "id", "estado" } }`.
 - **Errores:**
+  - 404 si no tienes acceso al proyecto (se comprueba antes que el estado: no se revela en qué estado está).
   - 409 `INMUTABLE`: la revisión ya está aprobada.
   - 409 `TRANSICION`: transición no permitida (p. ej. `borrador` → `aprobada`).
   - 409 `CONCURRENCIA`: otra persona la cambió a la vez.
@@ -511,7 +519,7 @@ El objeto `revision` de las listas es:
 ### `GET /api/auditoria`
 
 - **Permiso:** admin.
-- **Parámetros de consulta** (opcionales): `entidad` (p. ej. `proyecto`), `entidadId`, `limite` (1–500, por defecto 100).
+- **Parámetros de consulta** (opcionales): `entidad` (p. ej. `proyecto`), `entidadId`, `limite` (1–500, por defecto 100; si no es un número, se usa el de por defecto).
 - **Respuesta 200:** del más reciente al más antiguo:
 
 ```json
@@ -732,7 +740,7 @@ Con `curl`: `curl -N -b cookies.txt "$API/api/ia/ejecuciones/<id>/eventos"`.
 
 ## Catálogos
 
-[rutas/catalogos.ts](../../apps/api/src/rutas/catalogos.ts), [catalogos.ts](../../apps/api/src/catalogos.ts). Son por organización: KPIs, verbos del Playbook y temas PPTX de cliente. Al crear la organización se siembran con los del MVP. **Leer lo activo: cualquier usuario. Todo lo demás: admin.**
+[rutas/catalogos.ts](../../apps/api/src/rutas/catalogos.ts), [catalogos.ts](../../apps/api/src/catalogos.ts). Son por organización: KPIs, verbos del Playbook, temas PPTX de cliente y plantillas de proceso. Al crear la organización se siembran con los del MVP. **Leer lo activo: cualquier usuario. Todo lo demás: admin.**
 
 ### `GET /api/catalogos`
 
@@ -801,6 +809,19 @@ El objeto `tema` es la fila completa: `id`, `organizacionId`, `clave`, `nombre`,
 
 Recuerda el límite de 8 MB por petición si el tema lleva tres imágenes grandes.
 
+### Plantillas de proceso
+
+Un proceso completo del que se parte al crear otro (`POST /api/proyectos/:id/procesos` con `plantillaId`). El objeto `plantilla` **no lleva el contenido**: `id`, `nombre`, `descripcion`, `industria`, `nodos` (elementos del diagrama), `activo`, `autor` (nombre de quien la creó o `null`), `creadoEn`, `actualizadoEn`.
+
+| Método y ruta | Cuerpo | Respuesta | Auditoría |
+|---|---|---|---|
+| `GET /api/catalogos/plantillas` | — | `{ "plantillas": [ … ] }` por nombre. Un usuario que no es admin solo recibe las activas. | — |
+| `POST /api/catalogos/plantillas` | `revisionId` (UUID), `nombre` (1–160), `descripcion` (máx. 600), `industria` (máx. 80; vacía: la del proceso) | 201 `{ "plantilla": {…} }`; 404 si la revisión no existe o es de un proyecto al que no llega; 400 `PROCESO_INVALIDO`; 409 `DUPLICADO` (nombre) | `catalogo.plantilla.alta` con `{ nombre, revisionId }` |
+| `PATCH /api/catalogos/plantillas/:id` | al menos uno de `nombre`, `descripcion`, `industria`, `activo` | `{ "plantilla": {…} }`; 404; 409 `DUPLICADO` | `catalogo.plantilla.cambio` con los campos enviados |
+| `DELETE /api/catalogos/plantillas/:id` | — | 204; 404. Los procesos creados con ella no cambian. | `catalogo.plantilla.baja` con `{ nombre }` |
+
+**Qué se quita al crearla** (`contenidoDePlantilla` en [catalogos.ts](../../apps/api/src/catalogos.ts)): el cliente (`meta.client`), las personas de la gobernanza de la ficha, el historial de cambios de la ficha, los valores medidos de KPI (`kpiValues`) y los resultados de la simulación. El texto libre (objetivo, notas de las tareas…) no se toca: quien la crea debe revisar que no nombre al cliente.
+
 ## Sistema
 
 [rutas/sistema.ts](../../apps/api/src/rutas/sistema.ts). Sin servicios externos: errores y latidos viven en la base.
@@ -867,9 +888,9 @@ Recuerda el límite de 8 MB por petición si el tema lleva tres imágenes grande
 | 403 | `PERMISO` | No eres admin, tu rol de proyecto no tiene la capacidad o (lector de organización) intentas crear un proyecto | rutas de admin, de proyecto y `POST /api/proyectos` |
 | 404 | *(sin código)* | No existe, id con formato inválido o proyecto sin acceso | cualquier ruta con id; ruta inexistente |
 | 409 | `ARCHIVADO` | El proyecto está archivado | escrituras en proyectos, procesos, revisiones e IA |
-| 409 | `DUPLICADO` | Ya existe un usuario con ese correo, o un tema con esa clave | `POST /api/usuarios`, `POST /api/catalogos/temas` |
+| 409 | `DUPLICADO` | Ya existe un usuario con ese correo, un tema con esa clave o una plantilla con ese nombre | `POST /api/usuarios`, `POST /api/catalogos/temas`, `POST` y `PATCH /api/catalogos/plantillas` |
 | 409 | `AUTOBLOQUEO` | Un admin intenta quitarse el rol `admin` o desactivarse | `PATCH /api/usuarios/:id` |
-| 409 | `ULTIMO_PROPIETARIO` | Quitar al único propietario | `DELETE /api/proyectos/:id/miembros/:usuarioId` |
+| 409 | `ULTIMO_PROPIETARIO` | Quitar al único propietario o bajarlo de rol | `DELETE` y `PUT /api/proyectos/:id/miembros/:usuarioId` |
 | 409 | `INMUTABLE` | La revisión ya está aprobada | `POST /api/revisiones/:id/estado` |
 | 409 | `TRANSICION` | Cambio de estado no permitido | `POST /api/revisiones/:id/estado` |
 | 409 | `CONCURRENCIA` | La revisión cambió de estado mientras tanto | `POST /api/revisiones/:id/estado` |
@@ -900,7 +921,7 @@ Todas las escrituras relevantes llaman a `registrar()` ([auditoria.ts](../../app
 | `proyecto.cambio` | `proyecto` | cambios | `PATCH /api/proyectos/:id` |
 | `proyecto.miembro` | `proyecto` | `{ usuarioId, rol }` | `PUT …/miembros/:usuarioId` |
 | `proyecto.baja_miembro` | `proyecto` | `{ usuarioId }` | `DELETE …/miembros/:usuarioId` |
-| `proceso.alta` | `proceso` | `{ proyectoId, nombre, conRevision }` | `POST /api/proyectos/:id/procesos` |
+| `proceso.alta` | `proceso` | `{ proyectoId, nombre, conRevision }` (+ `plantillaId` si parte de una plantilla) | `POST /api/proyectos/:id/procesos` |
 | `proceso.cambio` | `proceso` | `{ nombre }` | `PATCH /api/procesos/:id` |
 | `revision.alta` | `revision` | `{ procesoId, numero, conflicto, ejecucionIaId? }` | `POST /api/procesos/:id/revisiones` |
 | `revision.estado` | `revision` | `{ de, a }` | `POST /api/revisiones/:id/estado` |
@@ -914,6 +935,9 @@ Todas las escrituras relevantes llaman a `registrar()` ([auditoria.ts](../../app
 | `catalogo.tema.alta` | `tema_pptx` | `{ clave, nombre }` | `POST /api/catalogos/temas` |
 | `catalogo.tema.cambio` | `tema_pptx` | `{ activo, definicion }` | `PATCH /api/catalogos/temas/:id` |
 | `catalogo.tema.baja` | `tema_pptx` | `{ clave }` | `DELETE /api/catalogos/temas/:id` |
+| `catalogo.plantilla.alta` | `plantilla_proceso` | `{ nombre, revisionId }` | `POST /api/catalogos/plantillas` |
+| `catalogo.plantilla.cambio` | `plantilla_proceso` | campos enviados | `PATCH /api/catalogos/plantillas/:id` |
+| `catalogo.plantilla.baja` | `plantilla_proceso` | `{ nombre }` | `DELETE /api/catalogos/plantillas/:id` |
 
 No dejan rastro: `POST /api/ia/ejecuciones/:id/descartar`, `POST /api/errores` y los comandos de [cli.ts](../../apps/api/src/cli.ts).
 
@@ -951,17 +975,20 @@ Los demás errores de Anthropic se reenvían con su estado original.
 
 ## Observaciones y puntos por confirmar
 
-Encontrados al revisar el código para este documento. No están corregidos.
+Encontrados al revisar el código para este documento.
 
-1. **`PATCH /api/catalogos/kpis/:id` vacía campos.** `CambioKpiEsquema` es `KpiEsquema.partial()`, y en Zod 4 los `.default('')` se aplican aunque el campo sea opcional.
-   - Resultado: un cuerpo `{ "activo": false }` se convierte en `{ macroproceso: "", unidad: "", benchmark: "", descripcion: "", activo: false }`. Comprobado con la versión de Zod del repositorio (4.6.5).
-   - El botón de activar/desactivar KPI de la administración (`Catalogos.tsx`) envía solo `{ activo }`, así que borra esos cuatro campos.
-   - Además, la regla «Nada que cambiar» nunca salta.
-2. **Auditoría y «Sistema» no filtran por organización.** `GET /api/auditoria`, `GET /api/sistema` y `GET /api/sistema/errores/:huella` leen toda la base. Hoy hay una sola organización; con varias, un admin vería datos de las demás.
-3. **`PUT …/miembros/:usuarioId` puede dejar un proyecto sin propietario.** Cambiar de rol al único propietario no se impide (solo lo impide el `DELETE`).
-4. **`POST /api/revisiones/:id/estado` responde antes de comprobar el acceso.** `INMUTABLE` y `TRANSICION` se evalúan antes que el permiso: alguien sin acceso al proyecto puede saber el estado de una revisión si conoce su id. Parecido: un proceso de un proyecto sin acceso responde «Proyecto no encontrado.» y uno inexistente, «Proceso no encontrado.». El riesgo es bajo porque los ids son UUID.
-5. **`tipo` de `POST /api/ia/analisis`.** La validación usa `!!TAREAS_IA[t]` sobre un objeto normal, así que valores como `constructor` o `toString` la pasan y se encolarían con un prompt inválido (y con gasto). Por confirmar el efecto exacto en el worker.
-6. **`limite` no numérico en `GET /api/auditoria`.** Da `NaN`. Por confirmar: probablemente termina en un 500.
-7. **Modelo por defecto.** La API usa el primero de `MODELOS_IA_PERMITIDOS` en el orden de la variable. `GET /api/ia/estado` los lista en el orden del catálogo, y el editor toma el primero de esa lista. Si la variable no empieza por `claude-opus-5`, los dos pueden no coincidir.
-8. **Tipos del cliente.** `api.cambiarProyecto` declara que devuelve un `Proyecto` con `rol`, pero `PATCH /api/proyectos/:id` no devuelve `rol`.
-9. **Un `lector` de organización puede escribir en un proyecto** si le dan rol `editor` o `propietario` en él. El rol de organización `lector` solo impide crear proyectos. Por confirmar si es intencional.
+**Ya corregidos** (28-sep-2026, ver `CHANGELOG.md`):
+
+- `PATCH /api/catalogos/kpis/:id` con solo `{ activo }` vaciaba macroproceso, unidad, benchmark y descripción (en Zod 4, `partial()` sigue aplicando los `.default`).
+- `PUT …/miembros/:usuarioId` podía dejar un proyecto sin propietario: ahora responde 409 `ULTIMO_PROPIETARIO`, igual que el `DELETE`.
+- `POST /api/revisiones/:id/estado` respondía `INMUTABLE` o `TRANSICION` antes de comprobar el acceso: ahora, sin acceso, 404.
+- El `tipo` de `POST /api/ia/analisis` aceptaba claves del prototipo (`constructor`, `toString`): ahora se valida con `Object.hasOwn`.
+- Un `limite` no numérico en `GET /api/auditoria` daba 500: ahora usa el de por defecto.
+
+**Abiertos:**
+
+1. **Auditoría y «Sistema» no filtran por organización.** `GET /api/auditoria`, `GET /api/sistema` y `GET /api/sistema/errores/:huella` leen toda la base. Hoy hay una sola organización; con varias, un admin vería datos de las demás.
+2. **Existencia de procesos.** Un proceso de un proyecto sin acceso responde «Proyecto no encontrado.» y uno inexistente, «Proceso no encontrado.». Los dos son 404; el riesgo es bajo porque los ids son UUID.
+3. **Modelo por defecto.** La API usa el primero de `MODELOS_IA_PERMITIDOS` en el orden de la variable. `GET /api/ia/estado` los lista en el orden del catálogo, y el editor toma el primero de esa lista. Si la variable no empieza por `claude-opus-5`, los dos pueden no coincidir.
+4. **Tipos del cliente.** `api.cambiarProyecto` declara que devuelve un `Proyecto` con `rol`, pero `PATCH /api/proyectos/:id` no devuelve `rol`.
+5. **Un `lector` de organización puede escribir en un proyecto** si le dan rol `editor` o `propietario` en él. El rol de organización `lector` solo impide crear proyectos. Por confirmar si es intencional.

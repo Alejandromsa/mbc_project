@@ -485,10 +485,10 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 | `/proyectos/clave` | `CambiarClave` ([Acceso.tsx](../../apps/web/src/shell/paginas/Acceso.tsx)) | Con sesión, también con contraseña temporal |
 | `/proyectos/` | `Proyectos` ([Proyectos.tsx](../../apps/web/src/shell/paginas/Proyectos.tsx)) | Con sesión. El administrador ve todos los de la organización; el resto, los suyos. «Nuevo proyecto»: todos menos el rol de organización `lector` |
 | `/proyectos/importar` | `Importar` ([Importar.tsx](../../apps/web/src/shell/paginas/Importar.tsx)) | Con sesión. Solo ofrece proyectos donde puedes escribir y no archivados |
-| `/proyectos/p/:id` | `Proyecto` ([Proyecto.tsx](../../apps/web/src/shell/paginas/Proyecto.tsx)) | Miembros del proyecto y administradores (si no, la API responde 404). «Nuevo proceso»: `escribir`; ajustes y miembros: `administrar` |
-| `/proyectos/proceso/:id` | `Proceso` ([Proceso.tsx](../../apps/web/src/shell/paginas/Proceso.tsx)) | Igual. Renombrar y «Enviar a revisión»: `escribir`; «Aprobar» y «Devolver»: `aprobar` |
+| `/proyectos/p/:id` | `Proyecto` ([Proyecto.tsx](../../apps/web/src/shell/paginas/Proyecto.tsx)) | Miembros del proyecto y administradores (si no, la API responde 404). «Nuevo proceso» (vacío, desde una plantilla o desde un JSON): `escribir`; ajustes y miembros: `administrar` |
+| `/proyectos/proceso/:id` | `Proceso` ([Proceso.tsx](../../apps/web/src/shell/paginas/Proceso.tsx)) | Igual. Renombrar y «Enviar a revisión»: `escribir`; «Aprobar» y «Devolver»: `aprobar`; «Guardar como plantilla»: administradores |
 | `/proyectos/admin/usuarios` | `Usuarios` ([Admin.tsx](../../apps/web/src/shell/paginas/Admin.tsx)) | Administradores |
-| `/proyectos/admin/catalogos` | `Catalogos` ([Catalogos.tsx](../../apps/web/src/shell/paginas/Catalogos.tsx)) | Administradores |
+| `/proyectos/admin/catalogos` | `Catalogos` ([Catalogos.tsx](../../apps/web/src/shell/paginas/Catalogos.tsx)): KPIs, verbos, temas PPTX y plantillas de proceso | Administradores |
 | `/proyectos/admin/auditoria` | `Auditoria` ([Admin.tsx](../../apps/web/src/shell/paginas/Admin.tsx)) | Administradores |
 | `/proyectos/admin/ia` | `ConsumoIa` ([Ia.tsx](../../apps/web/src/shell/paginas/Ia.tsx)) | Administradores |
 | `/proyectos/admin/sistema` | `Sistema` ([Sistema.tsx](../../apps/web/src/shell/paginas/Sistema.tsx)) | Administradores |
