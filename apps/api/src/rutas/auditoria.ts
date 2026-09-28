@@ -13,7 +13,8 @@ export function rutasAuditoria() {
   r.get('/', async (c) => {
     exigirAdmin(c.get('usuario'));
     const entidad = c.req.query('entidad'), entidadId = c.req.query('entidadId');
-    const limite = Math.min(500, Math.max(1, Number(c.req.query('limite') ?? 100)));
+    const pedido = Number.parseInt(c.req.query('limite') ?? '', 10);
+    const limite = Number.isFinite(pedido) ? Math.min(500, Math.max(1, pedido)) : 100;
     const filtros: SQL[] = [];
     if (entidad) filtros.push(eq(auditoria.entidad, entidad));
     if (entidadId) filtros.push(eq(auditoria.entidadId, entidadId));

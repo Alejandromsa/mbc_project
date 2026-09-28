@@ -5,8 +5,24 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 ## Sin publicar
 
 - **Trabajo en equipo:** guías en `docs/equipo/` (convenciones, nueva iniciativa o aplicación, Claude Code), registro de iniciativas y reservas en `docs/iniciativas/`, plantilla de PR.
+- **Repositorio público** (28-sep-2026, ADR 18):
+  - historial auditado y reescrito: correo `noreply` del autor y sin datos de red del servidor;
+  - `main` protegida, escaneo de secretos, avisos de Dependabot y reporte privado de vulnerabilidades;
+  - `SECURITY.md` y `CONTRIBUTING.md`;
+  - el repositorio anterior queda privado y archivado como `mbc_project-historico`.
+
+  **Los identificadores de commit cambiaron.** La versión desplegada `40f0bd53` (imagen `processiq/*:40f0bd53`) es el commit `cc23c141` del historial público.
+- **Deuda técnica:** los cuatro archivos portados con @ts-nocheck (PPTX, Word, Ficha y extracción de documentos) ya están tipados, sin cambios de comportamiento (el JS construido es idéntico).
 - **Plantillas de proceso:** un administrador guarda una revisión como plantilla (sin datos del cliente) y cualquiera crea con ella un proceso nuevo, que nace con la versión 1 copiada. Se gestionan en «Catálogos».
 - **Operación:** copias de seguridad a hora fija (03:00 de Lima; staging a las 03:30), con una copia inmediata si la última tiene más de 24 h. Limpieza automática de imágenes viejas al promover a producción (`infra/desplegar.sh limpiar`).
+- **Correcciones** (encontradas al documentar la API):
+  - desactivar un KPI ya no borra su unidad, benchmark, macroproceso y descripción;
+  - no se puede bajar de rol al único propietario de un proyecto;
+  - quien no tiene acceso a una revisión recibe 404 sin saber en qué estado está;
+  - un tipo de análisis como `constructor` ya no se encola;
+  - al terminar una ejecución de IA se borran también los nombres de los participantes;
+  - un límite no numérico en la auditoría ya no da error 500;
+  - el worker purga cada hora las sesiones caducadas.
 - **Operación y seguridad:** cada administrador ve solo la auditoría de su organización, y lo hecho por la línea de comandos queda auditado (`cli.…`). La API ya no recibe la clave de Anthropic, solo si la hay (`IA_CONFIGURADA`). El Postgres de desarrollo pasa a `docker-compose.dev.yml`, solo en `127.0.0.1:5440` y sin `.env`. Staging se despliega solo desde `main` por sondeo cada 10 minutos (`infra/sondear-main.sh`, tarea programada); producción sigue siendo manual. Además: `HORAS_SESION` y `PORT` validadas, `RESPALDO_ESPERA_INICIAL_S` llega al contenedor de copias, `infra/desplegar.sh` lee `RED_BORDE` de los `.env`, el intermediario de desarrollo lee `.env.dev` y la fidelidad borra los resultados anteriores al empezar.
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
