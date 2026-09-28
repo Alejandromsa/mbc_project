@@ -53,17 +53,17 @@ Entre paquetes hermanos no hay dependencias: `documentos` no importa `bpmn`, ni 
 
 ## 2. Resumen
 
-| Paquete | Para qué | Navegador | Servidor | Pruebas | `@ts-nocheck` |
-|---|---|:-:|:-:|---|---|
-| [dominio](#51-processiqdominio) | Modelo del proceso, catálogos, Ficha, validación del Playbook, esquema v1 y migración | ✓ | ✓ | 21 | — |
-| [motor](#52-processiqmotor) | Auto-layout por carriles, ruteo, calidad, niveles de detalle, operaciones del grafo | ✓ | — | 17 | — |
-| [bpmn](#53-processiqbpmn) | Import y export BPMN 2.0 | ✓ | — | 9 | — |
-| [exportar](#54-processiqexportar) | PPTX (temas mbc y bbva), informe Word, Ficha de Proceso | ✓ | — | 7 | `pptx.ts`, `word.ts`, `ficha.ts` |
-| [documentos](#55-processiqdocumentos) | Extracción de Word/PDF/PPTX/texto, intérprete básico, participantes | ✓ | — | 7 | `extraccion.ts` |
-| [mining](#56-processiqmining) | Event logs CSV → proceso y variantes | ✓ | — | 8 | — |
-| [analitica](#57-processiqanalitica) | Simulador, cuello de botella, automatización, mapa de valor, backlog, What-If | ✓ | — | 11 | — |
-| [ia](#58-processiqia) | Prompts, cliente de Claude en streaming, costes, construcción y lectura de respuestas | ✓ | ✓ | 22 | — |
-| [db](#59-processiqdb) | Esquema Drizzle, migraciones SQL y conexión a Postgres | — | ✓ | 0 (las cubre `apps/api`) | — |
+| Paquete | Para qué | Navegador | Servidor | Pruebas |
+|---|---|:-:|:-:|---|
+| [dominio](#51-processiqdominio) | Modelo del proceso, catálogos, Ficha, validación del Playbook, esquema v1 y migración | ✓ | ✓ | 21 |
+| [motor](#52-processiqmotor) | Auto-layout por carriles, ruteo, calidad, niveles de detalle, operaciones del grafo | ✓ | — | 17 |
+| [bpmn](#53-processiqbpmn) | Import y export BPMN 2.0 | ✓ | — | 9 |
+| [exportar](#54-processiqexportar) | PPTX (temas mbc y bbva), informe Word, Ficha de Proceso | ✓ | — | 7 |
+| [documentos](#55-processiqdocumentos) | Extracción de Word/PDF/PPTX/texto, intérprete básico, participantes | ✓ | — | 7 |
+| [mining](#56-processiqmining) | Event logs CSV → proceso y variantes | ✓ | — | 8 |
+| [analitica](#57-processiqanalitica) | Simulador, cuello de botella, automatización, mapa de valor, backlog, What-If | ✓ | — | 11 |
+| [ia](#58-processiqia) | Prompts, cliente de Claude en streaming, costes, construcción y lectura de respuestas | ✓ | ✓ | 22 |
+| [db](#59-processiqdb) | Esquema Drizzle, migraciones SQL y conexión a Postgres | — | ✓ | 0 (las cubre `apps/api`) |
 
 Total: 102 pruebas unitarias en 10 archivos (recuento de los `it(…)`, confirmado con la última salida de `vitest` de cada paquete).
 
@@ -283,7 +283,7 @@ La salida real (láminas XML de los 14 ejemplos en los dos temas, Word y Ficha) 
 
 **Trampas:**
 
-- **`pptx.ts`, `word.ts` y `ficha.ts` llevan `// @ts-nocheck`**: portados tal cual, sin tipar (deuda pendiente). **En ellos, solo el build detecta un import roto** (`pnpm fidelidad` lo incluye): el typecheck pasa en verde ([lección 5b](../lecciones-aprendidas.md)).
+- **`pptx.ts`, `word.ts` y `ficha.ts` están tipados** desde el 28-sep-2026, sin cambiar el JS que emiten. Los tipos del `state` que leen están en `tipos.ts`, y los de pptxgenjs y JSZip son interfaces mínimas locales.
 - **Reciben el `state` del editor, no el contenido v1.** Leen `state._lanes`, `_raci`, `_sipoc`, `_simResults`, `_kpiValues` y `_views`, con guion bajo, además de `meta`, `ficha`, `nodes`, `edges` y `activeView`. Para usarlos con una revisión guardada hay que convertir `lanes` → `_lanes`, etc.
 - **`TEMAS_PPTX` y `KPI_LIBRARY` se reemplazan en sitio** en modo proyecto ([ADR 14](../adr/0014-catalogos-en-sitio.md)): se añaden los temas de la organización como claves nuevas. No copies el objeto al cargar.
 - **Tema nuevo del sistema** = entrada en `TEMAS_PPTX` + botón `data-export="pptx" data-tema="…"` en el menú. `mbc` y `bbva` están reservados: la base no puede redefinirlos.
@@ -318,7 +318,7 @@ La lectura real de `.docx`, `.pdf`, `.pptx` y `.txt` la cubren las pruebas de fi
 
 **Trampas:**
 
-- **`extraccion.ts` lleva `// @ts-nocheck`.** Su interfaz pública está tipada aparte, en `extraccion-tipos.ts`. Un import roto allí solo lo detecta el build.
+- **`extraccion.ts` está tipado** (28-sep-2026), con interfaces locales de lo que usa de pdf.js y JSZip. Su interfaz pública sigue en `extraccion-tipos.ts`.
 - **Las librerías llegan por el entorno**: `entorno.mammoth()`, `pdfjs()` y `jszip()` las cargan bajo demanda, con las versiones exactas que la web copia a `/vendor/`. El paquete no las importa.
 - **`importarBpmn` también llega por el entorno**, porque `documentos` no puede depender de `bpmn` (fronteras).
 - `interpretarTexto` usa `VERBS_ALLOWED` por referencia: en modo proyecto ve los verbos de la organización (efecto del [ADR 14](../adr/0014-catalogos-en-sitio.md)).

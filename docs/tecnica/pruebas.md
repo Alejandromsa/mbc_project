@@ -83,7 +83,7 @@ Que `dominio` solo use ECMAScript estándar (sin DOM ni Node) no lo comprueba es
 
 - `pnpm typecheck` ejecuta `tsc --noEmit` en cada paquete y app.
 - En la web solo se comprueba el shell (`apps/web/src/shell`, TypeScript estricto). El editor (`src/app/`) es JavaScript portado del MVP.
-- `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` llevan `// @ts-nocheck`. En ellos, **solo el build detecta un import roto** (`pnpm fidelidad` construye) ([lección 5b](../lecciones-aprendidas.md)).
+- Ningún archivo lleva ya `// @ts-nocheck`: los cuatro portados del MVP (`pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts`) se tiparon el 28-sep-2026.
 - Tras tocar `dominio`, ejecuta el typecheck desde la raíz: cada paquete compila la fuente de sus dependencias con su propia configuración.
 
 ## 5. Unitarias de los paquetes
@@ -289,7 +289,7 @@ Regla: cada flujo nuevo de la plataforma (shell o editor en modo proyecto) lleva
 | 3 | Auditoría de dependencias | `pnpm audit --prod --audit-level=high` | [§12](#auditoría-de-dependencias) |
 | 4 | Fronteras | `pnpm fronteras` | [§3](#3-fronteras-entre-paquetes) |
 | 5 | Tipos | `pnpm typecheck` | [§4](#4-tipos) |
-| 6 | Build | `pnpm build` (API, intermediario y web) | Imports rotos en archivos con `@ts-nocheck` |
+| 6 | Build | `pnpm build` (API, intermediario y web) | Que todo se empaqueta: dependencias que faltan, rutas de import |
 | 7 | Pruebas unitarias | `pnpm test`: paquetes, intermediario e integración de la API | [§12](#unitarias-e-integración) |
 | 8 | Navegador | `playwright install --with-deps chromium` | — |
 | 9 | Fidelidad | `pnpm fidelidad` (vuelve a construir la web y compara) | Artefacto `resultados-pruebas` |
@@ -331,7 +331,7 @@ El mensaje dice qué archivo importa qué. Si la dependencia es legítima, cambi
 ### Tipos y build
 
 - Error en un paquete que no tocaste: probablemente cambiaste `dominio` o `ia` y otro paquete los compila con otra configuración ([lecciones 5c y 22](../lecciones-aprendidas.md)).
-- El build falla y el typecheck no: un import roto en un archivo con `@ts-nocheck`. Exporta la función en el `index.ts` del paquete.
+- El build falla y el typecheck no: suele ser una dependencia que el paquete usa y no declara, o un import que solo resuelve en el editor. Revisa el `package.json` del paquete y su `index.ts`.
 
 ### Unitarias e integración
 

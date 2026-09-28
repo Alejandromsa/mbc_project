@@ -353,7 +353,7 @@ Staging y producción no se levantan así: se despliegan con `infra/desplegar.sh
 | `pnpm e2e` no arranca | Puerto 4480, 8792 u 8793 ocupado, o `postgres-dev` apagado | Cierra la otra corrida; levanta Postgres |
 | La fidelidad pasa con código que debería fallar | Probaste un `dist` viejo o un servidor viejo en 4401/4402 | Usa `pnpm fidelidad`; cierra los servidores de otras copias |
 | La fidelidad falla por décimas de píxel solo a veces | Fuentes o tiempos, no el código | `--repeat-each 5` sobre ese caso antes de tocar nada |
-| Typecheck en verde y build en rojo | Import roto en un archivo con `@ts-nocheck` | Exporta la función en el `index.ts` del paquete |
+| Typecheck en verde y build en rojo | Dependencia sin declarar o import que solo resuelve en el editor | Revisa el `package.json` y el `index.ts` del paquete |
 | No ves los `console.log` de una prueba | Vitest los oculta si la prueba pasa | `toMatchInlineSnapshot()` con `vitest run -u` |
 
 ### Windows y Git Bash

@@ -12,7 +12,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 
 | Agente | Qué hace | Rama | Zonas | Estado |
 |---|---|---|---|---|
-| Tipado | Quitar `@ts-nocheck` de `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` sin cambiar el JS emitido | `plataforma/tipar-nocheck` | `packages/exportar`, `packages/documentos` | ⏳ |
+| Tipado | Quitar `@ts-nocheck` de `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` sin cambiar el JS emitido | `plataforma/tipar-nocheck` | `packages/exportar`, `packages/documentos` | ✅ PR #4 |
 | IA | Correcciones del núcleo de IA ([§5.1](#51-ia)) | `plataforma/ia-robustez` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `worker.ts`, `apps/intermediario` | ⏳ |
 | Operación | Seguridad y operación del servidor ([§5.2](#52-seguridad-y-operación)), despliegue automático a staging | `plataforma/operacion` | `infra/`, `docker-compose*.yml`, `.env*.example`, `config.ts`, `cli.ts`, `rutas/auditoria.ts`, `rutas/sistema.ts`, runbooks | ⏳ |
 | Portafolio | Iniciativa `portafolio`: tablero por cliente e indicadores | `portafolio/tablero` | [ficha](iniciativas/portafolio.md) | ⏳ |
