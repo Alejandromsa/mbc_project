@@ -58,4 +58,10 @@ Las imágenes anteriores siguen en el servidor, así que revertir tarda lo que t
 - **`No existe la imagen processiq/…:<version>`:** esa versión no pasó por staging. Desplegar antes en staging.
 - **`Hay cambios sin confirmar`:** la versión se identifica por el commit. Confirmar o descartar los cambios.
 - **Staging responde 502:** su pila está parada (`infra/desplegar.sh staging`) o producción no tiene la red (`docker compose up -d`).
-- **Espacio en disco:** las imágenes viejas se pueden borrar con `docker image rm processiq/api:<version> processiq/web:<version> processiq/intermediario:<version>`. Conservar al menos la versión anterior a la actual.
+- **Espacio en disco:** `infra/desplegar.sh produccion` borra solo las imágenes viejas al terminar. También se puede lanzar a mano con `infra/desplegar.sh limpiar [n]`. Siempre conserva:
+  - las versiones de producción y de staging;
+  - la versión anterior de producción, para poder revertir;
+  - las `n` más recientes (5 por defecto);
+  - las etiquetas `local`.
+
+  También borra la caché de construcción de más de 7 días. «Sistema» avisa cuando queda menos del 10 % de disco.
