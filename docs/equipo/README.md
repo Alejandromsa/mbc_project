@@ -40,7 +40,7 @@ Cómo sumar iniciativas y aplicaciones a ProcessIQ sin pisarse. Estas guías son
 2. **Reservar antes de usar un nombre** de tabla, ruta, variable de entorno, puerto, clave del navegador o número de ADR. El registro es la única fuente.
 3. **Nada de cambios «de paso».** No se reformatea, reordena ni «mejora» código ajeno dentro de un PR de iniciativa. Si algo está mal, se abre un issue o un PR aparte para su dueño.
 4. **El núcleo cambia por un PR propio.** Si la iniciativa necesita algo de `packages/`, del shell, del editor o de la API común, va en un PR separado (`plataforma/<tema>`), pequeño y revisado por plataforma, antes del PR que lo usa.
-5. **Ningún módulo lee ni escribe las tablas de otro.** Pide los datos a través de lo que el otro módulo exporta en su `index.ts`. Las tablas del núcleo se leen con sus funciones (p. ej. `accesoProyecto`), no con SQL propio sobre ellas.
+5. **Ningún módulo lee ni escribe las tablas de otro módulo.** Pide los datos a través de lo que el otro módulo exporta en su `index.ts`. Las tablas del núcleo (`proyectos`, `procesos`, `revisiones`…) sí se pueden **leer** desde un módulo, siempre filtrando por la organización del usuario y comprobando su acceso (`accesoProyecto`, `accesoProceso` o el filtro por miembros del proyecto). **Nunca se escriben** desde un módulo: eso lo hace la API del núcleo.
 6. **La base solo crece.** Migraciones compatibles con la versión anterior, nunca editar una publicada, y se generan al final, después de traer `main` ([convenciones](convenciones.md#migraciones-de-la-base)).
 7. **Traer `main` a menudo**: cada día que se trabaje y siempre antes de pedir revisión.
 8. **`main` siempre desplegable.** Todo entra por PR con la CI en verde. Nadie hace push directo a `main` ni fuerza (`--force`) una rama ajena.
@@ -49,11 +49,21 @@ Cómo sumar iniciativas y aplicaciones a ProcessIQ sin pisarse. Estas guías son
 
 ## Qué obliga GitHub y qué es acuerdo
 
-El repositorio es privado y está en el plan gratuito. En ese plan **no hay protección de ramas ni revisión obligatoria por `CODEOWNERS`** (GitHub responde «Upgrade to GitHub Pro»). Por eso las reglas 4, 8 y 9 son hoy un acuerdo del equipo, no un bloqueo técnico.
+El repositorio es **público** (ADR 18): cualquiera puede leerlo, pero solo los colaboradores pueden escribir.
 
-Lo que sí se comprueba solo, en cada PR (`.github/workflows/ci.yml`):
-- auditoría de dependencias, fronteras entre paquetes, tipos, build;
+**Obligatorio (lo bloquea GitHub):**
+- `main` solo acepta cambios por PR, sin push directo ni `--force`;
+- el PR solo se fusiona con la CI (`verificar`) en verde y con la rama al día con `main`: si `main` avanzó, hay que traerla (y regenerar la migración si hace falta) antes de fusionar;
+- el escaneo de secretos rechaza el push que contenga una clave reconocible.
+
+La CI (`.github/workflows/ci.yml`) ejecuta en cada PR:
+- auditoría de dependencias, fronteras entre paquetes, tipos y build;
 - pruebas unitarias y de integración contra Postgres;
 - fidelidad frente al MVP, E2E de la plataforma e imágenes Docker.
 
-Con GitHub Pro (cuenta personal) o Team (organización) se pueden activar la protección de `main`, la CI obligatoria y `CODEOWNERS`. La plantilla está lista en `.github/CODEOWNERS`.
+**Acuerdo del equipo (GitHub no lo impide):**
+- la revisión de plataforma en los PR del núcleo: no hay aprobaciones obligatorias, porque hoy hay una sola persona con permiso de escritura;
+- que solo el responsable de operación despliegue;
+- los dueños de `.github/CODEOWNERS`, que se activarán cuando existan los equipos.
+
+**Público significa público:** todo lo que se sube (código, fichas, capturas, mensajes de commit, comentarios de PR) lo puede leer cualquiera. Configura tu correo `noreply` de GitHub antes de tu primer commit (`git config user.email <id>+<usuario>@users.noreply.github.com`).

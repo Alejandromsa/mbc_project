@@ -104,26 +104,26 @@ Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consul
 
 ## Datos del servidor actual
 
+El repositorio es público (ADR 18). La IP pública, la red interna, el router y la carpeta del servidor **no se publican**: están en `servidor-datos.local.md`, en la raíz del repositorio del servidor, que Git ignora (`*.local.md`). Solo lo tiene el responsable de operación.
+
 | | |
 |---|---|
-| IP pública | <IP-PUBLICA> |
-| Salida a internet | Wi-Fi, IP fija <IP-LOCAL-DEL-SERVIDOR>, router <IP-DEL-ROUTER> |
-| Dominio | `mbc.asissoft.com`: registro A → <IP-PUBLICA>, **solo DNS** (sin proxy), creado el 25-sep-2026 |
+| IP pública, red interna y router | En `servidor-datos.local.md` (no se publica) |
+| Dominio | `mbc.asissoft.com`: registro A → IP pública del servidor, **solo DNS** (sin proxy), creado el 25-sep-2026 |
 | DNS | `asissoft.com` está **registrado en name.com**, pero su zona la sirve **Cloudflare** (nameservers `aspen`/`roan.ns.cloudflare.com`; la movió otro proyecto). Los registros se crean en Cloudflare, no en name.com. No devolver los nameservers a name.com: dependen de ellos `portal.asissoft.com` y el correo |
 | Certificado | Let's Encrypt, emitido por Caddy el 25-sep-2026; se renueva solo |
 | Staging | `staging.mbc.asissoft.com`: registro A solo DNS creado el 26-sep-2026; su certificado lo pide y renueva el Caddy de producción ([despliegue.md](despliegue.md)) |
-| Versión desplegada | `infra/desplegar.sh versiones` (primera promoción: `40f0bd53`, 26-sep-2026) |
+| Versión desplegada | `infra/desplegar.sh versiones`. La primera promoción (26-sep-2026) fue la imagen `40f0bd53`, que en el historial público es el commit `cc23c141` (el historial se reescribió al publicarlo, ADR 18) |
 | Puerto 80 | Ocupado por IIS (W3SVC): por eso no hay redirección HTTP → HTTPS |
-| Carpeta del repositorio | `C:\Users\usuario\processiq` |
 
 ## Puesta en marcha (una sola vez)
 
 Estado al 25-sep-2026: los pasos 1 a 3 y 5 están hechos; falta el 4 (la clave de IA).
 
-1. **DNS** ✅ Registro **A** `mbc` → `<IP-PUBLICA>` en la zona `asissoft.com` de Cloudflare, en modo **"Solo DNS" (nube gris)**. Con el proxy activado (nube naranja), el certificado no se puede validar y el tráfico pasaría por Cloudflare.
+1. **DNS** ✅ Registro **A** `mbc` → IP pública del servidor en la zona `asissoft.com` de Cloudflare, en modo **"Solo DNS" (nube gris)**. Con el proxy activado (nube naranja), el certificado no se puede validar y el tráfico pasaría por Cloudflare.
    - Antes de crear un registro, comprobar quién sirve la zona: `nslookup -type=NS asissoft.com 8.8.8.8`.
    - Se creó por la API de Cloudflare con el token de edición de DNS que ya existía para `asissoft.com`.
-2. **Router (<IP-DEL-ROUTER>)** ✅ Reenvía **TCP 443** externo → `<IP-LOCAL-DEL-SERVIDOR>:443`. Lo confirmó Let's Encrypt al validar desde internet.
+2. **Router** ✅ Reenvía **TCP 443** externo al puerto 443 del servidor en la red local (direcciones en `servidor-datos.local.md`). Lo confirmó Let's Encrypt al validar desde internet.
 3. **Firewall de Windows** ✅ Regla "ProcessIQ HTTPS (443)". Si hubiera que recrearla (PowerShell **como administrador**):
    ```powershell
    New-NetFirewallRule -DisplayName "ProcessIQ HTTPS (443)" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow -Profile Any
@@ -163,7 +163,7 @@ Nada más cambia: la web llama a la IA por su mismo origen (`/ia`) y el intermed
 | Cambiar KPIs, verbos del Playbook o temas PPTX de cliente | como administrador, en `https://mbc.asissoft.com/proyectos/admin/catalogos` (aplican a los procesos de proyectos; el editor libre usa los de fábrica) |
 | Último respaldo | `docker compose logs --tail 5 respaldo` |
 | Parar todo | `docker compose down` — **nunca con `-v`**: borraría la base de datos y los certificados |
-| Probar en local sin tocar producción | `DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ALLOWED_ORIGINS=https://localhost:8443 CARPETA_RESPALDOS=./respaldos-prueba RED_BORDE=processiq-prueba-borde docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`) |
+| Probar en local sin tocar producción | `VERSION=prueba DOMINIO=localhost TLS_MODO=interno PUERTO_HTTPS=8443 ORIGEN_PUBLICO=https://localhost:8443 ALLOWED_ORIGINS=https://localhost:8443 POSTGRES_PASSWORD=solo-para-probar CARPETA_RESPALDOS=./respaldos-prueba RED_BORDE=processiq-prueba-borde docker compose -p processiq-prueba up -d --build` (quitar con `docker compose -p processiq-prueba down -v`). En el servidor, `VERSION=prueba` es imprescindible: sin ella, las imágenes de prueba se etiquetarían con la versión de producción de `.env` y la sustituirían ([desarrollo.md](../tecnica/desarrollo.md)) |
 
 El gasto de IA queda en el log del intermediario (`"evento":"gasto_ia"`). Si se configura `PULSE_URL`, también se reporta allí.
 

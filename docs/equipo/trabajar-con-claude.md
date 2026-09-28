@@ -47,9 +47,18 @@ También sirve `claude --worktree <nombre>`: crea la copia en `.claude/worktrees
 | Recurso | Qué pasa | Qué hacer |
 |---|---|---|
 | Postgres de desarrollo (puerto 5440) | Las pruebas de la API **borran y recrean** la base `processiq_pruebas` | Da a cada copia su base: `TEST_DATABASE_URL=postgres://processiq:processiq@localhost:5440/processiq_pruebas_<clave> pnpm --filter @processiq/api test` (se crea sola) |
-| `pnpm e2e` | Usa puertos fijos (4480, 8792, 8793) y la base `processiq_e2e` | Una sola ejecución a la vez en cada PC |
-| `pnpm fidelidad` | Usa los puertos 4401 y 4402 | Una sola ejecución a la vez en cada PC |
+| `pnpm e2e` | Usa puertos fijos (4480, 8792, 8793) y la base `processiq_e2e` | Una sola ejecución a la vez en cada PC: cerrojo `e2e` (abajo) |
+| `pnpm fidelidad` | Usa los puertos 4401 y 4402 | Una sola ejecución a la vez en cada PC: cerrojo `fidelidad` (abajo) |
 | `pnpm dev` y la API de desarrollo | Vite (5173) reenvía `/api` al 8790 y la API solo acepta el origen `http://localhost:5173` | Un solo entorno de desarrollo levantado a la vez en cada PC |
+
+**Cerrojos, cuando trabajan varias sesiones a la vez en el mismo PC.** `mkdir` es atómico, así que sirve de cerrojo:
+
+```bash
+until mkdir /tmp/processiq-cerrojo-e2e 2>/dev/null; do sleep 20; done   # espera su turno
+pnpm e2e; rmdir /tmp/processiq-cerrojo-e2e                              # y lo suelta siempre, falle o no
+```
+
+Lo mismo con `/tmp/processiq-cerrojo-fidelidad` para `pnpm fidelidad`. Si una sesión se cortó con el cerrojo puesto, bórralo a mano cuando nadie esté ejecutando.
 
 ## Cómo empezar cada sesión
 
