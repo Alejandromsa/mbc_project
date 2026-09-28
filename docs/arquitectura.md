@@ -446,14 +446,14 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
 - Hecho:
   - los 8 paquetes (los seis previstos más `ia` y el esquema v1 en `dominio`), con 105 pruebas unitarias;
   - la comprobación de fronteras;
-  - 32 escenarios de fidelidad frente al MVP (los 14 ejemplos idénticos).
+  - 32 escenarios de fidelidad frente al MVP (los 14 ejemplos idénticos);
+  - tipados los cuatro archivos portados con `@ts-nocheck` (28-sep-2026), sin cambios de comportamiento: el JS construido es idéntico.
 - Diferencias con el MVP: `docs/fase1-divergencias.md` (un fallo del MVP corregido y las librerías servidas desde la app).
 - Trabajo en equipo (28-sep-2026): guías en `docs/equipo/` (convenciones, puntos de registro, módulo o app, Claude Code) y registro de iniciativas y reservas en `docs/iniciativas/`. La estructura de módulo (`apps/*/src/modulos/<clave>/`) la estrena la primera iniciativa.
 - Pendiente:
   - entornos de vista previa;
   - equipos reales en `CODEOWNERS`;
-  - banco con los BPMN reales de cliente (no están en el servidor);
-  - tipar los cuatro archivos portados con `@ts-nocheck`.
+  - banco con los BPMN reales de cliente (no están en el servidor).
 
 ### Fase 2 — Plataforma
 
