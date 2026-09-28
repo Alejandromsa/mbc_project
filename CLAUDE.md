@@ -74,7 +74,7 @@ docs/iniciativas/    registro de iniciativas y reservas (rutas, tablas, puertos�
 - `apps/web/src/app/` son los ~60 módulos de interfaz del MVP. Leen y escriben el `state` compartido (`estado.js`) y delegan el cálculo en los paquetes. `window.ProcessIQ` (definido en `inicio.js`) es el gancho de pruebas que usa la fidelidad: no romperlo.
 - Las cachés viven en la app y la lógica pura en los paquetes: por ejemplo, las rutas memorizadas por arista están en `lienzo/ruteo.js` y la geometría en `@processiq/motor`.
 - Las librerías de navegador (pptxgenjs 3.12.0, JSZip 3.10.1, mammoth 1.8.0, pdf.js 4.7.76) se instalan por npm con versión exacta y `scripts/copiar-vendor.mjs` las copia a `public/vendor/` en cada `dev`/`build`.
-- `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` están portados tal cual con `// @ts-nocheck` (deuda: tiparlos). **En esos archivos, solo el build detecta imports rotos.**
+- `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` están portados tal cual y tipados sin cambiar el código (el JS construido es idéntico): pptxgenjs, JSZip y pdf.js se describen con interfaces locales, y el `state` que leen los exports, en `packages/exportar/src/tipos.ts`. Ya no queda ningún `@ts-nocheck`.
 - `vite.config.js` tiene `cssMinify: false` a propósito: la app copia variables CSS a los SVG y el minificador cambiaba las mayúsculas de los colores.
 - Shell (`apps/web/src/shell`, `proyectos/index.html`):
   - React 19 + TanStack Query + wouter (base `/proyectos`); TypeScript estricto (`pnpm --filter @processiq/web typecheck`).

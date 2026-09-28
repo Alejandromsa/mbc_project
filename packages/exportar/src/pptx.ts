@@ -1,11 +1,95 @@
-// @ts-nocheck — portado tal cual del MVP 3.8.9 (exportPptx, ~1.600 líneas).
-// Pendiente: tiparlo por partes (docs/fase1-divergencias.md). Las pruebas de
-// fidelidad comparan las láminas XML de los 14 ejemplos en los temas mbc y bbva.
+// Portado tal cual del MVP 3.8.9 (exportPptx, ~1.600 líneas); tipado sin cambiar
+// el código. Las pruebas de fidelidad comparan las láminas XML de los 14 ejemplos
+// en los temas mbc y bbva.
 //
 // Export PPTX editable: construirPptx() arma la presentación con pptxgenjs y
 // posprocesarPptx() convierte las líneas con nombre en conectores anclados
 // (JSZip). Descargar el archivo es cosa de la app.
 import { EXECUTION_TYPES, KPI_LIBRARY } from '@processiq/dominio';
+import type { Arista, MarcadorActividad, Nodo, Pain, ValorKpi } from '@processiq/dominio';
+import type { EstadoPptx, Sipoc, VistaProceso } from './tipos.js';
+
+// ---- Tipos: lo que se usa de pptxgenjs 3.12.0 y de JSZip 3.10.1 ----
+// Las dos librerías las carga la app como globales del navegador y llegan por
+// parámetro (entorno.PptxGenJS, cargarJSZip); este paquete no depende de ellas.
+
+/** Opciones de texto, forma, imagen y tabla de pptxgenjs (medidas en pulgadas). */
+interface OpcionesPptx {
+  x?: number; y?: number; w?: number; h?: number;
+  fill?: { color?: string; type?: string };
+  line?: { color?: string; width?: number; type?: string; dashType?: string; endArrowType?: string };
+  fontSize?: number; fontFace?: string; color?: string; bold?: boolean; italic?: boolean;
+  align?: string; valign?: string; wrap?: boolean; fit?: string; autoFit?: boolean;
+  charSpacing?: number; margin?: number | number[]; paraSpaceAfter?: number;
+  shape?: string; rectRadius?: number; rotate?: number; flipH?: boolean; flipV?: boolean;
+  objectName?: string; data?: string; sizing?: { type: string; w: number; h: number };
+  border?: { type: string; color: string; pt: number };
+}
+
+/** Celda de tabla: texto solo o con sus opciones. */
+type CeldaPptx = string | { text: string; options?: OpcionesPptx };
+
+/** Lámina de pptxgenjs. */
+interface LaminaPptx {
+  background: { color: string };
+  addText(texto: string, opciones: OpcionesPptx): LaminaPptx;
+  addShape(forma: string, opciones: OpcionesPptx): LaminaPptx;
+  addImage(opciones: OpcionesPptx): LaminaPptx;
+  addTable(filas: CeldaPptx[][], opciones: OpcionesPptx): LaminaPptx;
+}
+
+/** Presentación de pptxgenjs. write() devuelve un Blob (sin tipos del DOM en este paquete). */
+export interface PresentacionPptx {
+  layout: string;
+  title: string;
+  author: string;
+  addSlide(): LaminaPptx;
+  write(opciones: { outputType: 'blob' }): Promise<unknown>;
+}
+
+/** Lo que construirPptx necesita de la app. */
+export interface EntornoPptx {
+  PptxGenJS: new () => PresentacionPptx;
+  /** Recibe el mapa id de nodo -> nombre de forma (lo usa el banco para reproducir el post-proceso). */
+  alNombresPorNodo?(mapa: Record<string, string>): void;
+}
+
+/** JSZip (la clase) y el .pptx abierto con él. */
+export interface JSZipPptx {
+  loadAsync(datos: unknown): Promise<ZipPptx>;
+}
+interface ZipPptx {
+  files: Record<string, unknown>;
+  file(nombre: string): { async(tipo: 'string'): Promise<string> } | null;
+  file(nombre: string, contenido: string): unknown;
+  generateAsync(opciones: { type: 'blob'; mimeType: string }): Promise<unknown>;
+}
+
+/** Tema del export PPTX. Los temas de cliente del catálogo tienen la misma forma. */
+export interface TemaPptx {
+  nombre: string; autor: string; pie: string;
+  dk1: string; lt2: string; acento: string; gris: string; antetitulo: string;
+  sep: string; chipRol: string; teal: string;
+  rosa: string; verde: string; arena: string; circulo: string;
+  font: string; fontTitulo: string;
+  foto?: string; logo: string; logoInv: string; logoW: number; logoH: number;
+  portada: 'mbc' | 'bbva'; portadaFondo: string; portadaTexto: string; portadaSub: string;
+  cierre: boolean;
+}
+
+/** Tramo de columnas (rangos) que se dibuja como una banda, con los carriles que toca. */
+interface Banda { ini: number; fin: number; lanes: string[]; alto: number }
+/** Fila de una lámina: un carril dentro de una banda. */
+interface Fila { banda: number; ini: number; fin: number; lane: string }
+/** Caja de un nodo en la lámina (pulgadas), con su centro. */
+interface Caja { x: number; y: number; w: number; h: number; cx: number; cy: number }
+/** Rectángulo ocupado por una etiqueta (x es el centro). */
+interface Ocupado { x: number; y: number; w: number; h: number }
+/** Círculo de fin adelantado ya dibujado en una banda. */
+interface FinAdelantado { cx: number; cy: number; d: number; idFin: string; n: number }
+
+// El paquete compila sin tipos del DOM ni de Node (lib ES2022): basta con lo que se usa.
+declare const console: { info(...datos: unknown[]): void; warn(...datos: unknown[]): void };
 
 // ============================================================
 // EXPORT PPTX (pptxgenjs CDN)
@@ -14,7 +98,7 @@ import { EXECUTION_TYPES, KPI_LIBRARY } from '@processiq/dominio';
 // transitorio V2: azul 003478, Montserrat, Gris Cerámica). Los temas de
 // cliente calcan SU plantilla: paleta, tipografías, logotipo y carátula.
 // Para añadir un cliente basta una entrada aquí y un botón en el menú.
-const TEMAS_PPTX = {
+const TEMAS_PPTX: { mbc: TemaPptx; bbva: TemaPptx; [clave: string]: TemaPptx } = {
   mbc: {
     // Referencia: "Catalogo de recursos graficos MBC" (Template Nuevo MBC.pptx,
     // archivado en Documentos\Plantillas\MBC). Paleta CERRADA: dos azules
@@ -57,7 +141,7 @@ const TEMAS_PPTX = {
  * @param entorno { PptxGenJS, alNombresPorNodo?(mapa) }
  * @returns { pres, nombresPorNodo }
  */
-export function construirPptx(state, tema, entorno) {
+export function construirPptx(state: EstadoPptx, tema: string, entorno: EntornoPptx) {
   const T = TEMAS_PPTX[tema] || TEMAS_PPTX.mbc;
   const pres = new entorno.PptxGenJS();
   pres.layout = 'LAYOUT_WIDE'; // 13.33 x 7.5 inches
@@ -105,7 +189,7 @@ export function construirPptx(state, tema, entorno) {
 
   // Viste una slide ya creada: fondo, antetitulo, titulo, pie, logo y numero.
   // Coordenadas calcadas de slideLayout18/slideMaster2 del patron Minsait.
-  function mChrome(sl, titulo, antetitulo) {
+  function mChrome(sl: LaminaPptx, titulo: string, antetitulo: string) {
     sl.background = { color: M_CERAMICA };
     _sldNo++;
     if (antetitulo) {
@@ -141,10 +225,10 @@ export function construirPptx(state, tema, entorno) {
   }
 
   // Crea una slide de contenido ya vestida con el patron Minsait
-  function mSlide(titulo, antetitulo) { return mChrome(pres.addSlide(), titulo, antetitulo); }
+  function mSlide(titulo: string, antetitulo: string) { return mChrome(pres.addSlide(), titulo, antetitulo); }
 
   // Contenedor blanco (regla Minsait: el blanco es contenedor, nunca fondo)
-  function mPanel(sl, x, y, w, h) {
+  function mPanel(sl: LaminaPptx, x: number, y: number, w: number, h: number) {
     sl.addShape('rect', { x: x, y: y, w: w, h: h, fill: { color: M_BLANCO }, line: { type: 'none' } });
   }
 
@@ -194,18 +278,18 @@ export function construirPptx(state, tema, entorno) {
   // ── Editabilidad en PowerPoint ──────────────────────────────
   // Grilla de 0,05": un cuarto de la cuadrícula de PowerPoint. Lo que el
   // consultor mueva después encaja con el resto sin pelear con la alineación.
-  const g5 = (v) => Math.round(v * 20) / 20;
+  const g5 = (v: number) => Math.round(v * 20) / 20;
   // Nombre descriptivo por nodo: el panel de selección de PowerPoint deja de
   // ser 97 filas de "Text 12". Se guarda por id porque el post-proceso que
   // ancla los conectores necesita encontrar cada forma por su nombre.
-  const nombresPorNodo = {};
+  const nombresPorNodo: Record<string, string> = {};
   if (entorno.alNombresPorNodo) entorno.alNombresPorNodo(nombresPorNodo);   // lo usa el banco para reproducir el post-proceso fuera de la pestaña
   let _seqNombre = 0;
-  function nombreDe(n) {
+  function nombreDe(n: Nodo) {
     if (nombresPorNodo[n.id]) return nombresPorNodo[n.id];
     const cod = n.activityCode || ('' + (++_seqNombre)).padStart(2, '0');
-    const tipo = { start: 'Inicio', end: 'Fin', decision: 'Decisión', intermediate: 'Evento',
-                   document: 'Documento', data: 'Datos' }[n.type] || 'Tarea';
+    const tipo = ({ start: 'Inicio', end: 'Fin', decision: 'Decisión', intermediate: 'Evento',
+                   document: 'Documento', data: 'Datos' } as Record<string, string>)[n.type] || 'Tarea';
     // pptxgenjs escribe el nombre en el XML sin escapar: un "&" o "<" en la
     // etiqueta corrompería el archivo. Se limpian antes.
     const nom = tipo + ' ' + cod + ' · ' + String(n.label || '').replace(/[&<>"]/g, '').replace(/\s+/g, ' ').slice(0, 48);
@@ -215,7 +299,7 @@ export function construirPptx(state, tema, entorno) {
 
   // Mapeo de owners → lanes para los slides (reutiliza state._lanes)
   const lanesData = state._lanes || null;
-  const ranks = lanesData?.ranks || {};
+  const ranks: Record<string, number> = lanesData?.ranks || {};
   const laneList = lanesData?.list || [];
 
   // Bounding box
@@ -268,13 +352,13 @@ export function construirPptx(state, tema, entorno) {
   const shapeFill = { task: T_ARENA, system: T_ARENA, decision: T_VINO, start: T_VERDE, end: T_ROSA, intermediate: 'FFFFFF', document: T_ARENA, data: T_ARENA };
   const shapeBorder = { task: M_SEP, system: '9AA4AE', decision: T_VINO, start: T_VERDE, end: T_ROSA, intermediate: T_AZUL, document: T_AZUL, data: T_AZUL };
   // Glyph unicode por subtipo de evento BPMN (render confiable en PowerPoint; Calibri/Segoe fallback)
-  const EV_GLYPH = { message: '✉', timer: '⌛', error: '⚡', signal: '▲' };
+  const EV_GLYPH: Record<string, string> = { message: '✉', timer: '⌛', error: '⚡', signal: '▲' };
   const MK_GLYPH = { subprocess: '⊞', loop: '↻', multiinstance: '|||', 'multiinstance-seq': '☰' };
 
   // Función helper: dibuja un slice del proceso en un slide
-  function drawProcessSlice(slide, sliceIdx, bandas) {
-    const rankStart = bandas[0].ini;
-    const rankEnd = bandas[bandas.length - 1].fin;
+  function drawProcessSlice(slide: LaminaPptx, sliceIdx: number, bandas: Banda[]) {
+    const rankStart = bandas[0]!.ini;
+    const rankEnd = bandas[bandas.length - 1]!.fin;
     // Header estilo Telered: título vino + kicker gris uppercase, sin barras
     const subtitle = slicesCount > 1 ? ` (${sliceIdx + 1}/${slicesCount})` : '';
     mChrome(slide,
@@ -306,7 +390,7 @@ export function construirPptx(state, tema, entorno) {
     // ───── FILAS = banda × carril ─────
     // Cada banda repite los carriles de SU tramo de columnas. Una fila vacía
     // no se dibuja: es justo el hueco que antes se desperdiciaba.
-    const filas = [];
+    const filas: Fila[] = [];
     bandas.forEach((bi, bIdx) => {
       bi.lanes.forEach(laneName => {
         filas.push({ banda: bIdx, ini: bi.ini, fin: bi.fin, lane: laneName });
@@ -315,7 +399,7 @@ export function construirPptx(state, tema, entorno) {
     // Si el único nodo de una fila era un fin adelantado, la fila queda vacía
     // y no se dibuja (medirBanda la contó porque no sabe de adelantos).
     for (let fi = filas.length - 1; fi >= 0; fi--) {
-      const f = filas[fi];
+      const f = filas[fi]!;
       const conNodos = nodesInSlice.some(n => {
         const r = ranks[n.id] || 0;
         const ln = (state._lanes && state._lanes.laneOf && state._lanes.laneOf[n.id]) || 'Por asignar';
@@ -323,7 +407,7 @@ export function construirPptx(state, tema, entorno) {
       });
       if (!conNodos) filas.splice(fi, 1);
     }
-    const filaIdxOf = (n) => {
+    const filaIdxOf = (n: Nodo) => {
       const r = ranks[n.id] || 0;
       const ln = (state._lanes && state._lanes.laneOf && state._lanes.laneOf[n.id]) || 'Por asignar';
       return filas.findIndex(f => r >= f.ini && r < f.fin && f.lane === ln);
@@ -336,7 +420,7 @@ export function construirPptx(state, tema, entorno) {
     // justo después del chip de rol, y sólo cuando ese tramo tiene conectores.
     // Con escalera, un conector puede saltar de banda dentro de la MISMA
     // lámina, así que el pasillo se reserva por salto de banda, no de lámina.
-    const enSlide = (r) => r >= rankStart && r < rankEnd;
+    const enSlide = (r: number) => r >= rankStart && r < rankEnd;
     const saltaBanda = saltaBandaG;
     const hayEntradaIzq = state.edges.some(e => {
       const ra = ranks[e.from], rb = ranks[e.to];
@@ -357,18 +441,18 @@ export function construirPptx(state, tema, entorno) {
     // en otra fila...) dejaba una columna vacía y el diagrama se estiraba con
     // huecos, como vio el usuario en Originación 3/4. Se renumeran solo las
     // columnas que tienen nodos, banda por banda.
-    const colUsadas = {};
+    const colUsadas: Record<string, Set<number>> = {};
     nodesInSlice.forEach(n => {
       const li = filaIdxOf(n); if (li < 0) return;
-      const f = filas[li];
+      const f = filas[li]!;
       (colUsadas[f.banda] = colUsadas[f.banda] || new Set()).add((ranks[n.id] || 0) - f.ini);
     });
-    const colMapa = {};
+    const colMapa: Record<string, Record<number, number>> = {};
     Object.keys(colUsadas).forEach(bk => {
       colMapa[bk] = {};
-      Array.from(colUsadas[bk]).sort((p, q) => p - q).forEach((c, i) => { colMapa[bk][c] = i; });
+      Array.from(colUsadas[bk]!).sort((p, q) => p - q).forEach((c, i) => { colMapa[bk]![c] = i; });
     });
-    const sliceColCount = Math.max(1, ...Object.keys(colMapa).map(bk => Object.keys(colMapa[bk]).length));
+    const sliceColCount = Math.max(1, ...Object.keys(colMapa).map(bk => Object.keys(colMapa[bk]!).length));
     // Tope de anchura por columna. Con pocas columnas el diagrama se estiraba
     // a toda la lámina (2,6" por columna para cajas de 1,9") y quedaba lleno
     // de aire, como vio el usuario en Originación 3/4. Se compacta a la
@@ -381,20 +465,20 @@ export function construirPptx(state, tema, entorno) {
     const cellWFinal = cellInnerW - CELL_GAP_X;
 
     // Cuántos nodos comparten cada celda (fila × columna dentro de su banda)
-    const cellCount = {}, cellIdx = {};
-    const colOf = (n) => {
+    const cellCount: Record<string, number> = {}, cellIdx: Record<string, number> = {};
+    const colOf = (n: Nodo) => {
       const li = filaIdxOf(n); if (li < 0) return 0;
-      const f = filas[li], c = (ranks[n.id] || 0) - f.ini;
-      const m = colMapa[f.banda] || {};
-      return m[c] != null ? m[c] : c;
+      const f = filas[li]!, c = (ranks[n.id] || 0) - f.ini;
+      const m: Record<number, number> = colMapa[f.banda] || {};
+      return m[c] != null ? m[c]! : c;
     };
-    const keyOf = (n) => filaIdxOf(n) + '|' + colOf(n);
+    const keyOf = (n: Nodo) => filaIdxOf(n) + '|' + colOf(n);
     nodesInSlice.forEach(n => { const k = keyOf(n); cellCount[k] = (cellCount[k] || 0) + 1; });
 
     // ───── Alto de cada fila, proporcional a lo que apila ─────
     const apilaFila = filas.map((_, fi) => {
       let m = 1;
-      Object.keys(cellCount).forEach(k => { if (+k.split('|')[0] === fi) m = Math.max(m, cellCount[k]); });
+      Object.keys(cellCount).forEach(k => { if (+k.split('|')[0]! === fi) m = Math.max(m, cellCount[k]!); });
       return m;
     });
     const MIN_LANE_H = 0.82;          // mínimo para que quepa el chip de rol
@@ -417,12 +501,12 @@ export function construirPptx(state, tema, entorno) {
     // ───── (D) Si aun así sobra, se centra el bloque; no se estira ─────
     const altoFinal = laneH.reduce((a, h) => a + h, 0) + gapsTotales;
     const topInicial = DRAW_TOP + Math.max(0, (ALTO_UTIL - altoFinal) / 2);
-    const laneY = [];
+    const laneY: number[] = [];
     {
-      let acc = topInicial, bandaPrev = filas.length ? filas[0].banda : 0;
+      let acc = topInicial, bandaPrev = filas.length ? filas[0]!.banda : 0;
       filas.forEach((f, i) => {
         if (f.banda !== bandaPrev) { acc += GAP_BANDA; bandaPrev = f.banda; }
-        laneY.push(acc); acc += laneH[i];
+        laneY.push(acc); acc += laneH[i]!;
       });
     }
 
@@ -431,8 +515,8 @@ export function construirPptx(state, tema, entorno) {
     if (filas.length > 0) {
       filas.forEach((fila, lidx) => {
         const laneName = fila.lane;
-        const ly = laneY[lidx], lh = laneH[lidx];
-        const primeraDeBanda = lidx === 0 || filas[lidx - 1].banda !== fila.banda;
+        const ly = laneY[lidx]!, lh = laneH[lidx]!;
+        const primeraDeBanda = lidx === 0 || filas[lidx - 1]!.banda !== fila.banda;
         // Carril blanco: es el contenedor sobre el fondo Gris Cerámica
         slide.addShape('rect', { x: 0.4, y: ly, w: SLIDE_DRAW_W - 0.4, h: lh,
           fill: { color: 'FFFFFF' }, line: { type: 'none' } });
@@ -458,18 +542,19 @@ export function construirPptx(state, tema, entorno) {
         // texto se sale ("Ejecutivo Comercial" desbordaba, captura del
         // usuario). Si no cabe en una linea se parte en dos por el espacio
         // mas central; si sigue sin caber, baja el cuerpo hasta 6,5 pt.
-        const cabe = (t, fs) => String(t).length * fs * ANCHO_CAR / 72 <= chipL - 0.08;
+        const cabe = (t: string, fs: number) => String(t).length * fs * ANCHO_CAR / 72 <= chipL - 0.08;
         let nombreChip = laneName, fsChip = 8;
         if (!cabe(laneName, 8) && /\s/.test(laneName)) {
           const palabras = laneName.split(/\s+/);
-          let mejor = null, mejorDif = Infinity;
+          let mejor: [string, string] | null = null, mejorDif = Infinity;
           for (let k = 1; k < palabras.length; k++) {
             const pa = palabras.slice(0, k).join(' '), pb = palabras.slice(k).join(' ');
             const dif = Math.abs(pa.length - pb.length);
             if (dif < mejorDif) { mejorDif = dif; mejor = [pa, pb]; }
           }
-          nombreChip = mejor.join('\n');
-          const masLarga = Math.max(mejor[0].length, mejor[1].length);
+          // Con un espacio hay al menos dos palabras: el bucle siempre elige un corte.
+          nombreChip = mejor!.join('\n');
+          const masLarga = Math.max(mejor![0].length, mejor![1].length);
           while (fsChip > 6.5 && masLarga * fsChip * ANCHO_CAR / 72 > chipL - 0.08) fsChip -= 0.5;
         } else {
           while (fsChip > 6.5 && !cabe(laneName, fsChip)) fsChip -= 0.5;
@@ -490,17 +575,17 @@ export function construirPptx(state, tema, entorno) {
     // El catalogo EXECUTION_TYPES trae su propia paleta (azul, violeta,
     // ambar...) porque lo comparte con el lienzo. En el entregable se traduce
     // a los accents oficiales del tema Minsait, sin tocar el catalogo.
-    const EXEC_A_MINSAIT = {
+    const EXEC_A_MINSAIT: Record<string, string> = {
       '6B7280': GRAY, '1E5BAA': '00B0BD', '1E7E34': '44B757',
       '6D28D9': '8661F5', 'B45309': 'E56813', '92600A': 'E56813',
       'B91C1C': 'A40037', '78350F': GRAY, 'A16207': 'E56813'
     };
-    function colorExec(hex) {
+    function colorExec(hex: string) {
       const k = String(hex || '').replace('#', '').toUpperCase();
       return EXEC_A_MINSAIT[k] || M_PRUNO;
     }
 
-    function altoEtiqueta(txt, ancho, fs) {
+    function altoEtiqueta(txt: string, ancho: number, fs: number) {
       const lineas = Math.max(1, Math.ceil(String(txt || '').length * fs * ANCHO_CAR / 72 / Math.max(ancho, 0.3)));
       return Math.max(0.2, lineas * fs * 1.25 / 72);
     }
@@ -508,17 +593,17 @@ export function construirPptx(state, tema, entorno) {
     // Anticolisión de etiquetas de arista: dos flechas paralelas y cercanas
     // escribían su rótulo en el mismo punto ("Solicita descuento" sobre
     // "Acepta"). Se aparta la segunda en vertical.
-    const etiqAristaUsadas = [];
+    const etiqAristaUsadas: Ocupado[] = [];
     function sembrarCajasEnAnticolision() {
       nodeBoxes.forEach(function (b) {
         etiqAristaUsadas.push({ x: b.x + b.w / 2, y: b.y, w: b.w, h: b.h });
       });
     }
-    function apartaEtiqArista(x, y, w, h) {
+    function apartaEtiqArista(x: number, y: number, w: number, h: number) {
       // Acotado al area de dibujo: sin el, en procesos densos la busqueda
       // empujaba etiquetas por encima del titulo o por debajo del pie.
       const Y_MIN = DRAW_TOP + 0.02, Y_MAX = DRAW_TOP + SLIDE_DRAW_H - h - 0.02;
-      const clamp = (v) => Math.min(Y_MAX, Math.max(Y_MIN, v));
+      const clamp = (v: number) => Math.min(Y_MAX, Math.max(Y_MIN, v));
       let yy = clamp(y);
       for (let i = 0; i < 24; i++) {
         const choca = etiqAristaUsadas.some(u =>
@@ -534,7 +619,7 @@ export function construirPptx(state, tema, entorno) {
 
     // Ahora cada carril tiene SU alto, así que el tamaño se topa contra el
     // carril del nodo, no contra un alto único para todos.
-    function cellSize(n, lh) {
+    function cellSize(n: Nodo, lh: number) {
       const alto = lh || Math.min.apply(null, laneH);
       if (n.type === 'start' || n.type === 'end' || n.type === 'intermediate') {
         const d = Math.min(0.32, cellWFinal * 0.5, alto * 0.35);
@@ -557,43 +642,43 @@ export function construirPptx(state, tema, entorno) {
     // modelo, así que la tarea que iba al Cliente podía quedar en medio.
     // Se barre 3 veces para que la posición ya decidida de un vecino
     // (fila + fracción dentro de su celda) refine la de los demás.
-    const filaDe = {};
+    const filaDe: Record<string, number> = {};
     nodesInSlice.forEach(n => { filaDe[n.id] = filaIdxOf(n); });
-    const posFila = {};
-    nodesInSlice.forEach(n => { posFila[n.id] = filaDe[n.id] + 0.5; });
-    const vecinosDe = {};
+    const posFila: Record<string, number> = {};
+    nodesInSlice.forEach(n => { posFila[n.id] = filaDe[n.id]! + 0.5; });
+    const vecinosDe: Record<string, string[]> = {};
     state.edges.forEach(e => {
       if (posFila[e.from] === undefined || posFila[e.to] === undefined || e.from === e.to) return;
       (vecinosDe[e.from] = vecinosDe[e.from] || []).push(e.to);
       (vecinosDe[e.to] = vecinosDe[e.to] || []).push(e.from);
     });
-    const porCelda = {};
+    const porCelda: Record<string, Nodo[]> = {};
     nodesInSlice.forEach(n => { const k = keyOf(n); (porCelda[k] = porCelda[k] || []).push(n); });
-    const afinidad = (n) => {
+    const afinidad = (n: Nodo) => {
       const vs = vecinosDe[n.id] || [];
-      if (!vs.length) return posFila[n.id];
-      return vs.reduce((a, v) => a + posFila[v], 0) / vs.length;
+      if (!vs.length) return posFila[n.id]!;
+      return vs.reduce((a, v) => a + posFila[v]!, 0) / vs.length;
     };
     for (let pasada = 0; pasada < 3; pasada++) {
       Object.keys(porCelda).forEach(k => {
-        const grp = porCelda[k];
+        const grp = porCelda[k]!;
         if (grp.length < 2) return;
         grp.sort((p, q) => (afinidad(p) - afinidad(q)) || (p.y - q.y));
-        grp.forEach((n, i) => { posFila[n.id] = filaDe[n.id] + (i + 0.5) / grp.length; });
+        grp.forEach((n, i) => { posFila[n.id] = filaDe[n.id]! + (i + 0.5) / grp.length; });
       });
     }
-    const nodesOrdenados = [].concat.apply([], Object.keys(porCelda).map(k => porCelda[k]));
+    const nodesOrdenados = ([] as Nodo[]).concat.apply([], Object.keys(porCelda).map(k => porCelda[k]!));
 
     // Posiciones
-    const nodeBoxes = new Map();
+    const nodeBoxes = new Map<string, Caja>();
     nodesOrdenados.forEach(n => {
       const li = filaIdxOf(n);
       if (li < 0) return;
       const r = colOf(n);
       const key = li + '|' + r;
-      const total = cellCount[key];
-      const idx = (cellIdx[key] = (cellIdx[key] === undefined ? 0 : cellIdx[key] + 1));
-      const lh = laneH[li], ly = laneY[li];
+      const total = cellCount[key]!;
+      const idx = (cellIdx[key] = (cellIdx[key] === undefined ? 0 : cellIdx[key]! + 1));
+      const lh = laneH[li]!, ly = laneY[li]!;
       const sz = cellSize(n, lh);
       const cellX = 0.4 + GUT_IZQ + r * cellInnerW + (cellInnerW - sz.w) / 2;
       let cellY = ly + (lh - sz.h) / 2;
@@ -618,8 +703,8 @@ export function construirPptx(state, tema, entorno) {
     // en comite"). Ahora manda la direccion DOMINANTE: si el salto vertical
     // supera al avance horizontal, se sale por el vertice inferior y se entra
     // por arriba, que es como se dibuja a mano.
-    const carrilDeId = (id) => (state._lanes && state._lanes.laneOf && state._lanes.laneOf[id]) || null;
-    function ladoDeArista(idA, idB, ba, bb) {
+    const carrilDeId = (id: string) => (state._lanes && state._lanes.laneOf && state._lanes.laneOf[id]) || null;
+    function ladoDeArista(idA: string, idB: string, ba: Caja, bb: Caja) {
       const dx = bb.cx - ba.cx, dy = bb.cy - ba.cy;
       // Cambio de carril: manda la vertical aunque el destino avance mas a la
       // derecha que hacia abajo. Medido en Originacion de Credito: dx 2,63" y
@@ -646,8 +731,8 @@ export function construirPptx(state, tema, entorno) {
     // distinto (pedido del usuario): el preferido por geometria y, si ya esta
     // ocupado, el siguiente libre. Un rombo con tres ramas sale por derecha,
     // abajo y arriba en vez de amontonarlas en el mismo vertice.
-    const ladoSalidaDe = {}, ladosUsados = {};
-    const candidatos = (ba, bb) => {
+    const ladoSalidaDe: Record<string, string> = {}, ladosUsados: Record<string, Record<string, boolean>> = {};
+    const candidatos = (ba: Caja, bb: Caja) => {
       const dx = bb.cx - ba.cx, dy = bb.cy - ba.cy;
       const h = dx >= 0 ? 'right' : 'left', v = dy >= 0 ? 'bottom' : 'top';
       const pref = Math.abs(dy) > Math.abs(dx) ? [v, h] : [h, v];
@@ -667,7 +752,7 @@ export function construirPptx(state, tema, entorno) {
     });
     // Que nodos sacan una flecha por su vertice inferior: su etiqueta (la
     // pregunta del rombo) tiene que subir encima para no quedar cruzada.
-    const salidaAbajo = {};
+    const salidaAbajo: Record<string, boolean> = {};
     Object.keys(ladoSalidaDe).forEach(id => {
       if (ladoSalidaDe[id] !== 'bottom') return;
       const e = state.edges.find(x => x.id === id); if (e) salidaAbajo[e.from] = true;
@@ -679,7 +764,7 @@ export function construirPptx(state, tema, entorno) {
       if (!b) return;
       const kind = shapeKind[n.type] || 'rect';
       const esTarea = (n.type === 'task' || n.type === 'system');
-      const shapeOpts = {
+      const shapeOpts: OpcionesPptx = {
         x: b.x, y: b.y, w: b.w, h: b.h,
         fill: { color: shapeFill[n.type] || 'FFFFFF' },
         line: { color: shapeBorder[n.type] || DARK, width: 1 },
@@ -694,7 +779,8 @@ export function construirPptx(state, tema, entorno) {
         const execT = EXECUTION_TYPES.find(t => t.id === n.executionType);
         const compactT = b.h < 0.62;
         const arriba = (!compactT && (!!n.activityCode || execT)) ? 0.22 : 0.03;
-        const abajo = 0.03 + ((n.marker && n.marker !== 'none' && MK_GLYPH[n.marker] && !compactT) ? 0.16 : 0);
+        // marker 'none' solo llega en datos antiguos (el panel ya guarda ''): de ahí el `as string`
+        const abajo = 0.03 + ((n.marker && (n.marker as string) !== 'none' && MK_GLYPH[n.marker] && !compactT) ? 0.16 : 0);
         slide.addText(n.label || '', Object.assign({}, shapeOpts, {
           shape: kind === 'rect' ? 'roundRect' : kind,
           margin: [Math.round(arriba * 72), 3, Math.round(abajo * 72), 3],
@@ -776,10 +862,10 @@ export function construirPptx(state, tema, entorno) {
         // tarea. Sigue en el modelo, en el panel de propiedades y como columna
         // de la Ficha de Proceso (Word), que es donde se usa para cruzar.
         // El texto de la tarea ya va DENTRO de la forma (ver arriba)
-        const hasMarker = n.marker && n.marker !== 'none' && MK_GLYPH[n.marker] && !compact;
+        const hasMarker = n.marker && (n.marker as string) !== 'none' && MK_GLYPH[n.marker] && !compact;
         // Marcador de actividad BPMN en la base (centro inferior)
         if (hasMarker) {
-          slide.addText(MK_GLYPH[n.marker], {
+          slide.addText(MK_GLYPH[n.marker as MarcadorActividad], {
             x: b.x, y: b.y + b.h - 0.20, w: b.w, h: 0.18,
             fontSize: 9, color: GRAY, align: 'center', valign: 'middle', fontFace: T_FONT, bold: true
           });
@@ -839,12 +925,12 @@ export function construirPptx(state, tema, entorno) {
 
     // ───── Dibuja edges ortogonales (horizontal + vertical, sin diagonales) ─────
     // Helper: dibuja una L (horizontal primero, luego vertical) o solo línea recta si están alineados
-    function drawOrthoEdge(slide, ax, ay, aw, ah, bx, by, bw, bh, hasArrow, label, dash) {
+    function drawOrthoEdge(slide: LaminaPptx, ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number, hasArrow: boolean, label: string, dash: boolean) {
       // Conectores rosa magenta finos (ref. Telered: accent1 FF0054 a 0.5pt)
       const EDGE_COLOR = dash ? 'B8879E' : MAGENTA, EDGE_W = dash ? 0.5 : 0.5;
       const DASH = dash ? 'dash' : 'solid';
       // Puntos de salida/entrada en bordes (no centros)
-      let sx, sy, tx, ty;
+      let sx: number, sy: number, tx: number, ty: number;
       const sameRow = Math.abs((ay + ah/2) - (by + bh/2)) < 0.15;
       const sameCol = Math.abs((ax + aw/2) - (bx + bw/2)) < 0.05;
       if (sameRow) {
@@ -861,7 +947,7 @@ export function construirPptx(state, tema, entorno) {
           const dy = Math.max(...blockers.map(o => o.y + o.h), ay + ah, by + bh) + 0.13;
           const exX = sx + (tx > sx ? 0.07 : -0.07);
           const enX = tx + (tx > sx ? -0.07 : 0.07);
-          const seg = (X, Y, W, H, arrow, fh, fv) => slide.addShape('line', {
+          const seg = (X: number, Y: number, W: number, H: number, arrow: boolean, fh: boolean, fv?: boolean) => slide.addShape('line', {
             x: X, y: Y, w: W, h: H,
             line: { color: EDGE_COLOR, width: EDGE_W, dashType: DASH, endArrowType: arrow ? 'triangle' : 'none' },
             flipH: !!fh, flipV: !!fv });
@@ -943,13 +1029,13 @@ export function construirPptx(state, tema, entorno) {
     // Varias ramas saliendo del mismo nodo (un rombo) compartían el mismo codo
     // y se veían como una sola línea. Cada rama recibe un codo distinto: adj1
     // del bentConnector3, en milésimas de % del ancho del conector.
-    const _ramasPorOrigen = {};
-    function adjRama(idOrigen) {
+    const _ramasPorOrigen: Record<string, number> = {};
+    function adjRama(idOrigen: string) {
       const k = (_ramasPorOrigen[idOrigen] = (_ramasPorOrigen[idOrigen] || 0) + 1);
       return [50000, 35000, 65000, 80000, 20000][(k - 1) % 5];
     }
 
-    function emitirConector(slide, a, b, ba, bb, e, esMensaje) {
+    function emitirConector(slide: LaminaPptx, a: Nodo, b: Nodo, ba: Caja, bb: Caja, e: Arista, esMensaje: unknown) {
       const lados = ladoDeArista(a.id, b.id, ba, bb);
       const ladoA = ladoSalidaDe[e.id] || lados.ladoA, ladoB = lados.ladoB, p2 = lados.p2;
       const p1 = ladoA === 'right' ? { x: ba.x + ba.w, y: ba.cy }
@@ -978,7 +1064,7 @@ export function construirPptx(state, tema, entorno) {
     // columna (izquierda y derecha) reserva su altura y aparta al siguiente.
     sembrarCajasEnAnticolision();
     const offPageDer = [], offPageIzq = [];
-    const finesAdelantados = {};   // (idNodoFin|banda) -> {cx, cy, d, idFin, n}
+    const finesAdelantados: Record<string, FinAdelantado> = {};   // (idNodoFin|banda) -> {cx, cy, d, idFin, n}
 
     // ───── Dónde va el círculo de continuidad ─────
     // Hasta v3.1.1 vivían siempre pegados al borde izquierdo o derecho de la
@@ -986,15 +1072,15 @@ export function construirPptx(state, tema, entorno) {
     // cruzaba entera. Si la celda contigua de su misma fila está VACÍA, el
     // círculo se pone ahí: la línea se acorta y la lámina respira. Si no hay
     // hueco, vuelve al borde, que es el comportamiento de siempre.
-    const usadasPorX = {};
-    const usadasEn = (x) => (usadasPorX[x.toFixed(2)] = usadasPorX[x.toFixed(2)] || []);
+    const usadasPorX: Record<string, number[]> = {};
+    const usadasEn = (x: number) => (usadasPorX[x.toFixed(2)] = usadasPorX[x.toFixed(2)] || []);
 
     // ───── La flecha de un conector nunca atraviesa una caja ─────
     // Visto por el usuario en Originación 1/4: la entrada "B" cruzaba
     // "Registrar solicitud" de lado a lado. Si el tramo recto pisa alguna
     // caja, el círculo sube (o baja) al pasillo del carril y la flecha entra
     // por arriba (o abajo) del nodo, como se dibujaría a mano.
-    function tramoPisaCaja(x1, x2, y, ignorar) {
+    function tramoPisaCaja(x1: number, x2: number, y: number, ignorar: Record<string, number>) {
       const a = Math.min(x1, x2), z = Math.max(x1, x2);
       for (const par of nodeBoxes) {
         const id = par[0], bx = par[1];
@@ -1004,14 +1090,14 @@ export function construirPptx(state, tema, entorno) {
       }
       return false;
     }
-    function pasilloLibre(n, x1, x2) {
+    function pasilloLibre(n: Nodo, x1: number, x2: number) {
       const li = filaIdxOf(n); if (li < 0) return null;
-      const arriba = laneY[li] + 0.21, abajo = laneY[li] + laneH[li] - 0.21;
+      const arriba = laneY[li]! + 0.21, abajo = laneY[li]! + laneH[li]! - 0.21;
       if (!tramoPisaCaja(x1, x2, arriba, {})) return { y: arriba, lado: 'top' };
       if (!tramoPisaCaja(x1, x2, abajo, {})) return { y: abajo, lado: 'bottom' };
       return null;
     }
-    function columnaConector(n, dir, xBorde) {
+    function columnaConector(n: Nodo, dir: number, xBorde: number) {
       const li = filaIdxOf(n);
       if (li < 0) return xBorde;
       const r = colOf(n) + dir;
@@ -1025,9 +1111,9 @@ export function construirPptx(state, tema, entorno) {
     // (13 carriles, 136 aristas) empujaba circulos fuera de la diapositiva.
     const OFF_MIN = DRAW_TOP + 0.20;
     const OFF_MAX = DRAW_TOP + SLIDE_DRAW_H - 0.30;
-    function reservaOffPage(usadas, y) {
+    function reservaOffPage(usadas: number[], y: number) {
       const base = Math.min(OFF_MAX, Math.max(OFF_MIN, y));
-      const libre = (v) => !usadas.some(u => Math.abs(u - v) < OFF_PAGE_SEP);
+      const libre = (v: number) => !usadas.some(u => Math.abs(u - v) < OFF_PAGE_SEP);
       if (libre(base)) { usadas.push(base); return base; }
       for (let k = 1; k <= 24; k++) {
         const abajo = base + OFF_PAGE_SEP * k;
@@ -1054,7 +1140,7 @@ export function construirPptx(state, tema, entorno) {
       const rA = ranks[a.id], rB = ranks[b.id];
       const cruzaBanda = rA != null && rB != null && saltaBanda(rA, rB);
       if (aIn && bIn && !cruzaBanda) {
-        const ba = nodeBoxes.get(a.id), bb = nodeBoxes.get(b.id);
+        const ba = nodeBoxes.get(a.id)!, bb = nodeBoxes.get(b.id)!;
         const lA = state._lanes && state._lanes.laneOf ? state._lanes.laneOf[a.id] : null;
         const lB = state._lanes && state._lanes.laneOf ? state._lanes.laneOf[b.id] : null;
         const isMsg = lA && lB && lA !== lB && a.type !== 'start' && b.type !== 'end';
@@ -1064,15 +1150,15 @@ export function construirPptx(state, tema, entorno) {
       if (aIn && esAristaAFinAdelantado(e)) {
         // Fin adelantado: el círculo de fin se dibuja aquí, en el pasillo de
         // salida, UNA vez por banda aunque lleguen varias flechas (C y E → Fin).
-        const ba = nodeBoxes.get(a.id);
-        const bandaA = bandaIdxDeRank[rA];
+        const ba = nodeBoxes.get(a.id)!;
+        const bandaA = bandaIdxDeRank[rA!]!;
         const kFin = b.id + '|' + bandaA;
         let fin = finesAdelantados[kFin];
         if (!fin) {
           // Centrado en la media de sus orígenes de ESTA banda
           const fuentes = state.edges
-            .filter(x => x.to === b.id && nodeBoxes.has(x.from) && bandaIdxDeRank[ranks[x.from]] === bandaA)
-            .map(x => nodeBoxes.get(x.from));
+            .filter(x => x.to === b.id && nodeBoxes.has(x.from) && bandaIdxDeRank[ranks[x.from]!] === bandaA)
+            .map(x => nodeBoxes.get(x.from)!);
           const syProm = fuentes.reduce((acc, f) => acc + f.y + f.h / 2, 0) / Math.max(1, fuentes.length);
           const d = 0.32, cx = columnaConector(a, +1, CONN_X_DER);
           const cy = reservaOffPage(usadasEn(cx), syProm);
@@ -1105,7 +1191,7 @@ export function construirPptx(state, tema, entorno) {
       }
       if (aIn) {
         // Off-page derecha — letra única por arista
-        const ba = nodeBoxes.get(a.id);
+        const ba = nodeBoxes.get(a.id)!;
         const letter = edgeLetters[e.id] || '?';
         const targetSlice = laminaDeRank(ranks[b.id] || 0);
         const marcaDer = targetSlice === sliceIdx + 1 ? '↓' : ('→ ' + targetSlice);
@@ -1140,7 +1226,7 @@ export function construirPptx(state, tema, entorno) {
         // origen: no se le dibuja además una entrada con letra "?".
         if (esAristaAFinAdelantado(e)) return;
         // Entrada por la izquierda — misma letra que el origen
-        const bb = nodeBoxes.get(b.id);
+        const bb = nodeBoxes.get(b.id)!;
         const letter = edgeLetters[e.id] || '?';
         const sourceSlice = laminaDeRank(ranks[a.id] || 0);
         const marcaIzq = sourceSlice === sliceIdx + 1 ? '↑' : ('← ' + sourceSlice);
@@ -1190,8 +1276,8 @@ export function construirPptx(state, tema, entorno) {
   const ALTO_FILA = 0.95;      // medido: contenido real 0,54-0,65" + aire
   const GAP_BANDA = 0.12;      // respiro entre bandas
 
-  function medirBanda(ini, fin) {
-    const lanes = new Set(); const porCelda = {}; let maxApil = 1;
+  function medirBanda(ini: number, fin: number) {
+    const lanes = new Set<string>(); const porCelda: Record<string, number> = {}; let maxApil = 1;
     state.nodes.forEach(n => {
       const r = ranks[n.id];
       if (r == null || r < ini || r >= fin) return;
@@ -1199,7 +1285,7 @@ export function construirPptx(state, tema, entorno) {
       lanes.add(ln);
       const k = ln + '|' + r;
       porCelda[k] = (porCelda[k] || 0) + 1;
-      maxApil = Math.max(maxApil, porCelda[k]);
+      maxApil = Math.max(maxApil, porCelda[k]!);
     });
     const filas = Math.max(1, lanes.size);
     return { ini, fin, lanes: laneList.filter(l => lanes.has(l)),
@@ -1209,7 +1295,7 @@ export function construirPptx(state, tema, entorno) {
   // Bandas de tramo VARIABLE. Un tramo de 4 columnas que toca 13 actores
   // necesitaria 12" de alto y se salia de la lamina; se estrecha el tramo
   // hasta que quepa, porque menos columnas tocan menos actores.
-  const bandaInfo = [];
+  const bandaInfo: Banda[] = [];
   {
     let r = 0, guarda = 0;
     while (r < totalRanks && guarda++ < 400) {
@@ -1224,9 +1310,9 @@ export function construirPptx(state, tema, entorno) {
     }
   }
   // Mapa rango -> indice de banda (los tramos ya no son uniformes)
-  const bandaIdxDeRank = {};
+  const bandaIdxDeRank: Record<number, number> = {};
   bandaInfo.forEach((bi, i) => { for (let k = bi.ini; k < bi.fin; k++) bandaIdxDeRank[k] = i; });
-  const saltaBandaG = (ra, rb) => bandaIdxDeRank[ra] !== bandaIdxDeRank[rb];
+  const saltaBandaG = (ra: number, rb: number) => bandaIdxDeRank[ra] !== bandaIdxDeRank[rb];
 
   // ── Fines adelantados ──
   // Una flecha que va a un FIN (sin salidas) y cruza de banda no se dibuja
@@ -1236,15 +1322,15 @@ export function construirPptx(state, tema, entorno) {
   // llegar a "Fin — venta no concretada" en la 2/4. Si el fin recibe flechas
   // desde varias bandas, se repite en cada una (BPMN lo permite). Solo se
   // dibuja en su propia banda si alguna flecha le llega desde ahí.
-  const esFinSinSalida = (id) => {
+  const esFinSinSalida = (id: string) => {
     const n = state.nodes.find(x => x.id === id);
     return !!n && n.type === 'end' && !state.edges.some(e => e.from === id);
   };
-  const esAristaAFinAdelantado = (e) => {
+  const esAristaAFinAdelantado = (e: Arista) => {
     const ra = ranks[e.from], rb = ranks[e.to];
     return ra != null && rb != null && e.from !== e.to && esFinSinSalida(e.to) && saltaBandaG(ra, rb);
   };
-  const finSoloAdelantado = {};
+  const finSoloAdelantado: Record<string, boolean> = {};
   state.nodes.forEach(n => {
     if (!esFinSinSalida(n.id) || ranks[n.id] == null) return;
     const entradas = state.edges.filter(e => e.to === n.id && ranks[e.from] != null && e.from !== n.id);
@@ -1252,9 +1338,9 @@ export function construirPptx(state, tema, entorno) {
   });
 
   // Empaqueta bandas en láminas hasta agotar el alto útil
-  const laminasPlan = [];
+  const laminasPlan: Banda[][] = [];
   {
-    let cur = [], acc = 0;
+    let cur: Banda[] = [], acc = 0;
     bandaInfo.forEach(bi => {
       const coste = bi.alto + (cur.length ? GAP_BANDA : 0);
       if (cur.length && acc + coste > ALTO_UTIL) { laminasPlan.push(cur); cur = []; acc = 0; }
@@ -1266,36 +1352,36 @@ export function construirPptx(state, tema, entorno) {
   slicesCount = laminasPlan.length;
 
   // Las laminas ya no son de tamano fijo: hace falta un mapa rango -> lamina
-  const laminaDeBanda = {};
+  const laminaDeBanda: Record<number, number> = {};
   laminasPlan.forEach((bs, li) => bs.forEach(bi => { laminaDeBanda[bi.ini] = li + 1; }));
-  const laminaDeRank = (r) => {
-    const bi = bandaInfo[bandaIdxDeRank[r]];
+  const laminaDeRank = (r: number) => {
+    const bi = bandaInfo[bandaIdxDeRank[r]!];
     return bi ? (laminaDeBanda[bi.ini] || 1) : 1;
   };
 
   // Letra única por arista que salta de BANDA (cubre también el salto de lámina)
-  const edgeLetters = {};
+  const edgeLetters: Record<string, string> = {};
   let letterIdx = 0;
   const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   state.edges.forEach(e => {
     const ra = ranks[e.from], rb = ranks[e.to];
     if (ra === undefined || rb === undefined) return;
     if (saltaBandaG(ra, rb) && !esAristaAFinAdelantado(e)) {
-      edgeLetters[e.id] = LETTERS[letterIdx % 26];
+      edgeLetters[e.id] = LETTERS[letterIdx % 26]!;
       letterIdx++;
     }
   });
 
   for (let si = 0; si < slicesCount; si++) {
     const slide = pres.addSlide();
-    drawProcessSlice(slide, si, laminasPlan[si]);
+    drawProcessSlice(slide, si, laminasPlan[si]!);
   }
 
   // ============ SLIDE 4: KPIs ============
   const s4 = pres.addSlide();
   mChrome(s4, 'KPIs sugeridos (benchmark de industria)', 'Medición');
 
-  const kpiVals = state._kpiValues || {};
+  const kpiVals: Record<string, ValorKpi> = state._kpiValues || {};
   // Prioriza KPIs capturados por el cliente; complementa con sugeridos
   const capturedIds = Object.keys(kpiVals);
   const capturedKpis = KPI_LIBRARY.filter(k => capturedIds.includes(k.id));
@@ -1304,7 +1390,7 @@ export function construirPptx(state, tema, entorno) {
     .slice(0, Math.max(0, 10 - capturedKpis.length));
   const kpis = [...capturedKpis, ...suggestedKpis];
 
-  const kpiRows = [[
+  const kpiRows: CeldaPptx[][] = [[
     { text: 'KPI', options: { bold: true, color: 'FFFFFF', fill: { color: DARK } } },
     { text: 'Unidad', options: { bold: true, color: 'FFFFFF', fill: { color: DARK } } },
     { text: 'Benchmark', options: { bold: true, color: 'FFFFFF', fill: { color: DARK } } },
@@ -1358,7 +1444,7 @@ export function construirPptx(state, tema, entorno) {
   if (state._sipoc) {
     const sl = pres.addSlide();
     mChrome(sl, 'SIPOC — alcance del proceso', 'Alcance');
-    const cols = ['suppliers', 'inputs', 'process', 'outputs', 'customers'];
+    const cols: (keyof Sipoc)[] = ['suppliers', 'inputs', 'process', 'outputs', 'customers'];
     const headers = ['Supplier', 'Input', 'Process', 'Output', 'Customer'];
     const colW = 2.5;
     headers.forEach((h, i) => {
@@ -1367,23 +1453,23 @@ export function construirPptx(state, tema, entorno) {
     });
     cols.forEach((c, i) => {
       sl.addShape('rect', { x: 0.4 + i * colW, y: 1.55, w: colW - 0.1, h: 5, fill: { color: 'FFFFFF' }, line: { color: M_SEP, width: 0.5 } });
-      sl.addText(state._sipoc[c] || '—', { x: 0.5 + i * colW, y: 1.7, w: colW - 0.3, h: 4.7, fontSize: 11, color: DARK, valign: 'top', fontFace: T_FONT });
+      sl.addText(state._sipoc![c] || '—', { x: 0.5 + i * colW, y: 1.7, w: colW - 0.3, h: 4.7, fontSize: 11, color: DARK, valign: 'top', fontFace: T_FONT });
     });
   }
 
   // ============ SLIDE: RACI (si existe) ============
   if (state._raci && Object.keys(state._raci).length > 0) {
-    const tasks = state.nodes.filter(n => state._raci[n.id]);
+    const tasks = state.nodes.filter(n => state._raci![n.id]);
     const roles = [...new Set(Object.values(state._raci).flatMap(r => Object.keys(r)))];
     if (tasks.length > 0 && roles.length > 0) {
       const sl = pres.addSlide();
       mChrome(sl, 'Matriz RACI', 'Gobierno');
-      const raciRows = [[
+      const raciRows: CeldaPptx[][] = [[
         { text: 'Actividad', options: { bold: true, color: 'FFFFFF', fill: { color: DARK } } },
         ...roles.map(r => ({ text: r, options: { bold: true, color: 'FFFFFF', fill: { color: DARK }, align: 'center' } }))
       ]];
       tasks.slice(0, 14).forEach(t => {
-        raciRows.push([t.label, ...roles.map(r => ({ text: (state._raci[t.id][r] || ''), options: { align: 'center', bold: true } }))]);
+        raciRows.push([t.label, ...roles.map(r => ({ text: (state._raci![t.id]![r] || ''), options: { align: 'center', bold: true } }))]);
       });
       sl.addTable(raciRows, { x: 0.4, y: 1.15, w: 12.5, fontSize: 10, fontFace: T_FONT, color: M_PRUNO, border: { type: 'solid', color: M_SEP, pt: 0.5 } });
       sl.addText('R = Responsable · A = Accountable · C = Consultado · I = Informado', { x: 0.4, y: 6.62, w: 12, h: 0.3, fontSize: 9, color: GRAY, italic: true });
@@ -1393,8 +1479,8 @@ export function construirPptx(state, tema, entorno) {
   // ============ SLIDE: SIMULADOR (si se ejecutó) ============
   if (state._simResults && state._simResults.activitiesWithData > 0) {
     const r = state._simResults;
-    const fmtN = (n) => isFinite(n) ? n.toLocaleString('es-PE', { maximumFractionDigits: 1 }) : '—';
-    const fmtCur = (n) => isFinite(n) ? n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 0 }) : '—';
+    const fmtN = (n: number) => isFinite(n) ? n.toLocaleString('es-PE', { maximumFractionDigits: 1 }) : '—';
+    const fmtCur = (n: number) => isFinite(n) ? n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 0 }) : '—';
     const sl = pres.addSlide();
     mChrome(sl, 'Cuantificación del proceso (data-driven)', 'Simulación');
 
@@ -1441,30 +1527,30 @@ export function construirPptx(state, tema, entorno) {
 // ── Post-proceso del PPTX: conectores anclados ───────────────
 // Punto de conexión por lado según la geometría. rect/roundRect/diamond
 // tienen 4 (0 arriba, 1 izquierda, 2 abajo, 3 derecha); ellipse tiene 8.
-const CXN_IDX = {
+const CXN_IDX: { rect: Record<string, number>; [prst: string]: Record<string, number> } = {
   rect: { top: 0, left: 1, bottom: 2, right: 3 },
   roundRect: { top: 0, left: 1, bottom: 2, right: 3 },
   diamond: { top: 0, left: 1, bottom: 2, right: 3 },
   parallelogram: { top: 0, left: 1, bottom: 2, right: 3 },
   ellipse: { top: 0, left: 2, bottom: 4, right: 6 }
 };
-function _xmlEsc(v) {
+function _xmlEsc(v: unknown) {
   return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-function anclarConectoresEnXml(xml, nombresPorNodo) {
+function anclarConectoresEnXml(xml: string, nombresPorNodo: Record<string, string>) {
   // id y geometría de cada forma, por nombre (ya escapado como lo escribe pptxgenjs)
-  const porNombre = {};
+  const porNombre: Record<string, { id: string; prst: string }> = {};
   xml.replace(/<p:sp>([\s\S]*?)<\/p:sp>/g, (m, body) => {
     const mm = /<p:cNvPr id="(\d+)" name="([^"]*)"/.exec(body);
     const g = /<a:prstGeom prst="([^"]+)"/.exec(body);
-    if (mm) porNombre[mm[2]] = { id: mm[1], prst: g ? g[1] : 'rect' };
+    if (mm) porNombre[mm[2]!] = { id: mm[1]!, prst: g ? g[1]! : 'rect' };
     return m;
   });
   let n = 0;
   const out = xml.replace(/<p:sp>([\s\S]*?)<\/p:sp>/g, (m, body) => {
     const mm = /<p:cNvPr id="(\d+)" name="Flujo\|([^|"]+)\|([^|"]+)\|(\w+)\|(\w+)(?:\|(\d+))?"/.exec(body);
     if (!mm) return m;
-    const id = mm[1], deId = mm[2], aId = mm[3], ladoA = mm[4], ladoB = mm[5];
+    const id = mm[1], deId = mm[2]!, aId = mm[3]!, ladoA = mm[4]!, ladoB = mm[5]!;
     const nA = nombresPorNodo[deId], nB = nombresPorNodo[aId];
     // pptxgenjs escribe los nombres sin escapar; se prueba crudo y escapado
     const fa = nA && (porNombre[nA] || porNombre[_xmlEsc(nA)]);
@@ -1491,7 +1577,7 @@ function anclarConectoresEnXml(xml, nombresPorNodo) {
  * @param cargarJSZip () => Promise<JSZip>
  * @returns { blob, conectores } (conectores = nº de conectores anclados)
  */
-export async function posprocesarPptx(pres, nombresPorNodo, cargarJSZip) {
+export async function posprocesarPptx(pres: PresentacionPptx, nombresPorNodo: Record<string, string>, cargarJSZip: () => Promise<JSZipPptx>) {
   let salida = await pres.write({ outputType: 'blob' });
   let anclados = 0;
   try {
@@ -1499,7 +1585,7 @@ export async function posprocesarPptx(pres, nombresPorNodo, cargarJSZip) {
     const zip = await JSZip.loadAsync(salida);
     const slides = Object.keys(zip.files).filter(f => /^ppt\/slides\/slide\d+\.xml$/.test(f));
     for (const f of slides) {
-      const r = anclarConectoresEnXml(await zip.file(f).async('string'), nombresPorNodo);
+      const r = anclarConectoresEnXml(await zip.file(f)!.async('string'), nombresPorNodo);
       if (r.n) { zip.file(f, r.xml); anclados += r.n; }
     }
     salida = await zip.generateAsync({ type: 'blob',
@@ -1513,7 +1599,7 @@ export async function posprocesarPptx(pres, nombresPorNodo, cargarJSZip) {
 
 // estilo: { texto, fuente } del tema. F1: en el MVP usaba M_PRUNO y T_FONT, que
 // solo existen dentro de construirPptx, y el export con To-Be fallaba siempre.
-function renderMiniDiagram(slide, data, x, y, w, h, label, accentColor, estilo) {
+function renderMiniDiagram(slide: LaminaPptx, data: VistaProceso, x: number, y: number, w: number, h: number, label: string, accentColor: string, estilo: { texto: string; fuente: string }) {
   slide.addShape('rect', { x, y, w, h, fill: { color: 'FAFAFA' }, line: { color: 'D0CEC1', width: 0.5 } });
   slide.addText(label, { x, y, w, h: 0.35, fontSize: 12, color: accentColor, bold: true, align: 'center' });
   if (!data.nodes.length) {
@@ -1532,9 +1618,9 @@ function renderMiniDiagram(slide, data, x, y, w, h, label, accentColor, estilo) 
   const offX = x + padOther + (dstW - srcW * scale) / 2;
   const offY = y + padTop + (dstH - srcH * scale) / 2;
 
-  const shapeKind = { task: 'rect', system: 'rect', decision: 'diamond', start: 'ellipse', end: 'ellipse', document: 'rect', data: 'parallelogram' };
-  const shapeFill = { task: 'FFFFFF', system: 'F9F9F8', decision: 'FBE1CF', start: 'D9F1DD', end: 'FFBAD1', document: 'BFFBFF', data: 'E7DFFD' };
-  const shapeBorder = { task: '4F062A', system: '4F062A', decision: 'E56813', start: '44B757', end: 'A40037', document: '00B0BD', data: '8661F5' };
+  const shapeKind: Record<string, string> = { task: 'rect', system: 'rect', decision: 'diamond', start: 'ellipse', end: 'ellipse', document: 'rect', data: 'parallelogram' };
+  const shapeFill: Record<string, string> = { task: 'FFFFFF', system: 'F9F9F8', decision: 'FBE1CF', start: 'D9F1DD', end: 'FFBAD1', document: 'BFFBFF', data: 'E7DFFD' };
+  const shapeBorder: Record<string, string> = { task: '4F062A', system: '4F062A', decision: 'E56813', start: '44B757', end: 'A40037', document: '00B0BD', data: '8661F5' };
 
   data.nodes.forEach(n => {
     const nx = offX + (n.x - minX) * scale;
@@ -1568,7 +1654,7 @@ function renderMiniDiagram(slide, data, x, y, w, h, label, accentColor, estilo) 
 }
 
 // Helper: compara as-is vs to-be y reporta cambios.
-function computeDeltas(asis, tobe) {
+function computeDeltas(asis: VistaProceso, tobe: VistaProceso) {
   const aLabels = new Set(asis.nodes.map(n => normLabel(n.label)));
   const tLabels = new Set(tobe.nodes.map(n => normLabel(n.label)));
   let added = 0, removed = 0, typeChanges = 0, changed = 0;
@@ -1582,9 +1668,9 @@ function computeDeltas(asis, tobe) {
   return { added, removed, changed, typeChanges };
 }
 
-function normLabel(s) { return (s || '').toLowerCase().trim().replace(/\s+/g, ' '); }
+function normLabel(s: string) { return (s || '').toLowerCase().trim().replace(/\s+/g, ' '); }
 
-function painImplication(p) {
+function painImplication(p: Pick<Pain, 'category' | 'severity' | 'frequency'>) {
   const score = p.severity * p.frequency;
   const cat = p.category;
   if (cat === 'handoff')    return 'pérdida de contexto en traspaso entre áreas; lead time +10-15% por handoff y mayor probabilidad de errores de transmisión.';
@@ -1598,7 +1684,7 @@ function painImplication(p) {
   return score >= 16 ? 'pain crítico que afecta el flujo end-to-end y debe priorizarse.' : 'oportunidad de mejora puntual.';
 }
 
-function painRecommendation(p) {
+function painRecommendation(p: Pick<Pain, 'category' | 'severity'>) {
   const cat = p.category;
   const sev = p.severity;
   if (cat === 'handoff')    return sev >= 4 ? 'rediseñar con célula multifuncional o workflow orquestado (BPM).' : 'estandarizar template de traspaso (briefing estructurado).';
