@@ -100,6 +100,14 @@ export function rutasProyectos() {
           .where(and(eq(usuarios.id, usuarioId), eq(usuarios.organizacionId, yo.organizacionId), eq(usuarios.activo, true))).limit(1)
       : [];
     if (!u) throw new ErrorHttp(404, 'Usuario no encontrado.');
+    if (rol !== 'propietario') {
+      // Igual que al quitar un miembro: bajar de rol al único propietario dejaría el proyecto sin nadie que lo administre
+      const propietarios = await db.select({ id: miembrosProyecto.usuarioId }).from(miembrosProyecto)
+        .where(and(eq(miembrosProyecto.proyectoId, proyecto.id), eq(miembrosProyecto.rol, 'propietario')));
+      if (propietarios.length === 1 && propietarios[0]!.id === usuarioId) {
+        throw new ErrorHttp(409, 'El proyecto debe conservar al menos un propietario.', 'ULTIMO_PROPIETARIO');
+      }
+    }
     await db.insert(miembrosProyecto).values({ proyectoId: proyecto.id, usuarioId, rol })
       .onConflictDoUpdate({ target: [miembrosProyecto.proyectoId, miembrosProyecto.usuarioId], set: { rol } });
     await registrar(c, 'proyecto.miembro', 'proyecto', proyecto.id, { usuarioId, rol });

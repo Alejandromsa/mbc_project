@@ -3,8 +3,8 @@ import { mkdtemp, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { eq, sql } from 'drizzle-orm';
-import { errores, latidos, type Conexion } from '@processiq/db';
-import { huellaError, latido, purgarErrores } from './observabilidad.js';
+import { errores, latidos, sesiones, type Conexion } from '@processiq/db';
+import { huellaError, latido, purgarErrores, purgarSesionesCaducadas } from './observabilidad.js';
 import { cerrarBase, cliente, config, prepararBase, usuario, vaciar } from './pruebas/entorno.js';
 
 let conexion: Conexion;
@@ -99,6 +99,16 @@ describe('observabilidad', () => {
     s = (await admin.get('/api/sistema')).json;
     expect(s.worker.vivo).toBe(false);
     expect(s.avisos.map((a: any) => a.texto).join(' ')).toContain('no da señales desde hace 10 min');
+  });
+
+  it('las sesiones caducadas se purgan; las vigentes siguen sirviendo', async () => {
+    await usuario('ana@mbc.pe');
+    const c = cliente();
+    await c.entrar('ana@mbc.pe');
+    await cliente().entrar('ana@mbc.pe');
+    await conexion.pool.query(`update sesiones set expira_en = now() - interval '1 hour' where id = (select id from sesiones order by creada_en limit 1)`);
+    expect(await purgarSesionesCaducadas(conexion.db)).toBe(1);
+    expect(await conexion.db.select().from(sesiones)).toHaveLength(1);
   });
 
   it('los errores de más de 30 días se purgan', async () => {

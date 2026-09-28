@@ -6,10 +6,12 @@
 #   infra/desplegar.sh produccion             promueve a producción la versión de staging (la MISMA imagen)
 #   infra/desplegar.sh produccion <version>   promueve, o revierte, a una versión concreta
 #   infra/desplegar.sh versiones              qué versión corre en cada entorno y qué imágenes hay
+#   infra/desplegar.sh limpiar [n]            borra imágenes viejas; conserva las de producción, staging,
+#                                             la anterior de producción y las n más recientes (5)
 #
 # La versión es el commit (8 caracteres). Las migraciones de la base las aplica
 # la API al arrancar: deben ser compatibles con la versión anterior, para poder
-# revertir sin tocar la base.
+# revertir sin tocar la base. Tras promover a producción se limpia solo.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -74,6 +76,7 @@ produccion() {
   fi
   echo "$(date -u +%FT%TZ) produccion $version (antes $anterior)" >> "$REGISTRO"
   echo "Producción en la versión $version. Para revertir: infra/desplegar.sh produccion $anterior"
+  limpiar 5 || echo "Aviso: falló la limpieza de imágenes viejas (el despliegue está hecho): infra/desplegar.sh limpiar"
 }
 
 versiones() {
@@ -84,9 +87,41 @@ versiones() {
   if [ -f "$REGISTRO" ]; then echo "Últimos despliegues:"; tail -5 "$REGISTRO"; fi
 }
 
+# Borra las imágenes processiq/* de versiones viejas para no llenar el disco.
+# Nunca toca: producción, staging, la versión anterior de producción (para
+# revertir), las n más recientes ni la etiqueta «local» (builds de prueba).
+limpiar() {
+  conservar_n="${1:-5}"
+  [[ "$conservar_n" =~ ^[0-9]+$ ]] || { echo "limpiar: n debe ser un número."; exit 1; }
+  [ -n "$(version_de .env)" ] || { echo "limpiar: .env no tiene VERSION; ejecútalo en la carpeta del servidor."; exit 1; }
+  declare -A conservar=([local]=1)
+  for v in "$(version_de .env)" "$(version_de .env.staging)"; do [ -n "$v" ] && conservar[$v]=1; done
+  if [ -f "$REGISTRO" ]; then
+    anterior=$(grep ' produccion ' "$REGISTRO" | tail -1 | sed -n 's/.*(antes \([^)]*\)).*/\1/p')
+    [ -n "$anterior" ] && conservar[$anterior]=1
+  fi
+  # Etiquetas de la API de la más reciente a la más antigua (web e intermediario llevan las mismas)
+  mapfile -t etiquetas < <(docker image ls processiq/api --format '{{.CreatedAt}}|{{.Tag}}' | sort -r | cut -d'|' -f2)
+  recientes=0 borradas=0
+  for t in "${etiquetas[@]}"; do
+    [ -n "$t" ] && [ "$t" != "<none>" ] || continue
+    if [ -n "${conservar[$t]:-}" ]; then continue; fi
+    if [ "$recientes" -lt "$conservar_n" ]; then recientes=$((recientes + 1)); continue; fi
+    for imagen in web api intermediario; do
+      docker image rm "processiq/$imagen:$t" >/dev/null 2>&1 || true
+    done
+    echo "Borrada la versión $t"
+    borradas=$((borradas + 1))
+  done
+  docker image prune -f >/dev/null
+  docker builder prune -f --filter until=168h >/dev/null 2>&1 || true
+  echo "Limpieza hecha: $borradas versiones borradas; se conservan producción ($(version_de .env)), staging ($(version_de .env.staging)) y las $conservar_n más recientes."
+}
+
 case "${1:-}" in
   staging) staging ;;
   produccion) produccion "${2:-}" ;;
   versiones) versiones ;;
-  *) sed -n '2,12p' "$0"; exit 1 ;;
+  limpiar) limpiar "${2:-}" ;;
+  *) sed -n '2,14p' "$0"; exit 1 ;;
 esac

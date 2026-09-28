@@ -55,3 +55,9 @@ export async function purgarErrores(db: BaseDeDatos, dias = 30): Promise<number>
   const r = await db.execute(sql`delete from errores where creado_en < now() - make_interval(days => ${dias})`);
   return r.rowCount ?? 0;
 }
+
+/** Borra las sesiones caducadas: ya no sirven para entrar y solo ocupan sitio. */
+export async function purgarSesionesCaducadas(db: BaseDeDatos): Promise<number> {
+  const r = await db.execute(sql`delete from sesiones where expira_en < now()`);
+  return r.rowCount ?? 0;
+}

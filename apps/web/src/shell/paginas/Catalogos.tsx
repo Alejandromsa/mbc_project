@@ -1,17 +1,18 @@
 // Catálogos de la organización (solo administradores): KPIs, verbos del
-// Playbook y temas PPTX de cliente. Los usa el editor en los procesos de
-// proyectos; el editor libre sigue con los del MVP.
+// Playbook, temas PPTX de cliente y plantillas de proceso. Los usa el editor
+// en los procesos de proyectos; el editor libre sigue con los del MVP.
 import { useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type DefinicionTema, type KpiAdmin, type TemaAdmin } from '../api';
+import { api, type DefinicionTema, type KpiAdmin, type Plantilla, type TemaAdmin } from '../api';
+import { fecha } from '../formato';
 import { AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Etiqueta, Selector, Vacio, useTitulo } from '../ui';
 
-type Pestana = 'kpis' | 'verbos' | 'temas';
+type Pestana = 'kpis' | 'verbos' | 'temas' | 'plantillas';
 
 export function Catalogos() {
   useTitulo('Catálogos');
   const [pestana, setPestana] = useState<Pestana>('kpis');
-  const pestanas: [Pestana, string][] = [['kpis', 'KPIs'], ['verbos', 'Verbos del Playbook'], ['temas', 'Temas PPTX']];
+  const pestanas: [Pestana, string][] = [['kpis', 'KPIs'], ['verbos', 'Verbos del Playbook'], ['temas', 'Temas PPTX'], ['plantillas', 'Plantillas de proceso']];
   return (
     <>
       <div className="encabezado">
@@ -29,6 +30,7 @@ export function Catalogos() {
         {pestana === 'kpis' && <PestanaKpis />}
         {pestana === 'verbos' && <PestanaVerbos />}
         {pestana === 'temas' && <PestanaTemas />}
+        {pestana === 'plantillas' && <PestanaPlantillas />}
       </div>
     </>
   );
@@ -361,6 +363,77 @@ function EditorTema({ tema, onCerrar }: { tema: TemaAdmin; onCerrar: () => void 
       <div className="acciones">
         <Boton onClick={onCerrar}>Cancelar</Boton>
         <Boton type="submit" variante="primario" cargando={guardar.isPending}>Guardar tema</Boton>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------- Plantillas de proceso
+
+function PestanaPlantillas() {
+  const cliente = useQueryClient();
+  const consulta = useQuery({ queryKey: ['catalogo', 'plantillas'], queryFn: api.plantillas });
+  const [editando, setEditando] = useState<Plantilla | null>(null);
+  const refrescar = () => cliente.invalidateQueries({ queryKey: ['catalogo', 'plantillas'] });
+  const cambiar = useMutation({ mutationFn: ({ id, activo }: { id: string; activo: boolean }) => api.cambiarPlantilla(id, { activo }), onSettled: refrescar });
+  const borrar = useMutation({ mutationFn: api.borrarPlantilla, onSettled: refrescar });
+
+  return (
+    <section>
+      <p className="sutil">
+        Al crear un proceso en un proyecto se puede partir de una plantilla activa. Se crean desde una revisión:
+        en el proceso, botón <strong>Guardar como plantilla</strong>. Se quitan el cliente, las personas de la gobernanza,
+        el historial de cambios de la ficha y los valores medidos; revisa que los textos no nombren al cliente.
+      </p>
+      <ErrorDe error={cambiar.error ?? borrar.error} />
+      {consulta.isPending ? <Cargando /> : consulta.isError ? <ErrorDe error={consulta.error} /> : consulta.data.plantillas.length === 0 ? (
+        <Vacio>Todavía no hay plantillas. Abre un proceso y usa «Guardar como plantilla» en una de sus revisiones.</Vacio>
+      ) : (
+        <table className="tabla">
+          <thead><tr><th>Plantilla</th><th>Industria</th><th>Elementos</th><th>Creada por</th><th>Actualizada</th><th><span className="solo-lector">Acciones</span></th></tr></thead>
+          <tbody>
+            {consulta.data.plantillas.map((p) => (
+              <tr key={p.id} className={p.activo ? '' : 'inactivo'}>
+                <td>
+                  <strong>{p.nombre}</strong> {!p.activo && <Etiqueta tono="aviso">Oculta</Etiqueta>}
+                  {p.descripcion && <><br /><small className="sutil">{p.descripcion}</small></>}
+                </td>
+                <td>{p.industria || <span className="sutil">—</span>}</td>
+                <td>{p.nodos}</td>
+                <td>{p.autor ?? <span className="sutil">—</span>}</td>
+                <td className="fecha">{fecha(p.actualizadoEn)}</td>
+                <td className="celda-acciones">
+                  <Boton variante="sutil" onClick={() => setEditando(p)}>Editar</Boton>
+                  <Boton variante="sutil" onClick={() => cambiar.mutate({ id: p.id, activo: !p.activo })}>{p.activo ? 'Ocultar' : 'Mostrar'}</Boton>
+                  <Boton variante="sutil" onClick={() => { if (confirm(`¿Eliminar la plantilla ${p.nombre}? Los procesos creados con ella no cambian.`)) borrar.mutate(p.id); }}>Eliminar</Boton>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <Dialogo abierto={!!editando} titulo={editando ? `Plantilla ${editando.nombre}` : ''} onCerrar={() => setEditando(null)}>
+        {editando && <FormPlantilla plantilla={editando} onCerrar={() => { setEditando(null); refrescar(); }} />}
+      </Dialogo>
+    </section>
+  );
+}
+
+function FormPlantilla({ plantilla, onCerrar }: { plantilla: Plantilla; onCerrar: () => void }) {
+  const [nombre, setNombre] = useState(plantilla.nombre);
+  const [industria, setIndustria] = useState(plantilla.industria);
+  const [descripcion, setDescripcion] = useState(plantilla.descripcion);
+  const guardar = useMutation({ mutationFn: () => api.cambiarPlantilla(plantilla.id, { nombre, industria, descripcion }), onSuccess: onCerrar });
+  const enviar = (e: FormEvent) => { e.preventDefault(); guardar.mutate(); };
+  return (
+    <form onSubmit={enviar}>
+      <Campo etiqueta="Nombre" required maxLength={160} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <Campo etiqueta="Industria" maxLength={80} value={industria} onChange={(e) => setIndustria(e.target.value)} />
+      <AreaTexto etiqueta="Descripción" maxLength={600} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+      <ErrorDe error={guardar.error} />
+      <div className="acciones">
+        <Boton onClick={onCerrar}>Cancelar</Boton>
+        <Boton type="submit" variante="primario" cargando={guardar.isPending}>Guardar</Boton>
       </div>
     </form>
   );
