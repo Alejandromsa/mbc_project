@@ -54,7 +54,7 @@ Módulo dentro de la plataforma: los mismos usuarios, la misma sesión y los dat
 
 | # | Qué entrega | Rama | PR | Estado |
 |---|---|---|---|---|
-| 1 | API de resumen por cliente y detalle; pantallas de lista y detalle; E2E | `portafolio/tablero` | | ⏳ |
+| 1 | API de resumen por cliente y detalle; pantallas de lista y detalle; E2E | `portafolio/tablero` | #6 | en revisión |
 
 ## Pruebas
 
