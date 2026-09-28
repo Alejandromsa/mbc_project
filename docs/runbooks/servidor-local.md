@@ -15,7 +15,7 @@ Otros runbooks:
 | `api` (Node) | Cuentas locales, proyectos, procesos y revisiones; aplica las migraciones de la base al arrancar | 8080, solo red interna |
 | `worker` (Node) | IA en el servidor: ejecuta la cola de generaciones y análisis de los procesos de proyectos (misma imagen que la API) | — |
 | `postgres` | Base de datos de la plataforma (volumen `postgres_datos`) | 5432, solo red interna |
-| `respaldo` | `pg_dump` cada 24 h a la carpeta `respaldos/` del repositorio; conserva los 14 últimos | — |
+| `respaldo` | `pg_dump` diario a las 03:00 (hora de Lima) a la carpeta `respaldos/` del repositorio; conserva los 14 últimos | — |
 | `intermediario` (Node) | Guarda la clave de Anthropic y reenvía las llamadas de IA del modo "Clave del equipo" | 8787, solo red interna |
 
 El editor sigue funcionando sin iniciar sesión, como en el MVP: sin cuenta, el trabajo vive en el navegador (`localStorage`). Lo que se guarda en un proyecto vive en Postgres.
@@ -85,7 +85,11 @@ Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consul
 
 ## Copias de seguridad
 
-- El servicio `respaldo` deja `respaldos/processiq-AAAAMMDD-HHMMSS.dump` cada 24 h (`RESPALDO_CADA_HORAS`) y conserva los 14 últimos (`RESPALDO_CONSERVAR`). Carpeta configurable con `CARPETA_RESPALDOS` en `.env`.
+- El servicio `respaldo` deja `respaldos/processiq-AAAAMMDD-HHMMSS.dump` (hora UTC en el nombre) y conserva los 14 últimos (`RESPALDO_CONSERVAR`). Carpeta configurable con `CARPETA_RESPALDOS` en `.env`.
+  - **Una copia al día a las `RESPALDO_HORA`** (03:00 por defecto; staging a las 03:30), en la zona `ZONA_HORARIA` (`America/Lima`).
+  - Al arrancar, espera 5 minutos (a que la API migre) y, si la última copia tiene más de 24 h (p. ej. el PC estaba apagado a esa hora), hace una en el acto.
+  - Con `RESPALDO_HORA=` vacía, vuelve al modo anterior: una copia cada `RESPALDO_CADA_HORAS` desde el arranque.
+  - `docker compose logs --tail 5 respaldo` muestra la última copia y cuándo toca la siguiente (`respaldo_programado`).
 - **Esa carpeta está en el mismo PC: hay que copiarla fuera** (OneDrive, disco externo) con la frecuencia que se acuerde.
 - **Restaurar** (desde el contenedor `respaldo`, que ya monta la carpeta; no pasar el archivo por tubería desde la shell de Windows, se corrompe):
   ```bash
