@@ -1,7 +1,16 @@
-// @ts-nocheck — portado tal cual del MVP 3.8.9 (extractFileText y los lectores de
-// PDF y PowerPoint); la interfaz pública está tipada en extraccion-tipos.ts.
+// Portado tal cual del MVP 3.8.9 (extractFileText y los lectores de PDF y
+// PowerPoint); la interfaz pública está tipada en extraccion-tipos.ts.
 // Las pruebas de fidelidad cargan un .docx, un .pdf, un .pptx y un .txt en ambas apps.
 import type { ArchivoEntrada, EntornoExtraccion, TextoExtraido } from './extraccion-tipos.js';
+
+// Lo que se usa de pdf.js 4.7.76 y de JSZip 3.10.1: el entorno los carga bajo
+// demanda y los entrega sin tipos (extraccion-tipos.ts).
+interface ElementoTextoPdf { str: string; transform?: [number, number, number, number, number, number] }
+interface PaginaPdf { getTextContent(): Promise<{ items: ElementoTextoPdf[] }> }
+interface DocumentoPdf { numPages: number; getPage(numero: number): Promise<PaginaPdf> }
+interface PdfJs { getDocument(o: { data: ArrayBuffer }): { promise: Promise<DocumentoPdf> } }
+interface ZipLeido { files: Record<string, { async(tipo: 'string'): Promise<string> }> }
+interface JSZipEstatico { loadAsync(datos: ArrayBuffer): Promise<ZipLeido> }
 
 /** Por encima de este tamaño se avisa antes de intentar leer (evita colgar el navegador). */
 export const MAX_ARCHIVO_MB = 40;
@@ -74,29 +83,29 @@ export async function extraerTexto(file: ArchivoEntrada, e: EntornoExtraccion): 
 /** Texto de un PDF, página a página (tope MAX_PAGINAS_PDF), con mensajes claros para PDF escaneado, protegido o dañado. */
 export async function textoDePdf(file: ArchivoEntrada, e: EntornoExtraccion): Promise<string> {
   // pdf.js se carga bajo demanda (el entorno avisa si es la primera vez: tarda unos segundos)
-  const pdfjsLib = await e.pdfjs();
+  const pdfjsLib: PdfJs = await e.pdfjs();
   e.comprobarCancelado();
   e.progreso('Leyendo el archivo…', 3);
   await e.ceder();
   const buf = await e.leer(file, 'arraybuffer');
   e.comprobarCancelado();
-  let pdf;
+  let pdf: DocumentoPdf;
   try {
     pdf = await pdfjsLib.getDocument({ data: buf }).promise;
   } catch (e) {
-    if (/password/i.test(e.message || '')) throw new Error('El PDF está protegido con contraseña. Quítasela y reintenta.');
+    if (/password/i.test((e as Error).message || '')) throw new Error('El PDF está protegido con contraseña. Quítasela y reintenta.');
     throw new Error('El PDF está dañado o no se puede abrir. Prueba a reguardarlo desde el visor (Archivo → Guardar como) y reintenta.');
   }
   const total = pdf.numPages;
   const maxPages = Math.min(total, MAX_PAGINAS_PDF);
-  const out = [];
+  const out: string[] = [];
   for (let i = 1; i <= maxPages; i++) {
     e.comprobarCancelado();
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
     // Reagrupa por líneas usando la coordenada Y
-    let lastY = null, line = [];
-    const lines = [];
+    let lastY: number | null = null, line: string[] = [];
+    const lines: string[] = [];
     content.items.forEach(it => {
       const y = it.transform ? Math.round(it.transform[5]) : 0;
       if (lastY !== null && Math.abs(y - lastY) > 3) { lines.push(line.join('')); line = []; }
@@ -122,18 +131,18 @@ export async function textoDePdf(file: ArchivoEntrada, e: EntornoExtraccion): Pr
 
 /** Texto de un PowerPoint: los <a:t> de cada lámina, en orden. */
 export async function textoDePptx(file: ArchivoEntrada, e: EntornoExtraccion): Promise<string> {
-  const JSZip = await e.jszip();
+  const JSZip: JSZipEstatico = await e.jszip();
   const buf = await e.leer(file, 'arraybuffer');
   const zip = await JSZip.loadAsync(buf);
   // Ordena las slides por número (slide1.xml, slide2.xml, …)
   const slideNames = Object.keys(zip.files)
     .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
-    .sort((a, b) => (parseInt(a.match(/(\d+)/)[1], 10)) - (parseInt(b.match(/(\d+)/)[1], 10)));
-  const out = [];
+    .sort((a, b) => (parseInt(a.match(/(\d+)/)![1]!, 10)) - (parseInt(b.match(/(\d+)/)![1]!, 10)));
+  const out: string[] = [];
   for (let i = 0; i < slideNames.length; i++) {
-    const xml = await zip.files[slideNames[i]].async('string');
+    const xml = await zip.files[slideNames[i]!]!.async('string');
     // Extrae el texto de los nodos <a:t>…</a:t>
-    const texts = [];
+    const texts: string[] = [];
     xml.replace(/<a:t>([\s\S]*?)<\/a:t>/g, (m, t) => { texts.push(t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')); return m; });
     const slideText = texts.join('\n').trim();
     if (slideText) out.push(`--- Slide ${i + 1} ---\n${slideText}`);

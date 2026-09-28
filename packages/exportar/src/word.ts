@@ -1,9 +1,11 @@
-// @ts-nocheck — portado tal cual del MVP 3.8.9 (deriveFicha, exportWord).
-// Pendiente: tiparlo. Las pruebas de fidelidad comparan el informe y la ficha de los 14 ejemplos.
+// Portado tal cual del MVP 3.8.9 (deriveFicha, exportWord); tipado sin cambiar el código.
+// Las pruebas de fidelidad comparan el informe y la ficha de los 14 ejemplos.
 import {
   EXECUTION_TYPES, KPI_LIBRARY, PAIN_CATEGORIES, contarTraspasos, fichaVacia, ordenDeFlujo, validarProceso
 } from '@processiq/dominio';
+import type { Nodo, Pain } from '@processiq/dominio';
 import { painImplication } from './pptx.js';
+import type { EstadoExportable } from './tipos.js';
 
 // ============================================================
 // DERIVACIÓN DE FICHA DE PROCESO
@@ -13,22 +15,22 @@ import { painImplication } from './pptx.js';
 // Es el motor que alimenta exportFicha() y la vista previa.
 // ============================================================
 /** Ficha derivada del grafo: actividades numeradas con su ruteo real, sistemas, responsables y alcance. */
-export function derivarFicha(state) {
+export function derivarFicha(state: EstadoExportable) {
   const f = state.ficha || fichaVacia();
   const ordered = ordenDeFlujo(state.nodes, state.edges);
-  const lane = state._lanes?.laneOf || {};
-  const bpmnName = (n) => {
+  const lane: Record<string, string> = state._lanes?.laneOf || {};
+  const bpmnName = (n: Nodo) => {
     const e = EXECUTION_TYPES.find(t => t.id === n.executionType);
     return e ? e.bpmn : (n.type === 'system' ? 'User Task' : (n.type === 'decision' ? 'Exclusive Gateway' : 'Task'));
   };
 
   // Numeración: solo actividades ejecutables (task/system/decision) reciben N°
-  const isStep = (n) => n.type === 'task' || n.type === 'system' || n.type === 'decision';
-  const stepNum = {};
+  const isStep = (n: Nodo) => n.type === 'task' || n.type === 'system' || n.type === 'decision';
+  const stepNum: Record<string, number> = {};
   let k = 0;
   ordered.forEach(n => { if (isStep(n)) stepNum[n.id] = ++k; });
 
-  const targetLabel = (toId) => {
+  const targetLabel = (toId: string) => {
     const t = state.nodes.find(x => x.id === toId);
     if (!t) return '';
     if (t.type === 'end') return t.label ? `Fin del proceso (${t.label})` : 'Fin del proceso';
@@ -39,13 +41,13 @@ export function derivarFicha(state) {
   const activities = ordered.filter(isStep).map(n => {
     const outs = state.edges.filter(e => e.from === n.id);
     // Ruteo: para compuertas o cuando hay bifurcación / salto no lineal
-    let ruteo = [];
+    let ruteo: string[] = [];
     const next = ordered[ordered.indexOf(n) + 1];
-    const isLinear = outs.length === 1 && next && outs[0].to === next.id && next.type !== 'end';
+    const isLinear = outs.length === 1 && next && outs[0]!.to === next.id && next.type !== 'end';
     if (n.type === 'decision' || outs.length > 1) {
       ruteo = outs.map(e => `${e.label ? e.label + ': ' : ''}${targetLabel(e.to)}`);
     } else if (outs.length === 1 && !isLinear) {
-      ruteo = [targetLabel(outs[0].to)];
+      ruteo = [targetLabel(outs[0]!.to)];
     }
     return {
       num: stepNum[n.id],
@@ -61,7 +63,7 @@ export function derivarFicha(state) {
   });
 
   // Sistemas: unión de los declarados por nodo + los de nivel proceso (ficha.sistemas)
-  const nodeSys = new Set();
+  const nodeSys = new Set<string>();
   state.nodes.forEach(n => { if (n.system) String(n.system).split(/[,/;]+/).forEach(s => { const t = s.trim(); if (t) nodeSys.add(t); }); });
   const manualSys = (f.sistemas || []);
   const manualNames = new Set(manualSys.map(s => (s.nombre || '').trim().toLowerCase()));
@@ -83,16 +85,16 @@ export function derivarFicha(state) {
 }
 
 /** Informe consultivo del proceso en HTML compatible con Word (.doc). */
-export function construirInformeWord(state) {
+export function construirInformeWord(state: EstadoExportable) {
   const meta = state.meta;
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const esc = (s: unknown) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' } as Record<string, string>)[c]!);
   const MAGENTA = '#147AFF', DARK = '#003478', GRAY = '#7A93B5';   // paleta MBC (catalogo): acento, azul marino, secundario
   const fechaLarga = new Date().toLocaleDateString('es-PE', { year: 'numeric', month: 'long', day: 'numeric' });
 
   const tasks = state.nodes.filter(n => n.type === 'task' || n.type === 'system');
   const decisions = state.nodes.filter(n => n.type === 'decision');
-  const ownerMap = state._lanes?.laneOf || {};
-  const bpmnName = (n) => {
+  const ownerMap: Record<string, string> = state._lanes?.laneOf || {};
+  const bpmnName = (n: Nodo) => {
     const e = EXECUTION_TYPES.find(t => t.id === n.executionType);
     return e ? e.bpmn : (n.type === 'system' ? 'User Task' : 'Task');
   };
@@ -112,7 +114,7 @@ export function construirInformeWord(state) {
   }).join('');
 
   // ── Pain points priorizados ──
-  const allPains = [];
+  const allPains: (Pain & { activity: string })[] = [];
   state.nodes.forEach(n => (n.pains || []).forEach(p => allPains.push({ ...p, activity: n.label })));
   allPains.sort((a, b) => (b.severity * b.frequency) - (a.severity * a.frequency));
   const painRows = allPains.map(p => {
@@ -141,10 +143,10 @@ export function construirInformeWord(state) {
   let raciSection = '';
   if (state._raci && Object.keys(state._raci).length > 0) {
     const roles = [...new Set(Object.values(state._raci).flatMap(r => Object.keys(r)))];
-    const rtasks = state.nodes.filter(n => state._raci[n.id]);
+    const rtasks = state.nodes.filter(n => state._raci![n.id]);
     const head = '<th>Actividad</th>' + roles.map(r => `<th style="text-align:center">${esc(r)}</th>`).join('');
     const body = rtasks.map(t => '<tr><td>' + esc(t.label) + '</td>' +
-      roles.map(r => `<td style="text-align:center"><b>${esc(state._raci[t.id][r] || '')}</b></td>`).join('') + '</tr>').join('');
+      roles.map(r => `<td style="text-align:center"><b>${esc(state._raci![t.id]![r] || '')}</b></td>`).join('') + '</tr>').join('');
     raciSection = `<h2>6. Matriz RACI</h2><table><tr>${head}</tr>${body}</table>
         <p style="font-size:9pt;color:${GRAY}">R = Responsable · A = Accountable · C = Consultado · I = Informado</p>`;
   }
@@ -163,8 +165,8 @@ export function construirInformeWord(state) {
   let simSection = '';
   if (state._simResults && state._simResults.activitiesWithData > 0) {
     const r = state._simResults;
-    const fmt = (n) => isFinite(n) ? n.toLocaleString('es-PE', { maximumFractionDigits: 1 }) : '—';
-    const cur = (n) => isFinite(n) ? n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 0 }) : '—';
+    const fmt = (n: number) => isFinite(n) ? n.toLocaleString('es-PE', { maximumFractionDigits: 1 }) : '—';
+    const cur = (n: number) => isFinite(n) ? n.toLocaleString('es-PE', { style: 'currency', currency: 'PEN', maximumFractionDigits: 0 }) : '—';
     simSection = `<h2>8. Cuantificación (simulador)</h2>
         <table>
           <tr><td><b>FTE actual</b></td><td>${fmt(r.fteCurrent)}</td><td><b>FTE to-be</b></td><td>${fmt(r.fteToBe)}</td></tr>
