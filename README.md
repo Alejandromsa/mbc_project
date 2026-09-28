@@ -54,15 +54,15 @@ Requisitos: Node 22+, pnpm 10 y Docker Desktop.
 ```bash
 pnpm install
 pnpm dev             # web en http://localhost:5173 (con /ia → intermediario en :8787)
-pnpm --filter @processiq/intermediario dev   # intermediario, lee ../../.env
-docker compose --profile dev up -d postgres-dev   # Postgres de desarrollo (puerto 5440)
+pnpm --filter @processiq/intermediario dev   # intermediario, lee ../../.env.dev (o ../../.env si no existe)
+docker compose -f docker-compose.dev.yml up -d   # Postgres de desarrollo (127.0.0.1:5440, sin .env)
 cp .env.dev.example .env.dev && pnpm --filter @processiq/api dev   # API en :8790 (/api desde la web)
 pnpm --filter @processiq/api semilla   # cuentas de prueba por rol y proyectos de ejemplo (ver el runbook)
 pnpm typecheck
-pnpm test            # unitarias de los paquetes e integración de la API (necesita postgres-dev)
+pnpm test            # unitarias de los paquetes e integración de la API (necesita el Postgres de desarrollo)
 pnpm fronteras       # dependencias permitidas entre paquetes
 pnpm fidelidad       # la app frente al MVP: ejemplos, exports, interacciones, IA simulada (≈2,5 min)
-pnpm e2e             # plataforma de punta a punta: acceso, proyectos, editor, revisiones (necesita postgres-dev)
+pnpm e2e             # plataforma de punta a punta: acceso, proyectos, editor, revisiones (necesita el Postgres de desarrollo)
 ```
 
 ## Despliegue en el servidor

@@ -80,6 +80,7 @@ Las cuentas son locales (correo y contraseña) hasta que TI registre la aplicaci
   docker compose exec api node dist/cli.js restablecer-clave --email correo@dominio
   ```
   Cierra sus sesiones y genera una nueva contraseña temporal.
+- Lo que se hace con `cli.js` queda en la auditoría (`cli.usuario.alta`, `cli.usuario.restablecer_clave`), sin autor y con `origen: cli` en el detalle. Cada administrador ve la auditoría de su organización.
 
 Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consultor` (crea proyectos) y `lector` (solo participa donde lo invitan). En cada proyecto: `propietario`, `editor`, `revisor` y `lector` (ver `apps/api/src/permisos.ts`).
 
@@ -87,7 +88,7 @@ Roles de organización: `admin` (todo, incluidos usuarios y auditoría), `consul
 
 - El servicio `respaldo` deja `respaldos/processiq-AAAAMMDD-HHMMSS.dump` (hora UTC en el nombre) y conserva los 14 últimos (`RESPALDO_CONSERVAR`). Carpeta configurable con `CARPETA_RESPALDOS` en `.env`.
   - **Una copia al día a las `RESPALDO_HORA`** (03:00 por defecto; staging a las 03:30), en la zona `ZONA_HORARIA` (`America/Lima`).
-  - Al arrancar, espera 5 minutos (a que la API migre) y, si la última copia tiene más de 24 h (p. ej. el PC estaba apagado a esa hora), hace una en el acto.
+  - Al arrancar, espera 5 minutos (`RESPALDO_ESPERA_INICIAL_S`, a que la API migre) y, si la última copia tiene más de 24 h (p. ej. el PC estaba apagado a esa hora), hace una en el acto.
   - Con `RESPALDO_HORA=` vacía, vuelve al modo anterior: una copia cada `RESPALDO_CADA_HORAS` desde el arranque.
   - `docker compose logs --tail 5 respaldo` muestra la última copia y cuándo toca la siguiente (`respaldo_programado`).
 - **Esa carpeta está en el mismo PC: hay que copiarla fuera** (OneDrive, disco externo) con la frecuencia que se acuerde.
@@ -170,15 +171,27 @@ El gasto de IA queda en el log del intermediario (`"evento":"gasto_ia"`). Si se 
 ## Desarrollo en el PC
 
 ```bash
-docker compose --profile dev up -d postgres-dev   # Postgres de desarrollo y pruebas, puerto 5440
+docker compose -f docker-compose.dev.yml up -d    # Postgres de desarrollo y pruebas, en 127.0.0.1:5440 (no necesita .env)
 cp .env.dev.example .env.dev                      # una vez
 pnpm --filter @processiq/api dev                  # API en :8790 (migra al arrancar)
 pnpm --filter @processiq/api worker               # worker de IA (necesita ANTHROPIC_API_KEY en .env.dev; gasta de verdad)
 pnpm dev                                          # web en :5173 (editor en /, plataforma en /proyectos/); Vite reenvía /api a :8790
+pnpm --filter @processiq/intermediario dev        # IA del editor libre en :8787: lee .env.dev (o .env si no existe); ALLOWED_ORIGINS=http://localhost:5173
 pnpm --filter @processiq/api semilla              # cuentas y proyectos de prueba (repetible)
 pnpm --filter @processiq/api semilla --desde-cero # además vacía la base antes
 pnpm e2e                                          # pruebas de punta a punta (usan su propia base, processiq_e2e)
 ```
+
+**Postgres de desarrollo** (`docker-compose.dev.yml`): proyecto de Compose propio (`processiq-dev`), contenedor `processiq-postgres-dev-1` y volumen `processiq_postgres_dev`. Solo escucha en `127.0.0.1:5440`, con usuario, base y contraseña `processiq`. Pararlo: `docker compose -f docker-compose.dev.yml down` (**sin `-v`**, que borraría sus datos). Cada `up` avisa de que el volumen «was created for project processiq»: es el volumen de antes y se usa igual.
+
+**Si tu Postgres de desarrollo es anterior** (estaba en `docker-compose.yml` con el perfil `dev`, publicado en todas las interfaces), cámbialo una vez, cuando nadie lo esté usando. Los datos siguen en el volumen:
+
+```bash
+docker rm -f processiq-postgres-dev-1               # quita solo el contenedor viejo; el volumen se queda
+docker compose -f docker-compose.dev.yml up -d      # el nuevo, con el mismo nombre y el mismo volumen
+```
+
+En el PC del servidor, el contenedor viejo pertenece al proyecto `processiq` de producción. Si sigue ahí cuando se promueva esta versión, `infra/desplegar.sh produccion` (`up --remove-orphans`) lo borra por huérfano (el volumen se queda) y las pruebas que lo estén usando fallan hasta el `up` de arriba. Por eso, en el servidor, **haz el cambio antes de esa promoción**: el nuevo es de otro proyecto (`processiq-dev`) y producción ya no lo toca.
 
 **Cuentas de prueba** (solo en la base de desarrollo; la semilla se niega a correr contra otra base que no esté en `localhost`). Todas usan la contraseña `Prueba-ProcessIQ-2026`:
 

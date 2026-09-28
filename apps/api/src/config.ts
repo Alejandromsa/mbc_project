@@ -56,18 +56,41 @@ export function leerConfigIa(env: NodeJS.ProcessEnv = process.env): ConfigIaServ
   };
 }
 
+/** Vacía o ausente: el valor por defecto. Si no, un número mayor que 0 o un error que dice qué falla. */
+function positivo(valor: string | undefined, porDefecto: number, nombre: string): number {
+  if (valor === undefined || valor.trim() === '') return porDefecto;
+  const n = Number(valor);
+  if (!Number.isFinite(n) || n <= 0) throw new Error(`${nombre} debe ser un número mayor que 0 (vale "${valor}")`);
+  return n;
+}
+
+function puerto(valor: string | undefined, porDefecto: number): number {
+  if (valor === undefined || valor.trim() === '') return porDefecto;
+  const n = Number(valor);
+  if (!Number.isInteger(n) || n < 1 || n > 65535) throw new Error(`PORT debe ser un número de puerto entre 1 y 65535 (vale "${valor}")`);
+  return n;
+}
+
+/**
+ * La API no llama a Anthropic: en Docker no recibe la clave, solo
+ * IA_CONFIGURADA=si cuando existe (docker-compose.yml). En desarrollo basta con
+ * ANTHROPIC_API_KEY en .env.dev, que ya lee leerConfigIa.
+ */
+const iaConfigurada = (env: NodeJS.ProcessEnv) => /^(si|sí|true|1)$/i.test((env.IA_CONFIGURADA ?? '').trim());
+
 export function leerConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const databaseUrl = (env.DATABASE_URL ?? '').trim();
   const origenPublico = (env.ORIGEN_PUBLICO ?? '').trim().replace(/\/+$/, '');
   if (!databaseUrl) throw new Error('Falta DATABASE_URL');
   if (!/^https?:\/\/[^/]+$/.test(origenPublico)) throw new Error('ORIGEN_PUBLICO debe ser un origen como https://mbc.asissoft.com');
+  const ia = leerConfigIa(env);
   return {
     databaseUrl,
     origenPublico,
-    puerto: Number(env.PORT ?? 8080),
-    horasSesion: Number(env.HORAS_SESION ?? 12),
+    puerto: puerto(env.PORT, 8080),
+    horasSesion: positivo(env.HORAS_SESION, 12, 'HORAS_SESION'),
     carpetaMigraciones: env.CARPETA_MIGRACIONES || undefined,
-    ia: leerConfigIa(env),
+    ia: { ...ia, configurada: ia.configurada || iaConfigurada(env) },
     version: (env.PROCESSIQ_VERSION ?? '').trim() || 'desarrollo',
     carpetaRespaldos: (env.CARPETA_RESPALDOS_LECTURA ?? '').trim() || undefined
   };

@@ -20,7 +20,7 @@ La memoria automática de Claude es personal y se queda en tu equipo. **Lo que d
 3. Prepara el entorno:
    ```bash
    pnpm install
-   docker compose --profile dev up -d postgres-dev
+   docker compose -f docker-compose.dev.yml up -d
    cp .env.dev.example .env.dev
    pnpm --filter @processiq/api semilla
    pnpm typecheck && pnpm test
