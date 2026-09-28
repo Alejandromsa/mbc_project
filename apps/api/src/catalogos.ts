@@ -2,7 +2,7 @@
 // forma en que los recibe el editor (la misma que en @processiq/dominio).
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { kpis, temasPptx, verbosPlaybook, type BaseDeDatos } from '@processiq/db';
-import { KPI_LIBRARY, VERBS_ALLOWED, VERBS_FORBIDDEN } from '@processiq/dominio';
+import { KPI_LIBRARY, VERBS_ALLOWED, VERBS_FORBIDDEN, type ProyectoV1 } from '@processiq/dominio';
 
 /** Si la organización no tiene catálogos, los crea con los del MVP. Idempotente. */
 export async function asegurarCatalogos(db: BaseDeDatos, organizacionId: string): Promise<void> {
@@ -42,4 +42,20 @@ export async function catalogosParaEditor(db: BaseDeDatos, organizacionId: strin
     },
     temas
   };
+}
+
+/**
+ * Contenido de una revisión listo para servir de plantilla: el mismo proceso
+ * sin lo que es de un cliente concreto (cliente, personas de la gobernanza,
+ * historial de cambios de la ficha, valores medidos de KPI y resultados de la
+ * simulación).
+ */
+export function contenidoDePlantilla(v1: ProyectoV1): ProyectoV1 {
+  const c = structuredClone(v1);
+  c.meta = { ...c.meta, client: '' };
+  c.ficha = { ...c.ficha, gobernanza: [], cambios: [] };
+  delete c.kpiValues;
+  delete c.exportedAt;
+  if ('simResults' in c) c.simResults = null;
+  return c;
 }

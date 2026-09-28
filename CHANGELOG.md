@@ -5,6 +5,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 ## Sin publicar
 
 - **Trabajo en equipo:** guías en `docs/equipo/` (convenciones, nueva iniciativa o aplicación, Claude Code), registro de iniciativas y reservas en `docs/iniciativas/`, plantilla de PR.
+- **Plantillas de proceso:** un administrador guarda una revisión como plantilla (sin datos del cliente) y cualquiera crea con ella un proceso nuevo, que nace con la versión 1 copiada. Se gestionan en «Catálogos».
 - **Operación:** copias de seguridad a hora fija (03:00 de Lima; staging a las 03:30), con una copia inmediata si la última tiene más de 24 h. Limpieza automática de imágenes viejas al promover a producción (`infra/desplegar.sh limpiar`).
 - **Correcciones** (encontradas al documentar la API):
   - desactivar un KPI ya no borra su unidad, benchmark, macroproceso y descripción;

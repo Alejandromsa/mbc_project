@@ -72,6 +72,11 @@ export interface DefinicionTema {
   portada: 'mbc' | 'bbva'; portadaFondo: string; portadaTexto: string; portadaSub: string; cierre: boolean;
 }
 export interface TemaAdmin { id: string; clave: string; nombre: string; definicion: DefinicionTema; activo: boolean; actualizadoEn: string }
+/** Plantilla de proceso (sin el contenido): se elige al crear un proceso. */
+export interface Plantilla {
+  id: string; nombre: string; descripcion: string; industria: string; nodos: number; activo: boolean;
+  autor: string | null; creadoEn: string; actualizadoEn: string;
+}
 
 export interface EstadoSistema {
   version: string;
@@ -149,7 +154,7 @@ export const api = {
   directorio: () => pedir<{ usuarios: Persona[] }>('GET', '/directorio'),
 
   // Procesos y revisiones
-  crearProceso: (proyectoId: string, datos: { nombre: string; contenido?: unknown; mensaje?: string }) =>
+  crearProceso: (proyectoId: string, datos: { nombre: string; contenido?: unknown; plantillaId?: string; mensaje?: string }) =>
     pedir<{ proceso: Proceso; revision: ResumenRevision | null }>('POST', `/proyectos/${q(proyectoId)}/procesos`, datos),
   proceso: (id: string) => pedir<{ proceso: Proceso; rol: RolProyecto; revisiones: Revision[] }>('GET', `/procesos/${q(id)}`),
   renombrarProceso: (id: string, nombre: string) => pedir<{ proceso: Proceso }>('PATCH', `/procesos/${q(id)}`, { nombre }),
@@ -189,6 +194,12 @@ export const api = {
   crearTema: (clave: string, definicion: DefinicionTema) => pedir<{ tema: TemaAdmin }>('POST', '/catalogos/temas', { clave, definicion }),
   cambiarTema: (id: string, cambios: { definicion?: DefinicionTema; activo?: boolean }) => pedir<{ tema: TemaAdmin }>('PATCH', `/catalogos/temas/${q(id)}`, cambios),
   borrarTema: (id: string) => pedir<void>('DELETE', `/catalogos/temas/${q(id)}`),
+  plantillas: () => pedir<{ plantillas: Plantilla[] }>('GET', '/catalogos/plantillas'),
+  crearPlantilla: (d: { revisionId: string; nombre: string; descripcion?: string; industria?: string }) =>
+    pedir<{ plantilla: Plantilla }>('POST', '/catalogos/plantillas', d),
+  cambiarPlantilla: (id: string, cambios: Partial<Pick<Plantilla, 'nombre' | 'descripcion' | 'industria' | 'activo'>>) =>
+    pedir<{ plantilla: Plantilla }>('PATCH', `/catalogos/plantillas/${q(id)}`, cambios),
+  borrarPlantilla: (id: string) => pedir<void>('DELETE', `/catalogos/plantillas/${q(id)}`),
 
   // Estado del sistema (administradores)
   sistema: () => pedir<EstadoSistema>('GET', '/sistema'),

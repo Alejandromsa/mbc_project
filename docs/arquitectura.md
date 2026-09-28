@@ -496,7 +496,7 @@ Por incrementos:
   - KPIs, verbos del Playbook y temas PPTX de cliente, por organización. Se siembran con los del MVP al crear la organización.
   - Pantalla «Catálogos» para administradores. Los temas se crean duplicando MBC o BBVA y se editan colores, tipografías, logotipos y carátula.
   - En un proceso de proyecto, el editor reemplaza en sitio los catálogos por defecto de `dominio` y `exportar`, así que editor, linter y PPTX los usan sin cambios. El editor libre sigue con los de fábrica.
-  - Las plantillas de proceso quedan para más adelante.
+  - **Plantillas de proceso (28-sep-2026):** un administrador guarda una revisión como plantilla (sin el cliente, las personas de la gobernanza, el historial de la ficha ni los valores medidos) y cualquiera la elige al crear un proceso, que nace con la versión 1 copiada y el cliente del proyecto. Se gestionan en «Catálogos → Plantillas de proceso».
 - **2.4b, hecho: observabilidad sin servicios en la nube.**
   - Los errores inesperados de la API, la web, el editor (solo en modo proyecto) y el worker se guardan en la tabla `errores`.
     - Se agrupan por huella y se purgan a los 30 días.
