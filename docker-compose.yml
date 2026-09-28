@@ -117,6 +117,9 @@ services:
       PGUSER: processiq
       PGDATABASE: processiq
       PGPASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      # Una copia al día a esta hora local (vacía en .env: una cada RESPALDO_CADA_HORAS desde el arranque)
+      RESPALDO_HORA: ${RESPALDO_HORA-03:00}
+      TZ: ${ZONA_HORARIA:-America/Lima}
       RESPALDO_CADA_HORAS: ${RESPALDO_CADA_HORAS:-24}
       RESPALDO_CONSERVAR: ${RESPALDO_CONSERVAR:-14}
     volumes:
