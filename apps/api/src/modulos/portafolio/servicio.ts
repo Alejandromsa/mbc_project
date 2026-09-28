@@ -84,9 +84,11 @@ async function estadosUltimas(db: BaseDeDatos, procesoIds: string[]): Promise<Ma
   return new Map(filas.map((f) => [f.procesoId, f.estado]));
 }
 
+interface UltimaRevision { procesoId: string; id: string; numero: number; estado: EstadoRevision; creadaEn: Date; contenido: unknown }
+
 /** Última revisión de cada proceso, con su contenido. */
-async function ultimasConContenido(db: BaseDeDatos, procesoIds: string[]) {
-  if (procesoIds.length === 0) return new Map<string, never>();
+async function ultimasConContenido(db: BaseDeDatos, procesoIds: string[]): Promise<Map<string, UltimaRevision>> {
+  if (procesoIds.length === 0) return new Map();
   const filas = await db.selectDistinctOn([revisiones.procesoId], {
     procesoId: revisiones.procesoId, id: revisiones.id, numero: revisiones.numero, estado: revisiones.estado,
     creadaEn: revisiones.creadaEn, contenido: revisiones.contenido
