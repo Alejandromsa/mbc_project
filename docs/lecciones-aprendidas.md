@@ -115,10 +115,17 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22f. **Fusionar PR apilados con `--delete-branch` cerró el siguiente PR.** Al borrar la rama base del #1, GitHub cerró el #2 en lugar de reapuntarlo a `main`. Se recuperó restaurando la rama, reabriendo y cambiando la base.
     → **Regla:** para fusionar una pila, por cada PR en orden: `gh pr edit N --base main` y después `gh pr merge N --merge`, **sin** `--delete-branch`. Las ramas se borran al final, cuando todos estén fusionados. Comprobar después con `git diff origin/main <última rama>` que el contenido es el verificado.
 
+22g. **Casi publico el repositorio creyendo que reescribir `main` bastaba para ocultar un dato.**
+    - El correo personal del autor estaba en 13 commits. El plan era reescribir el historial y forzar el push.
+    - Pero GitHub guarda las referencias de cada PR (`refs/pull/N/head`) con los commits originales, y no se pueden borrar sin el soporte de GitHub.
+    - Se publicó como repositorio nuevo con el mismo nombre (ADR 18).
+
+    → **Regla:** antes de hacer público un repositorio, auditar el historial completo y no solo el árbol actual: valores reales de los `.env` contra todos los blobs, patrones de claves, correos de autor y datos de red. Si hay que ocultar algo que ya pasó por un PR, reescribir en un repositorio nuevo; en el mismo repositorio, el dato sigue visible en los PR.
+
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 
-22g. **Un aviso de la barra del proyecto no se ve durante una generación.** El aviso de «modelo sustituido» se mostraba con `avisar()` al encolar, pero el diálogo de ingesta (z-index 1000, fondo desenfocado) tapa la barra (z-index 60), y al terminar el aviso de «guardado como vN» lo reemplaza. La E2E pasaba igual: `toContainText` no exige que el elemento se vea. Lo mostró la captura.
+22h. **Un aviso de la barra del proyecto no se ve durante una generación.** El aviso de «modelo sustituido» se mostraba con `avisar()` al encolar, pero el diálogo de ingesta (z-index 1000, fondo desenfocado) tapa la barra (z-index 60), y al terminar el aviso de «guardado como vN» lo reemplaza. La E2E pasaba igual: `toContainText` no exige que el elemento se vea. Lo mostró la captura.
     → **Regla:** lo que la persona deba leer mientras genera va también en el progreso de la ingesta (`onEstado`). Un aviso nuevo se comprueba con una captura en el momento en que debería verse, no solo con `toContainText`.
 
 ## Portado de código

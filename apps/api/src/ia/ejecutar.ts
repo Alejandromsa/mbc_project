@@ -78,7 +78,7 @@ async function analizar(llamar: Llamar, e: EjecucionIa): Promise<unknown> {
     const respuesta = await llamar(e.texto ?? '', { system: PROMPT_PAINS, effort: 'high', maxTokens: 8000 });
     return { datos: extraerJson(respuesta) };
   }
-  const tarea = TAREAS_IA[e.tarea ?? ''];
+  const tarea = e.tarea && Object.hasOwn(TAREAS_IA, e.tarea) ? TAREAS_IA[e.tarea] : undefined;
   if (!tarea) throw new Error(`Tarea de IA desconocida: ${e.tarea}`);
   const markdown = await llamar(promptTarea(tarea.prompt, e.texto ?? ''), { system: ROL_ANALISTA, effort: 'high', maxTokens: 8000 });
   return { markdown };
@@ -146,22 +146,28 @@ export async function ejecutar(dep: DependenciasIa, e: EjecucionIa): Promise<voi
     costeUsd: sql`${ejecucionesIa.costeUsd} + ${uso.usd}`
   }) as unknown as Partial<typeof ejecucionesIa.$inferInsert>;
 
+  // Al terminar (bien, mal o cancelada) no se conservan el texto de las fuentes ni los
+  // nombres de los participantes de las entrevistas; un reintento sí los necesita.
+  const sinDatosDeFuentes = () => ({
+    texto: null,
+    parametros: sql`${ejecucionesIa.parametros} - 'roles'`
+  }) as unknown as Partial<typeof ejecucionesIa.$inferInsert>;
+
   try {
     const resultado = e.tipo === 'generacion' ? await generar(llamar, e) : await analizar(llamar, e);
-    // Terminada: el texto de las fuentes ya no hace falta y no se conserva
-    await actualizar({ ...conCoste(), estado: 'completada', resultado, error: null, texto: null, terminadoEn: new Date() });
+    await actualizar({ ...conCoste(), estado: 'completada', resultado, error: null, ...sinDatosDeFuentes(), terminadoEn: new Date() });
   } catch (err) {
     const mensaje = (err as Error).message;
     const clase = clasificarErrorIa(err);
     if (dep.apagando?.() && !cancelado) {
       await actualizar({ ...conCoste(), estado: 'en_cola', intentos: sql`greatest(${ejecucionesIa.intentos} - 1, 0)` as unknown as number, progreso: 0, disponibleEn: new Date() });
     } else if (clase === 'cancelado' || cancelado) {
-      await actualizar({ ...conCoste(), estado: 'cancelada', error: null, texto: null, terminadoEn: new Date() });
+      await actualizar({ ...conCoste(), estado: 'cancelada', error: null, ...sinDatosDeFuentes(), terminadoEn: new Date() });
     } else if (clase === 'transitorio' && e.intentos < MAX_INTENTOS) {
       const espera = ESPERAS_S[e.intentos - 1] ?? ESPERAS_S[ESPERAS_S.length - 1]!;
       await actualizar({ ...conCoste(), estado: 'en_cola', progreso: 0, error: `${mensaje} (reintento ${e.intentos + 1} de ${MAX_INTENTOS})`, disponibleEn: new Date(Date.now() + espera * 1000) });
     } else {
-      await actualizar({ ...conCoste(), estado: 'fallida', error: mensaje, texto: null, terminadoEn: new Date() });
+      await actualizar({ ...conCoste(), estado: 'fallida', error: mensaje, ...sinDatosDeFuentes(), terminadoEn: new Date() });
     }
   } finally {
     clearInterval(vigilancia);

@@ -128,6 +128,17 @@ describe('IA en el servidor', () => {
     expect((await c.ana.get(`/api/ia/procesos/${proceso.id}`)).json.pendientes).toHaveLength(0);
   });
 
+  it('al terminar no conserva el texto de las fuentes ni los nombres de los participantes', async () => {
+    const { generar } = await equipo();
+    const r = await generar(undefined, { roles: { 'Ana Pérez': 'Jefa de siniestros' } });
+    expect((await fila(r.json.ejecucion.id)).parametros).toMatchObject({ roles: { 'Ana Pérez': 'Jefa de siniestros' } });
+    await procesarCola(fetchFalso(() => respuestaClaude(JSON.stringify(SPEC))));
+    const f = await fila(r.json.ejecucion.id);
+    expect(f).toMatchObject({ estado: 'completada', texto: null });
+    expect(f.parametros).not.toHaveProperty('roles');
+    expect(f.parametros).toMatchObject({ etiqueta: 'texto pegado', vista: 2 });   // el resto se conserva
+  });
+
   it('reintenta lo pasajero con espera; la ejecución no se toma antes de tiempo', async () => {
     const { c, generar } = await equipo();
     const id = (await generar()).json.ejecucion.id;
@@ -324,6 +335,10 @@ describe('IA en el servidor', () => {
     expect((await fila(pains.json.ejecucion.id)).resultado).toEqual({ datos: { detectados: [], sectoriales: [{ titulo: 'Fraude' }] } });
 
     expect((await c.ana.post('/api/ia/analisis', { procesoId: proceso.id, tipo: 'inventada', contenido: EXPORT_MVP })).status).toBe(400);
+    // Claves del prototipo de un objeto no son tareas (antes se encolaban y gastaban)
+    for (const tipo of ['constructor', 'toString', '__proto__']) {
+      expect((await c.ana.post('/api/ia/analisis', { procesoId: proceso.id, tipo, contenido: EXPORT_MVP })).status).toBe(400);
+    }
   });
 
   it('el progreso se sigue por SSE hasta el estado final, con el resultado en el último evento', async () => {

@@ -8,7 +8,7 @@ import { leerConfigWorker } from './config.js';
 import { CANAL_COLA, Escucha, despertador } from './ia/avisos.js';
 import { reencolarHuerfanas, tomarSiguiente } from './ia/cola.js';
 import { ejecutar } from './ia/ejecutar.js';
-import { latido, purgarErrores, registrarError } from './observabilidad.js';
+import { latido, purgarErrores, purgarSesionesCaducadas, registrarError } from './observabilidad.js';
 
 const cfg = leerConfigWorker();
 const conexion = conectar(cfg.databaseUrl, { max: cfg.concurrencia + 2 });
@@ -67,7 +67,10 @@ const huerfanas = setInterval(() => { reencolarHuerfanas(conexion.db).catch(() =
 const darLatido = () => latido(conexion.db, 'worker', { concurrencia: cfg.concurrencia, enCurso, iaConfigurada: !!cfg.claveAnthropic }).catch(() => {});
 await darLatido();
 const latidos = setInterval(darLatido, Math.max(1, Number(process.env.LATIDO_SEGUNDOS) || 30) * 1000);
-const purga = setInterval(() => { purgarErrores(conexion.db).catch(() => {}); }, 3_600_000);
+const purga = setInterval(() => {
+  purgarErrores(conexion.db).catch(() => {});
+  purgarSesionesCaducadas(conexion.db).catch(() => {});
+}, 3_600_000);
 log({ evento: 'arranque', concurrencia: cfg.concurrencia });
 const bucles = Array.from({ length: cfg.concurrencia }, (_, i) => bucle(i + 1));
 

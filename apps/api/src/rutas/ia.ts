@@ -37,7 +37,8 @@ const GeneracionEsquema = z.object({
 const AnalisisEsquema = z.object({
   procesoId: z.string().uuid(),
   /** 'pains' o una tarea del copiloto (suggest-kpis, raci…). */
-  tipo: z.string().refine((t) => t === 'pains' || !!TAREAS_IA[t], 'Análisis desconocido.'),
+  // Object.hasOwn: 'constructor' o 'toString' no son tareas aunque existan en el prototipo
+  tipo: z.string().refine((t) => t === 'pains' || Object.hasOwn(TAREAS_IA, t), 'Análisis desconocido.'),
   /** El proceso tal como está en el editor (se valida con el esquema del dominio). */
   contenido: z.unknown()
 });
