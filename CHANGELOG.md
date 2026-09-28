@@ -5,6 +5,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 ## Sin publicar
 
 - **Trabajo en equipo:** guías en `docs/equipo/` (convenciones, nueva iniciativa o aplicación, Claude Code), registro de iniciativas y reservas en `docs/iniciativas/`, plantilla de PR.
+- **Operación:** copias de seguridad a hora fija (03:00 de Lima; staging a las 03:30), con una copia inmediata si la última tiene más de 24 h. Limpieza automática de imágenes viejas al promover a producción (`infra/desplegar.sh limpiar`).
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 
