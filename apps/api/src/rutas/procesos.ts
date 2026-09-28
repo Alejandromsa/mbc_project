@@ -150,6 +150,8 @@ export function rutasProcesos() {
     const [rev] = await db.select({ id: revisiones.id, procesoId: revisiones.procesoId, estado: revisiones.estado })
       .from(revisiones).where(eq(revisiones.id, id)).limit(1);
     if (!rev) throw new ErrorHttp(404, 'Revisión no encontrada.');
+    // Primero el acceso: sin él, 404, sin revelar en qué estado está la revisión
+    await accesoProceso(db, c.get('usuario'), rev.procesoId, 'leer');
     if (rev.estado === 'aprobada') throw new ErrorHttp(409, 'Una revisión aprobada no se modifica: guarda una nueva.', 'INMUTABLE');
     const capacidad = TRANSICIONES[`${rev.estado}>${estado}`];
     if (!capacidad) throw new ErrorHttp(409, `No se puede pasar de "${rev.estado}" a "${estado}".`, 'TRANSICION');

@@ -46,6 +46,14 @@ describe('proyectos', () => {
     expect((await c.luis.patch(`/api/proyectos/${p.id}`, { nombre: 'X' })).status).toBe(403);
     expect((await c.ana.patch(`/api/proyectos/${p.id}`, { cliente: 'Aseguradora SA' })).json.proyecto.cliente).toBe('Aseguradora SA');
     expect((await c.ana.del(`/api/proyectos/${p.id}/miembros/${u.ana.id}`)).status).toBe(409);
+    const degradar = await c.ana.put(`/api/proyectos/${p.id}/miembros/${u.ana.id}`, { rol: 'editor' });
+    expect(degradar.status).toBe(409);
+    expect(degradar.json.error.codigo).toBe('ULTIMO_PROPIETARIO');
+    // Con otro propietario, sí
+    expect((await c.ana.put(`/api/proyectos/${p.id}/miembros/${u.luis.id}`, { rol: 'propietario' })).status).toBe(200);
+    expect((await c.ana.put(`/api/proyectos/${p.id}/miembros/${u.ana.id}`, { rol: 'editor' })).status).toBe(200);
+    await c.luis.put(`/api/proyectos/${p.id}/miembros/${u.ana.id}`, { rol: 'propietario' });
+    await c.ana.put(`/api/proyectos/${p.id}/miembros/${u.luis.id}`, { rol: 'editor' });
     const detalle = (await c.ana.get(`/api/proyectos/${p.id}`)).json;
     expect(detalle.miembros.map((m: any) => m.rol).sort()).toEqual(['editor', 'propietario', 'revisor']);
   });
@@ -116,6 +124,8 @@ describe('procesos y revisiones', () => {
     const r = await estado(c.ana, 'borrador');
     expect(r.status).toBe(409);
     expect(r.json.error.codigo).toBe('INMUTABLE');
+    // Quien no tiene acceso recibe 404, sin saber que existe ni en qué estado está
+    for (const e of ['borrador', 'aprobada']) expect((await estado(c.pepe, e)).status).toBe(404);
   });
 
   it('un proyecto archivado es de solo lectura hasta que se reactiva', async () => {
@@ -146,6 +156,8 @@ describe('procesos y revisiones', () => {
       'proyecto.alta:ana@mbc.pe', 'proyecto.miembro:ana@mbc.pe', 'proceso.alta:luis@mbc.pe', 'sesion.inicio:rosa@mbc.pe'
     ]));
     expect((await c.luis.get('/api/auditoria')).status).toBe(403);
+    // Un límite que no es un número usa el de por defecto en vez de fallar
+    expect((await c.admin.get('/api/auditoria?limite=abc')).status).toBe(200);
   });
 
   it('el directorio (para elegir miembros) lo ve cualquiera, solo con cuentas activas y sin datos sensibles', async () => {

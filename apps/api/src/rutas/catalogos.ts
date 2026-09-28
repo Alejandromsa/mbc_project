@@ -13,15 +13,24 @@ import { cuerpo, esUuid } from '../validar.js';
 
 const texto = (max: number) => z.string().trim().max(max);
 
-const KpiEsquema = z.object({
+const CamposKpi = {
   industria: texto(80).min(1),
-  macroproceso: texto(80).default(''),
+  macroproceso: texto(80),
   nombre: texto(160).min(1),
-  unidad: texto(40).default(''),
-  benchmark: texto(120).default(''),
-  descripcion: texto(600).default('')
+  unidad: texto(40),
+  benchmark: texto(120),
+  descripcion: texto(600)
+};
+const KpiEsquema = z.object({
+  ...CamposKpi,
+  macroproceso: CamposKpi.macroproceso.default(''),
+  unidad: CamposKpi.unidad.default(''),
+  benchmark: CamposKpi.benchmark.default(''),
+  descripcion: CamposKpi.descripcion.default('')
 });
-const CambioKpiEsquema = KpiEsquema.partial().extend({ activo: z.boolean().optional() })
+// Sin valores por defecto: en Zod 4, `partial()` de un campo con `.default('')` sigue
+// rellenándolo, y un cambio de solo `activo` borraba la unidad, el benchmark…
+const CambioKpiEsquema = z.object(CamposKpi).partial().extend({ activo: z.boolean().optional() })
   .refine((v) => Object.keys(v).length > 0, 'Nada que cambiar');
 
 const VERBO = /^[a-záéíóúüñ]{2,30}$/;
