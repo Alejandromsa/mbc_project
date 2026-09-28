@@ -2,6 +2,10 @@
 
 Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se identifica además por su commit (`infra/desplegar.sh versiones`).
 
+## Sin publicar
+
+- **Trabajo en equipo:** guías en `docs/equipo/` (convenciones, nueva iniciativa o aplicación, Claude Code), registro de iniciativas y reservas en `docs/iniciativas/`, plantilla de PR.
+
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 
 - **Catálogos administrables:** KPIs, verbos del Playbook y temas PPTX de cliente por organización. El editor los usa en los procesos de proyectos.

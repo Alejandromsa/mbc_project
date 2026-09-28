@@ -1,17 +1,22 @@
-# Dueños por carpeta (docs/arquitectura.md §5).
+# Dueños por carpeta (docs/arquitectura.md §5, docs/equipo/README.md).
+#
+# En el plan gratuito de GitHub, en un repositorio privado, este archivo no obliga
+# a nada: la revisión de plataforma es hoy un acuerdo del equipo. Con GitHub Pro
+# o Team se activa junto con la protección de main.
+#
 # Descomentar y sustituir por los equipos reales de GitHub cuando existan:
 # un propietario que no existe en la organización invalida la línea.
 #
-# Plataforma: modelo compartido, datos, IA, infraestructura y CI.
-# *                       @ORG/plataforma
-# /packages/dominio/      @ORG/plataforma
-# /packages/db/           @ORG/plataforma
-# /packages/ia/           @ORG/plataforma
-# /infra/                 @ORG/plataforma
-# /.github/               @ORG/plataforma
-# /docs/arquitectura.md   @ORG/plataforma
+# Plataforma: núcleo, modelo compartido, datos, IA, infraestructura, CI y guías.
+# *                           @ORG/plataforma
+# /packages/                  @ORG/plataforma
+# /infra/                     @ORG/plataforma
+# /.github/                   @ORG/plataforma
+# /docs/                      @ORG/plataforma
+# /CLAUDE.md                  @ORG/plataforma
 #
-# Iniciativas: un bloque por equipo.
-# /apps/web/src/modulos/<iniciativa>/     @ORG/<equipo>
-# /apps/api/src/modulos/<iniciativa>/     @ORG/<equipo>
-# /apps/worker/src/modulos/<iniciativa>/  @ORG/<equipo>
+# Iniciativas: un bloque por equipo (clave del registro, docs/iniciativas/README.md).
+# /apps/api/src/modulos/<clave>/     @ORG/<equipo>
+# /apps/web/src/modulos/<clave>/     @ORG/<equipo>
+# /pruebas/e2e/<clave>.spec.mjs      @ORG/<equipo>
+# /docs/iniciativas/<clave>.md       @ORG/<equipo>

@@ -12,4 +12,6 @@ Cada decisión con consecuencias duraderas queda registrada: contexto, decisión
 | [16](0016-staging-mismo-servidor.md) | Staging en el mismo servidor, detrás del Caddy de producción | Vigente (mientras no haya PaaS) |
 | [17](0017-excepciones-auditoria-dependencias.md) | Excepciones de la auditoría de dependencias | Vigente; revisar en cada actualización |
 
-Plantilla para una nueva: copiar cualquiera de las anteriores y numerar la siguiente. Una decisión que se sustituye no se borra: se marca «Sustituida por N».
+Plantilla para una nueva: copiar cualquiera de las anteriores. Una decisión que se sustituye no se borra: se marca «Sustituida por N».
+
+**Número:** el siguiente libre según `docs/iniciativas/README.md` («Decisiones de arquitectura»), reservado allí en el mismo PR. Si al traer `main` otra ADR ya usa el mismo número, renumera la suya quien llega segundo (`docs/equipo/convenciones.md`).

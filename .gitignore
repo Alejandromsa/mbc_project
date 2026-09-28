@@ -35,3 +35,6 @@ desktop.ini
 respaldos/
 respaldos-*/
 despliegues.log
+
+# Notas personales de Claude Code para este repositorio (docs/equipo/trabajar-con-claude.md)
+CLAUDE.local.md

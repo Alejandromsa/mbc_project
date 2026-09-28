@@ -12,6 +12,17 @@ Código, comentarios, textos de interfaz y documentación en **español**.
 - **`docs/fase1-divergencias.md`**: fallos del MVP corregidos y diferencias intencionales.
 - **`docs/mvp/HANDOFF.md`**: lecciones del MVP (layout, PPTX, IA, rarezas del navegador). Léelo antes de tocar el auto-layout, el export PPTX o la ingesta.
 
+## Trabajo en equipo (varias iniciativas en paralelo)
+
+Varias personas trabajan a la vez, cada una con su sesión de Claude. Antes de cambiar código de una iniciativa, lee `docs/equipo/README.md`, `docs/equipo/convenciones.md`, `docs/equipo/nueva-iniciativa.md` y su ficha `docs/iniciativas/<clave>.md`. Estas reglas valen siempre:
+
+- **Trabaja solo en las zonas de la ficha.** Fuera de ellas, solo en los puntos de registro (`docs/equipo/nueva-iniciativa.md`) y solo añadiendo líneas: nada de reformatear, reordenar ni «mejorar» código ajeno.
+- **Si hace falta cambiar el núcleo** (paquetes, shell, editor, API común, `infra/`, CI), para y proponlo como PR aparte en una rama `plataforma/<tema>`.
+- **Todo nombre nuevo tiene que estar reservado** en `docs/iniciativas/README.md`: tabla, ruta, variable de entorno, puerto, clave del navegador, número de ADR.
+- **Nunca fusiones ni hagas push a `main`, ni despliegues** (`infra/desplegar.sh`): eso lo hacen personas.
+- **Migraciones:** se generan al final, después de traer `main`. Si `main` trajo otra, se regenera la propia: drizzle salta sin avisar una migración cuya marca de tiempo sea anterior a la última aplicada.
+- Lo que deba saber todo el equipo va a los documentos del repositorio (ficha, `CLAUDE.md` del módulo, lecciones), no a tu memoria.
+
 ## Comandos
 
 ```bash
@@ -54,7 +65,11 @@ pruebas/fidelidad/   MVP congelado frente a la app nueva (fidelidad, interaccion
 pruebas/e2e/         flujos de la plataforma con la web construida, la API real y Postgres
 herramientas/        fronteras.mjs
 infra/               Caddyfile y Dockerfiles
+docs/equipo/         cómo trabajar en equipo: convenciones, nueva iniciativa o app, Claude Code
+docs/iniciativas/    registro de iniciativas y reservas (rutas, tablas, puertos…) y una ficha por iniciativa
 ```
+
+- Las iniciativas viven en `apps/api/src/modulos/<clave>/` y `apps/web/src/modulos/<clave>/` (`docs/equipo/nueva-iniciativa.md`); el núcleo es anterior y está en `rutas/`, `shell/` y `app/`.
 
 - `apps/web/src/app/` son los ~60 módulos de interfaz del MVP. Leen y escriben el `state` compartido (`estado.js`) y delegan el cálculo en los paquetes. `window.ProcessIQ` (definido en `inicio.js`) es el gancho de pruebas que usa la fidelidad: no romperlo.
 - Las cachés viven en la app y la lógica pura en los paquetes: por ejemplo, las rutas memorizadas por arista están en `lienzo/ruteo.js` y la geometría en `@processiq/motor`.
@@ -109,7 +124,7 @@ infra/               Caddyfile y Dockerfiles
 - Antes de tocar un área que la fidelidad no cubre, **añadir primero el escenario** y ver que pasa.
 - **Portar sin reescribir:** mover el código tal cual (con scripts que copian el texto literal y verifican con `diff`) y cambiar solo la frontera: parámetros en lugar de `state` y de globales. Los prompts y mensajes se comparan byte a byte.
 - **Fronteras** (las comprueba `pnpm fronteras` en la CI): `dominio` no depende de ningún paquete del monorepo; los demás paquetes solo de `dominio`; `packages/*` nunca importan de `apps/*`. `dominio` solo usa ECMAScript estándar (nada de DOM ni Node en `src/`).
-- **Esquema de la base:** nunca editar una migración ya publicada. Las migraciones deben ser compatibles con la versión anterior (se añade; no se borra ni se renombra en el mismo despliegue), para poder revertir con `infra/desplegar.sh produccion <anterior>`. Se cambia `packages/db/src/esquema.ts`, se genera la migración nueva con `pnpm --filter @processiq/db generar` y se revisa el SQL antes de confirmarlo.
+- **Esquema de la base:** nunca editar una migración ya publicada. Las migraciones deben ser compatibles con la versión anterior (se añade; no se borra ni se renombra en el mismo despliegue), para poder revertir con `infra/desplegar.sh produccion <anterior>`. Se cambia `packages/db/src/esquema.ts`, se genera la migración nueva con `pnpm --filter @processiq/db generar --name <nombre>` y se revisa el SQL antes de confirmarlo. Si `main` recibe otra migración antes de fusionar, se regenera la propia (`docs/equipo/convenciones.md`).
 - Cada ruta nueva de la API lleva pruebas de integración en `apps/api/src/*.test.ts` contra Postgres real (`pruebas/entorno.ts`), incluidos los casos de permiso denegado.
 - La IA del servidor se prueba sin red ni gasto:
   - integración (`apps/api/src/ia.test.ts`), con un `fetch` falso que imita el SSE de Anthropic;
