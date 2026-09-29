@@ -35,7 +35,7 @@ Son los únicos archivos de fuera de la iniciativa que se tocan. En ellos:
 | Archivo | Qué se añade |
 |---|---|
 | `apps/api/src/app.ts` | El import `import { rutasPortafolio } from './modulos/portafolio/index.js';` y, al final de las rutas (antes de `return app`), `app.route('/api/portafolio', rutasPortafolio());` |
-| `apps/web/src/shell/main.tsx` | `<Route path="/portafolio" nest><ConSesion><RutasPortafolio /></ConSesion></Route>`, **antes** de la última `<Route>` (la de «no encontrada») |
+| `apps/web/src/shell/main.tsx` | `<Route path="/portafolio/*?"><ConSesion><RutasPortafolio /></ConSesion></Route>`, **sin `nest`** y **antes** de la última `<Route>` (la de «no encontrada»). El router anidado se abre dentro del módulo (abajo) |
 | `apps/web/src/shell/sesion.tsx` | La entrada del menú, `<EnlaceMenu href="/portafolio">Portafolio</EnlaceMenu>`, después de las de otras iniciativas y antes de las de administración |
 | `packages/db/src/esquema.ts` | La sección `// ===== portafolio =====`, al final |
 | `apps/api/src/semilla.ts` | Solo si las E2E necesitan datos: una llamada a `sembrarPortafolio()`, que vive en el módulo |
@@ -101,26 +101,47 @@ Lo que da el núcleo, y que no se reimplementa:
 
 ```tsx
 // apps/web/src/modulos/portafolio/index.tsx
-import { Route, Switch } from 'wouter';
+import { Link, Route, Router, Switch } from 'wouter';
+import { Vacio, useTitulo } from '../../shell/ui';
 import { Tablero } from './paginas/Tablero';
 import { Cliente } from './paginas/Cliente';
 import './estilos.css';
 
-/** Pantallas de Portafolio bajo /proyectos/portafolio/ (rutas relativas: main.tsx la monta con nest). */
+/**
+ * Pantallas de Portafolio bajo /proyectos/portafolio/. main.tsx lo monta SIN nest
+ * (<Route path="/portafolio/*?">) y el router anidado se abre aquí: así la cabecera
+ * y el menú del shell quedan fuera y sus enlaces siguen siendo del shell.
+ */
 export function RutasPortafolio() {
   return (
-    <Switch>
-      <Route path="/"><Tablero /></Route>
-      <Route path="/cliente/:id">{(p) => <Cliente id={p.id} />}</Route>
-    </Switch>
+    <Router base="/portafolio">
+      <Switch>
+        <Route path="/"><Tablero /></Route>
+        <Route path="/cliente/:cliente">{(p) => <Cliente nombre={decodificar(p.cliente)} />}</Route>
+        <Route><NoEncontrada /></Route>
+      </Switch>
+    </Router>
   );
 }
+
+/** wouter solo aplica decodeURI a la ruta: %2F, %26… se decodifican aquí. */
+function decodificar(v: string): string {
+  try { return decodeURIComponent(v); } catch { return v; }
+}
+
+/** La «no encontrada» del shell enlaza a «/», que aquí dentro es el módulo. */
+function NoEncontrada() {
+  useTitulo('No encontrada');
+  return <Vacio>Esta página no existe. <Link href="/">Volver al portafolio</Link>.</Vacio>;
+}
 ```
+
+- **No montes el módulo con `nest` en `main.tsx`.** Con `nest`, `<ConSesion>` y la cabecera quedan dentro del router anidado y los enlaces del menú pasan a ser relativos al módulo: «Proyectos» llevaría a `/proyectos/portafolio/`. La E2E de cada módulo comprueba que los enlaces del menú siguen bien (lección 22i).
 
 - **Cliente de la API:** `api.ts` propio, que usa `pedir()` de `apps/web/src/shell/api.ts` (maneja errores, sesión y red igual para todos). El `api` del núcleo no se amplía con endpoints de la iniciativa.
 - **Datos:** TanStack Query, con claves que empiezan por la clave de la iniciativa (`['portafolio', …]`).
 - **Componentes:** `ui.tsx` (Boton, Campo, Selector, Aviso, Dialogo, Cargando, Vacio…), `useUsuario()` y `useTitulo()`; `permisos.ts` para mostrar u ocultar botones (la API decide de verdad); `formato.ts` para fechas y roles; los colores y espacios de `src/tokens.css`.
-- **Estilos:** en su `estilos.css`, siempre con prefijo `.portafolio-`. No se toca `shell/estilos.css`.
+- **Estilos:** en su `estilos.css`, siempre con prefijo `.portafolio-`. No se toca `shell/estilos.css`. Ojo: `.tabla td` del shell pisa reglas sueltas como la alineación; usa un selector más específico (`.tabla td.portafolio-numero`).
 - **Editor** (`apps/web/src/app/`): es código portado del MVP y está cubierto byte a byte por la fidelidad. Una iniciativa no lo toca. Si necesita un enganche en el editor, es un PR de plataforma con `pnpm fidelidad` en verde.
 
 ## Pruebas
