@@ -625,10 +625,10 @@ Genera un proceso a partir del texto de las fuentes. Sustituye a `aiBuildProcess
 | `roles` | objeto `{ texto: texto }` | opcional o `null`; claves y valores máx. 200 |
 | `variasFuentes` | boolean | por defecto `false` |
 | `fuentes` | lista de `{ nombre (máx. 300), tipo (máx. 40), caracteres (entero ≥ 0) }` | máx. 50, por defecto `[]` |
-| `modelo` | string | opcional; por defecto el primero de `MODELOS_IA_PERMITIDOS` |
+| `modelo` | string | opcional; por defecto el primero de `MODELOS_IA_PERMITIDOS`. Si no está permitido, se usa el primero permitido |
 
-- **Respuesta 202:** `{ "ejecucion": {…} }` (sin `resultado`).
-- **Errores:** 400 `VALIDACION`, 400 `MODELO` (modelo no permitido), 409 `IA_NO_CONFIGURADA`, 409 `PRESUPUESTO`, 409 `LIMITE_USUARIO`, 409 `ARCHIVADO`.
+- **Respuesta 202:** `{ "ejecucion": {…}, "modeloSustituido": { "pedido", "usado" } | null }` (sin `resultado`).
+- **Errores:** 400 `VALIDACION`, 409 `IA_NO_CONFIGURADA`, 409 `PRESUPUESTO`, 409 `LIMITE_USUARIO`, 409 `ARCHIVADO`. El presupuesto y el límite se vuelven a comprobar en el worker antes de cada llamada: si ya se superaron, la ejecución queda `fallida` sin gasto.
 - **Auditoría:** `ia.generacion` (entidad `proceso`) con `{ ejecucionId, modelo, caracteres, fuentes }` (solo los nombres de las fuentes).
 
 Ejemplo desde la web:
@@ -882,7 +882,6 @@ Un proceso completo del que se parte al crear otro (`POST /api/proyectos/:id/pro
 | 400 | `PROCESO_INVALIDO` | El contenido no es un proceso válido (`detalles` = errores del esquema) | crear proceso, guardar revisión, análisis de IA |
 | 400 | `PADRE_INVALIDO` | `padreId` no es una revisión de este proceso | guardar revisión |
 | 400 | `EJECUCION_INVALIDA` | `ejecucionIaId` no es una generación completada de este proceso | guardar revisión |
-| 400 | `MODELO` | Modelo no permitido | `POST /api/ia/generaciones` |
 | 400 | `PROCESO_VACIO` | El proceso no tiene nodos | `POST /api/ia/analisis` |
 | 401 | `SIN_SESION` | Sin cookie, o sesión caducada, desconocida o de una cuenta desactivada | toda ruta no pública |
 | 401 | `CREDENCIALES` | Correo o contraseña incorrectos, o cuenta desactivada | `POST /api/sesion` |
