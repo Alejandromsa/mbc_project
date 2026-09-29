@@ -49,7 +49,7 @@ Núcleo. Toca la integración del editor con la plataforma, la API de procesos y
 
 | # | Qué entrega | Rama | PR | Estado |
 |---|---|---|---|---|
-| 1 | Presencia, «editando» y aviso de revisión nueva en el editor y en el shell; ADR 21; E2E con dos navegadores | `plataforma/colaboracion` | (pendiente) | en revisión |
+| 1 | Presencia, «editando» y aviso de revisión nueva en el editor y en el shell; ADR 21; E2E con dos navegadores | `plataforma/colaboracion` | #15 | en revisión |
 
 ## Decisiones
 
