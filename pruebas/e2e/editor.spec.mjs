@@ -166,8 +166,6 @@ test('el JSON completo del editor se lleva a un proyecto con sus dos vistas y an
 
 test('el editor libre importa el JSON completo; el panel «Validaciones» y la ingesta muestran sus textos nuevos', async ({ page, browser }) => {
   const { ruta, json } = await exportarJsonCompleto(browser);
-  // Sin animaciones: el selector As-Is / To-Be se desliza y la captura lo pillaba a medio camino
-  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/');
   await page.waitForFunction(() => !!window.ProcessIQ);
   await page.evaluate(() => window.ProcessIQ.loadDemo());
@@ -175,6 +173,8 @@ test('el editor libre importa el JSON completo; el panel «Validaciones» y la i
   await expect(page.locator('#tobeIndicator')).toBeVisible();
   await expect(page.locator('#btnViewToBe')).toHaveClass(/active/);
   expect(await page.evaluate(() => window.ProcessIQ.snapshot())).toMatchObject({ name: json.meta.name, nodes: json.nodes.length });
+  // El selector cambia de color con una transición: la captura espera a que termine
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.querySelector('#btnViewToBe')).backgroundColor)).toBe('rgb(255, 255, 255)');
   await page.screenshot({ path: 'resultados/editor-json-importado.png' });
 
   // D8: el aviso del linter no promete bloquear el export
