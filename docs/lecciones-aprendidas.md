@@ -167,6 +167,12 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22p. **La herramienta de edición se comió un espacio al final del reemplazo.** Para cambiar «crítico bloquea export · » en `index.html`, el texto buscado terminaba en espacio y el nuevo también. El buscado coincidió con su espacio, pero el nuevo llegó sin él: quedó «exportar) ·<span…», pegado a la etiqueta siguiente. El build y las pruebas pasaban; se vio al revisar `git diff` con `cat -A`.
     → **Regla:** un reemplazo con la herramienta de edición no empieza ni termina en espacio: se alarga hasta un carácter visible (`· <span class=…`). Después de editar textos de interfaz, revisar el diff con los espacios a la vista (`git diff | cat -A`).
 
+22q. **Un selector nuevo desbordaba la cabecera a 1100 px y ninguna prueba lo veía.** El «ES / EN» del shell ocupa unos 80 px. Las capturas de la E2E son de 1280 px, donde sobraba sitio. Midiendo `scrollWidth` a 1024, 1100, 1180 y 1280 px, en español y en inglés, la cabecera ya no cabía a 1100 px. Se arregló compactando los márgenes por debajo de 1200 px.
+    → **Regla:** lo que se añada a la cabecera, o a cualquier fila con `white-space: nowrap`, se mide a varios anchos y en los dos idiomas (`document.documentElement.scrollWidth > innerWidth`), no solo en la captura de 1280 px.
+
+22r. **Una espera dio por hecho el acceso antes de entrar.** Un script de capturas esperaba `getByRole('heading', { level: 1 })` después de pulsar «Entrar». Pero la pantalla de acceso también tiene un `h1` («ProcessIQ»): la espera pasó al instante y la siguiente llamada a la API respondió 401. En la misma tarea, un `\\/` dentro de un `node -e` entre comillas dobles llegó como `/` y dejó una regex rota (reincidencia de la 1).
+    → **Regla:** después de una navegación, se espera algo que solo exista en el destino (`waitForURL` o un texto propio de esa pantalla), nunca un elemento genérico que también tenga la página de origen.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.
