@@ -25,7 +25,7 @@ Recuentos medidos en esa fecha con `vitest list` y `playwright test --list` sobr
 
 ```text
                  manual: bench/ con procesos reales, capturas de pantalla
-              E2E (32)            web construida + API + worker + Postgres, con la CSP de producción
+              E2E (35)            web construida + API + worker + Postgres, con la CSP de producción
          Fidelidad (32)           app nueva frente al MVP 3.8.9 congelado
      Integración API (44)         rutas y permisos contra Postgres real
   Unitarias (102 + 7)             paquetes e intermediario, sin red
@@ -40,11 +40,11 @@ Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
 | Integración de la API | Vitest | `apps/api/src/*.test.ts` | 44 | Postgres de desarrollo | — |
 | Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 33 | Web construida, Chromium, internet | ~2,5 min |
-| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 32 | Web construida, Chromium, Postgres de desarrollo | ~5 min |
+| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 35 | Web construida, Chromium, Postgres de desarrollo | ~5 min |
 | Imágenes | `docker compose build` | [infra/](../../infra) | — | Docker | — |
 | Banco de calidad | Consola del navegador | [bench/](../../bench/README.md) | Manual | Procesos reales fuera del repositorio | — |
 
-**Total automatizado: 217 pruebas** (102 + 7 + 44 + 32 + 32).
+**Total automatizado: 220 pruebas** (102 + 7 + 44 + 32 + 35).
 
 Lo que las pruebas no ven: el diseño. Toda pantalla nueva o cambiada se revisa con una captura (`page.screenshot`) antes de darla por buena ([lección 19](../lecciones-aprendidas.md)).
 
@@ -243,7 +243,7 @@ Flujos completos con la web construida, la API real, el worker real, Postgres y 
 
 El Anthropic falso decide la respuesta por la petición: una generación (`max_tokens` ≥ 16 000) recibe un proceso de 3 elementos; una tarea del copiloto, un texto en markdown; los pains, un JSON de dolores. Rechaza cualquier clave que no sea la de prueba.
 
-### Specs (32)
+### Specs (35)
 
 La tabla describe las del núcleo; las de cada iniciativa están en su ficha ([docs/iniciativas/](../iniciativas/README.md)).
 
