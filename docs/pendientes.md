@@ -17,6 +17,8 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Operación | Seguridad y operación del servidor ([§5.2](#52-seguridad-y-operación)), despliegue automático a staging | `plataforma/operacion` | `infra/`, `docker-compose*.yml`, `.env*.example`, `config.ts`, `cli.ts`, `rutas/auditoria.ts`, `rutas/sistema.ts`, runbooks | ⏳ |
 | Portafolio | Iniciativa `portafolio`: tablero por cliente e indicadores | `portafolio/tablero` | [ficha](iniciativas/portafolio.md) | ✅ PR #6 |
 | Conocimiento | Iniciativa `conocimiento`: búsqueda sobre entregables y comparativo APQC | `conocimiento/busqueda` | [ficha](iniciativas/conocimiento.md) | ⏳ |
+| Invitados (ola 2) | Iniciativa `invitados`: enlace de solo lectura con caducidad y comentarios del cliente | `invitados/enlaces` | [ficha](iniciativas/invitados.md) | ⏳ |
+| Colaboración (ola 2) | Núcleo: presencia, «editando» y aviso de revisiones nuevas | `plataforma/colaboracion` | [ficha](iniciativas/colaboracion.md) | 🔜 después de invitados |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -51,8 +53,8 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 |---|---|---|
 | Portafolio de procesos por cliente e indicadores | Módulo `portafolio` | ✅ PR #6 |
 | Búsqueda sobre entregables anteriores y comparativo APQC PCF | Módulo `conocimiento` | ⏳ ola 1 (el comparativo necesita el archivo APQC) |
-| Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo con rutas públicas | 🔜 ola 2 |
-| Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo | 🔜 ola 2 (después de invitados: tocan la misma integración del editor) |
+| Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo `invitados` | ⏳ ola 2 |
+| Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo (`colaboracion`) | 🔜 ola 2, después de invitados (tocan la misma integración del editor) |
 | Interfaz en inglés | Núcleo | 🔜 ola 3 (toca todas las pantallas: va cuando no haya módulos a medias) |
 
 ## 5. Deuda técnica y hallazgos abiertos
