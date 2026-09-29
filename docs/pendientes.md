@@ -13,9 +13,9 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Agente | Qué hace | Rama | Zonas | Estado |
 |---|---|---|---|---|
 | Tipado | Quitar `@ts-nocheck` de `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` sin cambiar el JS emitido | `plataforma/tipar-nocheck` | `packages/exportar`, `packages/documentos` | ✅ PR #4 |
-| IA | Correcciones del núcleo de IA ([§5.1](#51-ia)) | `plataforma/ia-robustez` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `worker.ts`, `apps/intermediario` | ⏳ |
+| IA | Correcciones del núcleo de IA ([§5.1](#51-ia)) | `plataforma/ia-robustez` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `worker.ts` | ✅ PR #7 |
 | Operación | Seguridad y operación del servidor ([§5.2](#52-seguridad-y-operación)), despliegue automático a staging | `plataforma/operacion` | `infra/`, `docker-compose*.yml`, `.env*.example`, `config.ts`, `cli.ts`, `rutas/auditoria.ts`, `rutas/sistema.ts`, runbooks | ⏳ |
-| Portafolio | Iniciativa `portafolio`: tablero por cliente e indicadores | `portafolio/tablero` | [ficha](iniciativas/portafolio.md) | ⏳ |
+| Portafolio | Iniciativa `portafolio`: tablero por cliente e indicadores | `portafolio/tablero` | [ficha](iniciativas/portafolio.md) | ✅ PR #6 |
 | Conocimiento | Iniciativa `conocimiento`: búsqueda sobre entregables y comparativo APQC | `conocimiento/busqueda` | [ficha](iniciativas/conocimiento.md) | ⏳ |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
@@ -49,7 +49,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 
 | Iniciativa | Tipo | Estado |
 |---|---|---|
-| Portafolio de procesos por cliente e indicadores | Módulo `portafolio` | ⏳ ola 1 |
+| Portafolio de procesos por cliente e indicadores | Módulo `portafolio` | ✅ PR #6 |
 | Búsqueda sobre entregables anteriores y comparativo APQC PCF | Módulo `conocimiento` | ⏳ ola 1 (el comparativo necesita el archivo APQC) |
 | Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo con rutas públicas | 🔜 ola 2 |
 | Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo | 🔜 ola 2 (después de invitados: tocan la misma integración del editor) |
@@ -61,12 +61,12 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 
 ### 5.1 IA
 
-- ⏳ Los tokens de una llamada cortada (cancelación, inactividad, corte de red, apagado del worker) no se suman al coste ni a Pulse, aunque Anthropic los cobre.
-- ⏳ El presupuesto mensual y el límite por persona se comprueban solo al encolar: varias ejecuciones a la vez pueden pasarlos.
-- ⏳ Si el servidor no permite el modelo elegido, el editor usa otro sin avisar.
-- ⏳ `despertador()` despierta solo a un bucle del worker; los demás tardan hasta 10 s.
-- ⏳ `clasificarErrorIa` decide los reintentos por el texto del mensaje de error.
-- ✅ La cabecera del intermediario dice que es temporal; sigue sirviendo al editor libre (`plataforma/operacion`).
+- ✅ Los tokens de entrada de una llamada cortada ya se suman al coste y a Pulse (PR #7). Queda estimar la salida, que Anthropic casi nunca informa en ese caso.
+- ✅ El presupuesto y el límite por persona se vuelven a comprobar antes de cada llamada (PR #7).
+- ✅ Si el servidor no permite el modelo elegido, usa otro y el editor lo avisa (PR #7).
+- ✅ Un aviso `ia_cola` despierta a todos los bucles del worker (PR #7).
+- ✅ `clasificarErrorIa` decide por la clase marcada en el error; el texto queda solo como respaldo (PR #7).
+- ✅ La cabecera del intermediario ya no dice que es temporal (PR de operación).
 - 🔜 Salida estructurada, caché de prompts y versión del prompt en `ejecuciones_ia` (previstas en la arquitectura).
 - 🔜 Dibujar en el servidor el proceso generado por la IA (hoy lo dibuja el editor al abrirlo).
 

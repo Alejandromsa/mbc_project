@@ -152,8 +152,8 @@ La API solo **informa** si hay clave y aplica los topes: no llama a Anthropic, y
 |---|---|---|---|---|---|
 | `ANTHROPIC_API_KEY` | worker (llama a Claude), intermediario; la API solo en desarrollo (`.env.dev`) | vacía | Para usar IA, **sí** | Clave de Anthropic, creada dentro de un workspace con tope de gasto. Sin ella, la API responde 409 `IA_NO_CONFIGURADA` y no encola; el worker avisa en su log. Se recortan los espacios. | P, S; D (solo si quieres IA real: **gasta de verdad**) |
 | `IA_CONFIGURADA` | API | vacía | No | `si` si hay `ANTHROPIC_API_KEY`: Compose la calcula (`${ANTHROPIC_API_KEY:+si}`) para que la API sepa que la IA está configurada sin recibir la clave. También vale `sí`, `true` o `1`. | Interna |
-| `PRESUPUESTO_IA_MENSUAL_USD` | API | `100` | No | Tope de gasto de la organización por mes calendario (hora de Lima), en US$ a precio de lista. Al alcanzarlo: 409 `PRESUPUESTO`. | P, S (`10`) |
-| `LIMITE_IA_USUARIO_MENSUAL_USD` | API | `25` | No | Tope de gasto de cada persona por mes. Al alcanzarlo: 409 `LIMITE_USUARIO`. | P, S (`5`) |
+| `PRESUPUESTO_IA_MENSUAL_USD` | API y worker | `100` | No | Tope de gasto de la organización por mes calendario (hora de Lima), en US$ a precio de lista. Al alcanzarlo: 409 `PRESUPUESTO` al encolar; el worker lo vuelve a comprobar antes de cada llamada. | P, S (`10`) |
+| `LIMITE_IA_USUARIO_MENSUAL_USD` | API y worker | `25` | No | Tope de gasto de cada persona por mes. Al alcanzarlo: 409 `LIMITE_USUARIO`. | P, S (`5`) |
 | `MODELOS_IA_PERMITIDOS` | API | `claude-opus-5,claude-sonnet-5` | No | Modelos que se pueden elegir al generar, separados por comas. El primero es el de por defecto. Solo se admiten modelos con precio conocido: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`. | P (opcional) |
 | `MODELO_IA_ANALISIS` | API | `claude-sonnet-5` | No | Modelo de los análisis (pains y tareas del copiloto). Mismas reglas que el anterior. | P (opcional) |
 | `IA_CONCURRENCIA` | worker | `2` | No | Ejecuciones de IA a la vez (mínimo 1; se redondea hacia abajo). El worker usa un pool de hasta `IA_CONCURRENCIA + 2` conexiones a la base, más una dedicada a `LISTEN`. | P, S (`1`) |
