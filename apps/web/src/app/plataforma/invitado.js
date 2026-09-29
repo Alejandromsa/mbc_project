@@ -21,7 +21,7 @@ import { resetHistory } from '../historial.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { actualizarSelectorNivel } from '../layout/niveles.js';
 import { render } from '../lienzo/render.js';
-import { maybeFitOnLoad } from '../lienzo/zoom.js';
+import { maybeFitOnLoad, setZoom } from '../lienzo/zoom.js';
 import { updateViewUi } from '../vistas/comparador.js';
 import '../../modulos/invitados/vista.css';
 
@@ -163,7 +163,15 @@ function cargarEnEditor(c) {
 function encuadrar() {
   maybeFitOnLoad();
   const zona = $('#canvasWrapper');
-  if (zona) zona.scrollLeft = 0;
+  if (!zona || !state.nodes.length || zona.scrollLeft <= 0) return;
+  // El encuadre del editor desplaza el lienzo a la derecha: se reduce un poco el zoom para
+  // que quepa todo desde el borde izquierdo (carriles incluidos) y nada quede cortado a la derecha
+  const maxX = Math.max(...state.nodes.map((n) => n.x + n.w));
+  const minY = Math.min(...state.nodes.map((n) => n.y));
+  const z = Math.min(state.zoom || 1, zona.clientWidth / (maxX + 80));
+  setZoom(z, { keepScroll: true });
+  zona.scrollLeft = 0;
+  zona.scrollTop = Math.max(0, (minY - 80) * z);
 }
 
 function mostrarError(e) {
