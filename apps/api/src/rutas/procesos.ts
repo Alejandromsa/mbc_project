@@ -8,6 +8,7 @@ import { registrar } from '../auditoria.js';
 import { ErrorHttp, type Entorno, type UsuarioSesion } from '../contexto.js';
 import { accesoProyecto, type Capacidad } from '../permisos.js';
 import { cuerpo, esUuid } from '../validar.js';
+import { avisarProceso } from '../colaboracion/avisos.js';
 
 const NuevoProcesoEsquema = z.object({
   nombre: z.string().trim().min(1).max(200),
@@ -141,6 +142,8 @@ export function rutasProcesos() {
           .returning({ id: ejecucionesIa.id });
         if (!enlazada.length) throw new ErrorHttp(400, 'La generación de IA indicada no es de este proceso o no terminó.', 'EJECUCION_INVALIDA');
       }
+      // Colaboración (ADR 21): quien tiene abierto el proceso se entera al confirmar la transacción
+      await avisarProceso(tx, proceso.id);
       return { revision: nueva!, conflicto, ultimaAnterior: ultima ?? null };
     });
     await registrar(c, 'revision.alta', 'revision', res.revision.id, {
