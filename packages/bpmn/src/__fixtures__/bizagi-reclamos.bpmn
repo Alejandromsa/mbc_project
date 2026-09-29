@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixture inventado con la forma de un export de Bizagi Modeler: espacio de nombres por
+     defecto (sin prefijos), extensiones bizagi:, pool con carriles, subproceso desplegado
+     con su contenido, evento de borde, datos, anotación y un grupo. Sin datos de clientes. -->
+<definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:bizagi="http://www.bizagi.com/bpmn20" id="Definicion_reclamos" targetNamespace="http://www.bizagi.com/definitions/reclamos" exporter="Bizagi Modeler" exporterVersion="4.0.0" xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL">
+  <category id="Categoria_1">
+    <categoryValue id="ValorCategoria_1" value="Mesa de ayuda" />
+  </category>
+  <collaboration id="Colaboracion_1">
+    <participant id="Pool_reclamos" name="Atención de reclamos" processRef="Proceso_reclamos" />
+  </collaboration>
+  <process id="Proceso_reclamos" name="Atención de reclamos" isExecutable="false">
+    <documentation />
+    <extensionElements>
+      <bizagi:BizagiExtensions>
+        <bizagi:BizagiProperty name="bgColor" value="White" />
+      </bizagi:BizagiExtensions>
+    </extensionElements>
+    <laneSet id="ConjuntoCarriles_1">
+      <lane id="Carril_cliente" name="Cliente">
+        <extensionElements />
+        <flowNodeRef>Inicio_reclamo</flowNodeRef>
+        <flowNodeRef>Fin_atendido</flowNodeRef>
+      </lane>
+      <lane id="Carril_mesa" name="Mesa de ayuda">
+        <flowNodeRef>Tarea_notificar</flowNodeRef>
+        <flowNodeRef>Tarea_registrar</flowNodeRef>
+        <flowNodeRef>Compuerta_completo</flowNodeRef>
+        <flowNodeRef>Tarea_solicitar</flowNodeRef>
+        <flowNodeRef>Evento_info</flowNodeRef>
+      </lane>
+      <lane id="Carril_analista" name="Analista de reclamos">
+        <flowNodeRef>Sub_evaluar</flowNodeRef>
+        <flowNodeRef>Borde_plazo</flowNodeRef>
+      </lane>
+      <lane id="Carril_supervisor" name="Supervisor">
+        <flowNodeRef>Tarea_escalar</flowNodeRef>
+        <flowNodeRef>Fin_escalado</flowNodeRef>
+      </lane>
+    </laneSet>
+    <!-- Bizagi no escribe los elementos en el orden del dibujo -->
+    <sendTask id="Tarea_notificar" name="Notificar resultado&#10;al cliente">
+      <extensionElements>
+        <bizagi:BizagiExtensions>
+          <bizagi:BizagiProperty name="bgColor" value="#ECEFFF" />
+        </bizagi:BizagiExtensions>
+      </extensionElements>
+      <incoming>Flujo_7</incoming>
+      <outgoing>Flujo_8</outgoing>
+    </sendTask>
+    <startEvent id="Inicio_reclamo" name="Reclamo recibido">
+      <outgoing>Flujo_1</outgoing>
+      <messageEventDefinition />
+    </startEvent>
+    <userTask id="Tarea_registrar" name="Registrar reclamo">
+      <documentation>El operador completa la ficha con los datos del cliente.</documentation>
+      <incoming>Flujo_1</incoming>
+      <incoming>Flujo_5</incoming>
+      <outgoing>Flujo_2</outgoing>
+      <dataOutputAssociation id="AsociacionDatos_1">
+        <targetRef>Dato_ficha</targetRef>
+      </dataOutputAssociation>
+    </userTask>
+    <exclusiveGateway id="Compuerta_completo" name="¿Reclamo completo?">
+      <incoming>Flujo_2</incoming>
+      <outgoing>Flujo_3</outgoing>
+      <outgoing>Flujo_6</outgoing>
+    </exclusiveGateway>
+    <sendTask id="Tarea_solicitar" name="Solicitar información faltante">
+      <incoming>Flujo_3</incoming>
+      <outgoing>Flujo_4</outgoing>
+    </sendTask>
+    <intermediateCatchEvent id="Evento_info" name="Información recibida">
+      <incoming>Flujo_4</incoming>
+      <outgoing>Flujo_5</outgoing>
+      <messageEventDefinition />
+    </intermediateCatchEvent>
+    <subProcess id="Sub_evaluar" name="Evaluar reclamo">
+      <incoming>Flujo_6</incoming>
+      <outgoing>Flujo_7</outgoing>
+      <startEvent id="Sub_inicio">
+        <outgoing>Sub_flujo_1</outgoing>
+      </startEvent>
+      <manualTask id="Sub_revisar" name="Revisar antecedentes">
+        <incoming>Sub_flujo_1</incoming>
+        <outgoing>Sub_flujo_2</outgoing>
+      </manualTask>
+      <serviceTask id="Sub_consultar" name="Consultar historial del cliente">
+        <incoming>Sub_flujo_2</incoming>
+        <outgoing>Sub_flujo_3</outgoing>
+        <dataInputAssociation id="AsociacionDatos_2">
+          <sourceRef>Almacen_crm</sourceRef>
+        </dataInputAssociation>
+      </serviceTask>
+      <exclusiveGateway id="Sub_procede" name="¿Procede?">
+        <incoming>Sub_flujo_3</incoming>
+        <outgoing>Sub_flujo_4</outgoing>
+        <outgoing>Sub_flujo_5</outgoing>
+      </exclusiveGateway>
+      <scriptTask id="Sub_calcular" name="Calcular compensación">
+        <incoming>Sub_flujo_4</incoming>
+        <outgoing>Sub_flujo_6</outgoing>
+      </scriptTask>
+      <task id="Sub_rechazo" name="Redactar rechazo">
+        <incoming>Sub_flujo_5</incoming>
+        <outgoing>Sub_flujo_7</outgoing>
+      </task>
+      <exclusiveGateway id="Sub_union">
+        <incoming>Sub_flujo_6</incoming>
+        <incoming>Sub_flujo_7</incoming>
+        <outgoing>Sub_flujo_8</outgoing>
+      </exclusiveGateway>
+      <endEvent id="Sub_fin">
+        <incoming>Sub_flujo_8</incoming>
+      </endEvent>
+      <dataStoreReference id="Almacen_crm" name="CRM" />
+      <sequenceFlow id="Sub_flujo_1" sourceRef="Sub_inicio" targetRef="Sub_revisar" />
+      <sequenceFlow id="Sub_flujo_2" sourceRef="Sub_revisar" targetRef="Sub_consultar" />
+      <sequenceFlow id="Sub_flujo_3" sourceRef="Sub_consultar" targetRef="Sub_procede" />
+      <sequenceFlow id="Sub_flujo_4" name="Sí" sourceRef="Sub_procede" targetRef="Sub_calcular" />
+      <sequenceFlow id="Sub_flujo_5" name="No" sourceRef="Sub_procede" targetRef="Sub_rechazo" />
+      <sequenceFlow id="Sub_flujo_6" sourceRef="Sub_calcular" targetRef="Sub_union" />
+      <sequenceFlow id="Sub_flujo_7" sourceRef="Sub_rechazo" targetRef="Sub_union" />
+      <sequenceFlow id="Sub_flujo_8" sourceRef="Sub_union" targetRef="Sub_fin" />
+    </subProcess>
+    <boundaryEvent id="Borde_plazo" name="5 días hábiles" attachedToRef="Sub_evaluar" cancelActivity="false">
+      <outgoing>Flujo_9</outgoing>
+      <timerEventDefinition />
+    </boundaryEvent>
+    <userTask id="Tarea_escalar" name="Escalar al supervisor">
+      <incoming>Flujo_9</incoming>
+      <outgoing>Flujo_10</outgoing>
+    </userTask>
+    <endEvent id="Fin_escalado" name="Reclamo escalado">
+      <incoming>Flujo_10</incoming>
+    </endEvent>
+    <endEvent id="Fin_atendido" name="Reclamo atendido">
+      <incoming>Flujo_8</incoming>
+    </endEvent>
+    <dataObject id="ObjetoDatos_ficha" name="Ficha del reclamo" />
+    <dataObjectReference id="Dato_ficha" dataObjectRef="ObjetoDatos_ficha" />
+    <textAnnotation id="Anotacion_1">
+      <text>Registrar en menos de 2 horas</text>
+    </textAnnotation>
+    <association id="Asociacion_1" sourceRef="Tarea_registrar" targetRef="Anotacion_1" />
+    <group id="Grupo_1" categoryValueRef="ValorCategoria_1" />
+    <sequenceFlow id="Flujo_1" sourceRef="Inicio_reclamo" targetRef="Tarea_registrar" />
+    <sequenceFlow id="Flujo_2" sourceRef="Tarea_registrar" targetRef="Compuerta_completo" />
+    <sequenceFlow id="Flujo_3" name="No" sourceRef="Compuerta_completo" targetRef="Tarea_solicitar" />
+    <sequenceFlow id="Flujo_4" sourceRef="Tarea_solicitar" targetRef="Evento_info" />
+    <sequenceFlow id="Flujo_5" sourceRef="Evento_info" targetRef="Tarea_registrar" />
+    <sequenceFlow id="Flujo_6" name="Sí" sourceRef="Compuerta_completo" targetRef="Sub_evaluar" />
+    <sequenceFlow id="Flujo_7" sourceRef="Sub_evaluar" targetRef="Tarea_notificar" />
+    <sequenceFlow id="Flujo_8" sourceRef="Tarea_notificar" targetRef="Fin_atendido" />
+    <sequenceFlow id="Flujo_9" sourceRef="Borde_plazo" targetRef="Tarea_escalar" />
+    <sequenceFlow id="Flujo_10" sourceRef="Tarea_escalar" targetRef="Fin_escalado" />
+  </process>
+  <BPMNDiagram id="Diagrama_1" xmlns="http://www.omg.org/spec/BPMN/20100524/DI">
+    <BPMNPlane id="Plano_1" bpmnElement="Colaboracion_1">
+      <BPMNShape id="DI_Pool_reclamos" bpmnElement="Pool_reclamos" isHorizontal="true">
+        <Bounds x="0" y="0" width="1320" height="720" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Carril_cliente" bpmnElement="Carril_cliente" isHorizontal="true">
+        <Bounds x="30" y="0" width="1290" height="160" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Carril_mesa" bpmnElement="Carril_mesa" isHorizontal="true">
+        <Bounds x="30" y="160" width="1290" height="160" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Carril_analista" bpmnElement="Carril_analista" isHorizontal="true">
+        <Bounds x="30" y="320" width="1290" height="240" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Carril_supervisor" bpmnElement="Carril_supervisor" isHorizontal="true">
+        <Bounds x="30" y="560" width="1290" height="160" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Inicio_reclamo" bpmnElement="Inicio_reclamo">
+        <Bounds x="80" y="65" width="30" height="30" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Tarea_registrar" bpmnElement="Tarea_registrar">
+        <Bounds x="150" y="210" width="90" height="60" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Compuerta_completo" bpmnElement="Compuerta_completo" isMarkerVisible="true">
+        <Bounds x="290" y="220" width="40" height="40" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Tarea_solicitar" bpmnElement="Tarea_solicitar">
+        <Bounds x="360" y="170" width="90" height="60" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Evento_info" bpmnElement="Evento_info">
+        <Bounds x="490" y="185" width="30" height="30" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_evaluar" bpmnElement="Sub_evaluar" isExpanded="true">
+        <Bounds x="380" y="335" width="640" height="200" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_inicio" bpmnElement="Sub_inicio">
+        <Bounds x="400" y="420" width="30" height="30" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_revisar" bpmnElement="Sub_revisar">
+        <Bounds x="460" y="405" width="90" height="60" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_consultar" bpmnElement="Sub_consultar">
+        <Bounds x="580" y="405" width="90" height="60" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_procede" bpmnElement="Sub_procede" isMarkerVisible="true">
+        <Bounds x="700" y="415" width="40" height="40" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_calcular" bpmnElement="Sub_calcular">
+        <Bounds x="780" y="350" width="90" height="60" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_rechazo" bpmnElement="Sub_rechazo">
+        <Bounds x="780" y="460" width="90" height="60" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_union" bpmnElement="Sub_union" isMarkerVisible="true">
+        <Bounds x="900" y="415" width="40" height="40" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Sub_fin" bpmnElement="Sub_fin">
+        <Bounds x="970" y="420" width="30" height="30" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Almacen_crm" bpmnElement="Almacen_crm">
+        <Bounds x="600" y="480" width="50" height="50" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Borde_plazo" bpmnElement="Borde_plazo">
+        <Bounds x="950" y="520" width="30" height="30" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Tarea_escalar" bpmnElement="Tarea_escalar">
+        <Bounds x="1000" y="610" width="90" height="60" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Fin_escalado" bpmnElement="Fin_escalado">
+        <Bounds x="1150" y="625" width="30" height="30" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Tarea_notificar" bpmnElement="Tarea_notificar">
+        <Bounds x="1100" y="210" width="90" height="60" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Fin_atendido" bpmnElement="Fin_atendido">
+        <Bounds x="1250" y="65" width="30" height="30" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Dato_ficha" bpmnElement="Dato_ficha">
+        <Bounds x="250" y="80" width="36" height="50" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Anotacion_1" bpmnElement="Anotacion_1">
+        <Bounds x="60" y="180" width="80" height="40" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNShape id="DI_Grupo_1" bpmnElement="Grupo_1">
+        <Bounds x="140" y="165" width="390" height="150" xmlns="http://www.omg.org/spec/DD/20100524/DC" />
+      </BPMNShape>
+      <BPMNEdge id="DI_Flujo_1" bpmnElement="Flujo_1">
+        <waypoint x="95" y="95" xmlns="http://www.omg.org/spec/DD/20100524/DI" />
+        <waypoint x="95" y="240" xmlns="http://www.omg.org/spec/DD/20100524/DI" />
+        <waypoint x="150" y="240" xmlns="http://www.omg.org/spec/DD/20100524/DI" />
+      </BPMNEdge>
+      <BPMNEdge id="DI_Flujo_7" bpmnElement="Flujo_7">
+        <waypoint x="1020" y="435" xmlns="http://www.omg.org/spec/DD/20100524/DI" />
+        <waypoint x="1145" y="435" xmlns="http://www.omg.org/spec/DD/20100524/DI" />
+        <waypoint x="1145" y="270" xmlns="http://www.omg.org/spec/DD/20100524/DI" />
+      </BPMNEdge>
+    </BPMNPlane>
+  </BPMNDiagram>
+</definitions>

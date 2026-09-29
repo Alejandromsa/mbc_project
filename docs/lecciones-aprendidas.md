@@ -167,6 +167,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22p. **La herramienta de edición se comió un espacio al final del reemplazo.** Para cambiar «crítico bloquea export · » en `index.html`, el texto buscado terminaba en espacio y el nuevo también. El buscado coincidió con su espacio, pero el nuevo llegó sin él: quedó «exportar) ·<span…», pegado a la etiqueta siguiente. El build y las pruebas pasaban; se vio al revisar `git diff` con `cat -A`.
     → **Regla:** un reemplazo con la herramienta de edición no empieza ni termina en espacio: se alarga hasta un carácter visible (`· <span class=…`). Después de editar textos de interfaz, revisar el diff con los espacios a la vista (`git diff | cat -A`).
 
+22q. **Una medición salió idéntica a la de referencia porque el editor deshizo el cambio.** Para medir con `quality()` un BPMN importado con las coordenadas de su dibujo, cambié `x`/`y` en `processiq.v1`, puse `lanes: null` y recargué. Dio exactamente lo mismo que el auto-layout: al arrancar, si hay nodos y no hay carriles, `inicio.js` vuelve a aplicar el auto-layout y pisa las coordenadas. Con los carriles presentes (lista vacía), las coordenadas del dibujo dieron 8 flechas sobre cajas.
+    → **Regla:** en una comparación, un resultado idéntico al de la otra variante es sospechoso hasta demostrar que la variante se aplicó (una captura, o leer las coordenadas después). Para medir un estado guardado a mano, conservar `lanes` en lo guardado.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.

@@ -10,7 +10,7 @@ import { persist } from '../persistencia.js';
 import { ensureDecisionBranches } from '../proceso/operaciones.js';
 
 function importBpmnXml(xmlString) {
-  // Se lee antes de reiniciar: un XML inválido lanza sin tocar el proceso abierto.
+  // Se lee antes de reiniciar: un XML inválido (o que no es BPMN) lanza sin tocar el proceso abierto.
   // Los ids se numeran desde 1 porque resetState() deja nextId en 1.
   const r = leerBpmn(xmlString, { siguienteId: 1, formas: SHAPE_DEFAULTS });
 
@@ -30,11 +30,29 @@ function importBpmnXml(xmlString) {
   runSimulation();
   // El flujo recién importado es el modelo COMPLETO: de él cuelgan las vistas
   // por nivel. Sin esto, colapsar a ejecutivo no tendría de dónde recuperar.
+  // Los subprocesos de un BPMN de otra herramienta llegan con nivel y padre:
+  // su contenido se pliega en los niveles Actividad y Ejecutivo.
   state.meta.nivelVista = 3;
   fijarModeloCompleto();
   actualizarSelectorNivel();
   persist();
-  return r.conteo;
+  // Un BPMN del propio ProcessIQ devuelve lo mismo que el MVP (la fidelidad lo compara)
+  if (r.origen === 'processiq') return r.conteo;
+  return { ...r.conteo, carriles: r.carriles, subprocesos: r.subprocesos, avisos: r.avisos };
 }
 
-export { importBpmnXml };
+// Lo que añade el mensaje del copiloto tras importar un BPMN de otra herramienta:
+// carriles, subprocesos y avisos. Vacío para un BPMN del propio ProcessIQ.
+function detalleImportBpmn(res) {
+  const NL = String.fromCharCode(10);
+  let t = '';
+  if (res.carriles && res.carriles.length) t += NL + 'Carriles: ' + res.carriles.join(', ') + '.';
+  if (res.subprocesos) {
+    t += NL + (res.subprocesos === 1 ? 'Un subproceso con contenido' : res.subprocesos + ' subprocesos con contenido') +
+      ': se ve desplegado en el nivel Detalle y plegado en Actividad y Ejecutivo.';
+  }
+  (res.avisos || []).forEach((a) => { t += NL + '• ' + a; });
+  return t;
+}
+
+export { detalleImportBpmn, importBpmnXml };

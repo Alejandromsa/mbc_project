@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture inventado con la forma de un export de Signavio: prefijo semantic:, un pool
+     de caja negra (sin proceso) con flujos de mensaje, carriles anidados, un subproceso
+     plegado cuyo contenido se dibuja en su propio plano, con otro subproceso dentro. -->
+<semantic:definitions xmlns:semantic="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:omgdc="http://www.omg.org/spec/DD/20100524/DC" xmlns:omgdi="http://www.omg.org/spec/DD/20100524/DI" xmlns:signavio="http://www.signavio.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="sid-definiciones-compras" targetNamespace="http://www.signavio.com" exporter="Signavio Process Editor, http://www.signavio.com" exporterVersion="17.0.0">
+  <semantic:collaboration id="sid-colaboracion">
+    <semantic:participant id="sid-pool-proveedor" name="Proveedor" />
+    <semantic:participant id="sid-pool-empresa" name="Empresa compradora" processRef="sid-proceso-compras" />
+    <semantic:messageFlow id="sid-mensaje-1" name="Pedido de cotización" sourceRef="sid-cotizar" targetRef="sid-pool-proveedor" />
+    <semantic:messageFlow id="sid-mensaje-2" name="Mercadería" sourceRef="sid-pool-proveedor" targetRef="sid-recibir" />
+    <semantic:messageFlow id="sid-mensaje-3" name="Pago" sourceRef="sid-pagar" targetRef="sid-pool-proveedor" />
+  </semantic:collaboration>
+  <semantic:process id="sid-proceso-compras" name="Compras de bienes" isClosed="false" isExecutable="false" processType="None">
+    <semantic:extensionElements>
+      <signavio:signavioDiagramMetaData metaKey="revisionid" metaValue="0000" />
+    </semantic:extensionElements>
+    <semantic:laneSet id="sid-carriles">
+      <semantic:lane id="sid-carril-compras" name="Compras">
+        <semantic:flowNodeRef>sid-inicio</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-elaborar</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-cotizar</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-aprobar</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-aprobada</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-rechazada</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-emitir</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-seleccionar</semantic:flowNodeRef>
+        <semantic:childLaneSet id="sid-carriles-compras">
+          <semantic:lane id="sid-carril-comprador" name="Comprador">
+            <semantic:flowNodeRef>sid-inicio</semantic:flowNodeRef>
+            <semantic:flowNodeRef>sid-elaborar</semantic:flowNodeRef>
+            <semantic:flowNodeRef>sid-cotizar</semantic:flowNodeRef>
+            <semantic:flowNodeRef>sid-emitir</semantic:flowNodeRef>
+            <semantic:flowNodeRef>sid-seleccionar</semantic:flowNodeRef>
+          </semantic:lane>
+          <semantic:lane id="sid-carril-jefe" name="Jefe de compras">
+            <semantic:flowNodeRef>sid-aprobar</semantic:flowNodeRef>
+            <semantic:flowNodeRef>sid-aprobada</semantic:flowNodeRef>
+            <semantic:flowNodeRef>sid-rechazada</semantic:flowNodeRef>
+          </semantic:lane>
+        </semantic:childLaneSet>
+      </semantic:lane>
+      <semantic:lane id="sid-carril-almacen" name="Almacén">
+        <semantic:flowNodeRef>sid-bifurcacion</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-recibir</semantic:flowNodeRef>
+      </semantic:lane>
+      <semantic:lane id="sid-carril-finanzas" name="Finanzas">
+        <semantic:flowNodeRef>sid-validar</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-union</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-plazo</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-pagar</semantic:flowNodeRef>
+        <semantic:flowNodeRef>sid-cerrada</semantic:flowNodeRef>
+      </semantic:lane>
+    </semantic:laneSet>
+    <semantic:serviceTask completionQuantity="1" id="sid-pagar" isForCompensation="false" name="Pagar al proveedor" startQuantity="1">
+      <semantic:incoming>sid-f13</semantic:incoming>
+      <semantic:outgoing>sid-f14</semantic:outgoing>
+    </semantic:serviceTask>
+    <semantic:endEvent id="sid-cerrada" name="Compra cerrada">
+      <semantic:incoming>sid-f14</semantic:incoming>
+      <semantic:terminateEventDefinition id="sid-terminar" />
+    </semantic:endEvent>
+    <semantic:startEvent id="sid-inicio" name="Necesidad de compra">
+      <semantic:outgoing>sid-f1</semantic:outgoing>
+    </semantic:startEvent>
+    <semantic:userTask completionQuantity="1" id="sid-elaborar" implementation="##WebService" isForCompensation="false" name="Elaborar solicitud de compra" startQuantity="1">
+      <semantic:incoming>sid-f1</semantic:incoming>
+      <semantic:outgoing>sid-f2</semantic:outgoing>
+    </semantic:userTask>
+    <semantic:userTask completionQuantity="1" id="sid-cotizar" isForCompensation="false" name="Cotizar con proveedores" startQuantity="1">
+      <semantic:incoming>sid-f2</semantic:incoming>
+      <semantic:outgoing>sid-f3</semantic:outgoing>
+      <semantic:multiInstanceLoopCharacteristics behavior="All" id="sid-multi" isSequential="false" />
+    </semantic:userTask>
+    <semantic:userTask completionQuantity="1" id="sid-aprobar" isForCompensation="false" name="Aprobar solicitud" startQuantity="1">
+      <semantic:incoming>sid-f3</semantic:incoming>
+      <semantic:outgoing>sid-f4</semantic:outgoing>
+    </semantic:userTask>
+    <semantic:exclusiveGateway gatewayDirection="Diverging" id="sid-aprobada" name="¿Aprobada?">
+      <semantic:incoming>sid-f4</semantic:incoming>
+      <semantic:outgoing>sid-f5</semantic:outgoing>
+      <semantic:outgoing>sid-f6</semantic:outgoing>
+    </semantic:exclusiveGateway>
+    <semantic:endEvent id="sid-rechazada" name="Solicitud rechazada">
+      <semantic:incoming>sid-f5</semantic:incoming>
+    </semantic:endEvent>
+    <semantic:subProcess completionQuantity="1" id="sid-emitir" isForCompensation="false" name="Emitir orden de compra" startQuantity="1" triggeredByEvent="false">
+      <semantic:incoming>sid-f6</semantic:incoming>
+      <semantic:outgoing>sid-f7</semantic:outgoing>
+      <semantic:startEvent id="sid-emitir-inicio">
+        <semantic:outgoing>sid-e1</semantic:outgoing>
+      </semantic:startEvent>
+      <semantic:manualTask completionQuantity="1" id="sid-seleccionar" isForCompensation="false" name="Seleccionar proveedor" startQuantity="1">
+        <semantic:incoming>sid-e1</semantic:incoming>
+        <semantic:outgoing>sid-e2</semantic:outgoing>
+      </semantic:manualTask>
+      <semantic:subProcess completionQuantity="1" id="sid-registrar" isForCompensation="false" name="Registrar orden en el ERP" startQuantity="1" triggeredByEvent="false">
+        <semantic:incoming>sid-e2</semantic:incoming>
+        <semantic:outgoing>sid-e3</semantic:outgoing>
+        <semantic:startEvent id="sid-registrar-inicio">
+          <semantic:outgoing>sid-r1</semantic:outgoing>
+        </semantic:startEvent>
+        <semantic:serviceTask completionQuantity="1" id="sid-generar" isForCompensation="false" name="Generar orden" startQuantity="1">
+          <semantic:incoming>sid-r1</semantic:incoming>
+          <semantic:outgoing>sid-r2</semantic:outgoing>
+          <semantic:dataOutputAssociation id="sid-asociacion-orden">
+            <semantic:sourceRef>sid-generar</semantic:sourceRef>
+            <semantic:targetRef>sid-dato-orden</semantic:targetRef>
+          </semantic:dataOutputAssociation>
+        </semantic:serviceTask>
+        <semantic:sendTask completionQuantity="1" id="sid-enviar" isForCompensation="false" name="Enviar orden al proveedor" startQuantity="1">
+          <semantic:incoming>sid-r2</semantic:incoming>
+          <semantic:outgoing>sid-r3</semantic:outgoing>
+        </semantic:sendTask>
+        <semantic:endEvent id="sid-registrar-fin" name="Orden registrada">
+          <semantic:incoming>sid-r3</semantic:incoming>
+        </semantic:endEvent>
+        <semantic:dataObjectReference dataObjectRef="sid-objeto-orden" id="sid-dato-orden" name="Orden de compra" />
+        <semantic:sequenceFlow id="sid-r1" sourceRef="sid-registrar-inicio" targetRef="sid-generar" />
+        <semantic:sequenceFlow id="sid-r2" sourceRef="sid-generar" targetRef="sid-enviar" />
+        <semantic:sequenceFlow id="sid-r3" sourceRef="sid-enviar" targetRef="sid-registrar-fin" />
+      </semantic:subProcess>
+      <semantic:endEvent id="sid-emitir-fin">
+        <semantic:incoming>sid-e3</semantic:incoming>
+      </semantic:endEvent>
+      <semantic:sequenceFlow id="sid-e1" sourceRef="sid-emitir-inicio" targetRef="sid-seleccionar" />
+      <semantic:sequenceFlow id="sid-e2" sourceRef="sid-seleccionar" targetRef="sid-registrar" />
+      <semantic:sequenceFlow id="sid-e3" sourceRef="sid-registrar" targetRef="sid-emitir-fin" />
+    </semantic:subProcess>
+    <semantic:parallelGateway gatewayDirection="Diverging" id="sid-bifurcacion">
+      <semantic:incoming>sid-f7</semantic:incoming>
+      <semantic:outgoing>sid-f8</semantic:outgoing>
+      <semantic:outgoing>sid-f9</semantic:outgoing>
+    </semantic:parallelGateway>
+    <semantic:receiveTask completionQuantity="1" id="sid-recibir" instantiate="false" isForCompensation="false" name="Recibir mercadería" startQuantity="1">
+      <semantic:incoming>sid-f8</semantic:incoming>
+      <semantic:outgoing>sid-f10</semantic:outgoing>
+    </semantic:receiveTask>
+    <semantic:businessRuleTask completionQuantity="1" id="sid-validar" isForCompensation="false" name="Validar factura contra orden" startQuantity="1">
+      <semantic:incoming>sid-f9</semantic:incoming>
+      <semantic:outgoing>sid-f11</semantic:outgoing>
+    </semantic:businessRuleTask>
+    <semantic:parallelGateway gatewayDirection="Converging" id="sid-union">
+      <semantic:incoming>sid-f10</semantic:incoming>
+      <semantic:incoming>sid-f11</semantic:incoming>
+      <semantic:outgoing>sid-f12</semantic:outgoing>
+    </semantic:parallelGateway>
+    <semantic:intermediateCatchEvent id="sid-plazo" name="Plazo de pago">
+      <semantic:incoming>sid-f12</semantic:incoming>
+      <semantic:outgoing>sid-f13</semantic:outgoing>
+      <semantic:timerEventDefinition id="sid-temporizador">
+        <semantic:timeDuration xsi:type="semantic:tFormalExpression">P30D</semantic:timeDuration>
+      </semantic:timerEventDefinition>
+    </semantic:intermediateCatchEvent>
+    <semantic:dataObject id="sid-objeto-orden" name="Orden de compra" />
+    <semantic:textAnnotation id="sid-anotacion" textFormat="text/plain">
+      <semantic:text>Mínimo tres cotizaciones</semantic:text>
+    </semantic:textAnnotation>
+    <semantic:association associationDirection="None" id="sid-asociacion" sourceRef="sid-anotacion" targetRef="sid-cotizar" />
+    <semantic:sequenceFlow id="sid-f1" sourceRef="sid-inicio" targetRef="sid-elaborar" />
+    <semantic:sequenceFlow id="sid-f2" sourceRef="sid-elaborar" targetRef="sid-cotizar" />
+    <semantic:sequenceFlow id="sid-f3" sourceRef="sid-cotizar" targetRef="sid-aprobar" />
+    <semantic:sequenceFlow id="sid-f4" sourceRef="sid-aprobar" targetRef="sid-aprobada" />
+    <semantic:sequenceFlow id="sid-f5" name="No" sourceRef="sid-aprobada" targetRef="sid-rechazada" />
+    <semantic:sequenceFlow id="sid-f6" name="Sí" sourceRef="sid-aprobada" targetRef="sid-emitir" />
+    <semantic:sequenceFlow id="sid-f7" sourceRef="sid-emitir" targetRef="sid-bifurcacion" />
+    <semantic:sequenceFlow id="sid-f8" sourceRef="sid-bifurcacion" targetRef="sid-recibir" />
+    <semantic:sequenceFlow id="sid-f9" sourceRef="sid-bifurcacion" targetRef="sid-validar" />
+    <semantic:sequenceFlow id="sid-f10" sourceRef="sid-recibir" targetRef="sid-union" />
+    <semantic:sequenceFlow id="sid-f11" sourceRef="sid-validar" targetRef="sid-union" />
+    <semantic:sequenceFlow id="sid-f12" sourceRef="sid-union" targetRef="sid-plazo" />
+    <semantic:sequenceFlow id="sid-f13" sourceRef="sid-plazo" targetRef="sid-pagar" />
+    <semantic:sequenceFlow id="sid-f14" sourceRef="sid-pagar" targetRef="sid-cerrada" />
+  </semantic:process>
+  <bpmndi:BPMNDiagram id="sid-diagrama-principal">
+    <bpmndi:BPMNPlane bpmnElement="sid-colaboracion" id="sid-plano-principal">
+      <bpmndi:BPMNShape bpmnElement="sid-pool-proveedor" id="sid-pool-proveedor_gui" isHorizontal="true">
+        <omgdc:Bounds height="100.0" width="1420.0" x="0.0" y="0.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-pool-empresa" id="sid-pool-empresa_gui" isHorizontal="true">
+        <omgdc:Bounds height="600.0" width="1420.0" x="0.0" y="130.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-carril-compras" id="sid-carril-compras_gui" isHorizontal="true">
+        <omgdc:Bounds height="280.0" width="1390.0" x="30.0" y="130.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-carril-comprador" id="sid-carril-comprador_gui" isHorizontal="true">
+        <omgdc:Bounds height="140.0" width="1360.0" x="60.0" y="130.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-carril-jefe" id="sid-carril-jefe_gui" isHorizontal="true">
+        <omgdc:Bounds height="140.0" width="1360.0" x="60.0" y="270.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-carril-almacen" id="sid-carril-almacen_gui" isHorizontal="true">
+        <omgdc:Bounds height="160.0" width="1390.0" x="30.0" y="410.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-carril-finanzas" id="sid-carril-finanzas_gui" isHorizontal="true">
+        <omgdc:Bounds height="160.0" width="1390.0" x="30.0" y="570.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-inicio" id="sid-inicio_gui">
+        <omgdc:Bounds height="30.0" width="30.0" x="90.0" y="185.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-elaborar" id="sid-elaborar_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="160.0" y="160.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-cotizar" id="sid-cotizar_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="300.0" y="160.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-aprobar" id="sid-aprobar_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="440.0" y="300.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-aprobada" id="sid-aprobada_gui" isMarkerVisible="true">
+        <omgdc:Bounds height="40.0" width="40.0" x="580.0" y="320.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-rechazada" id="sid-rechazada_gui">
+        <omgdc:Bounds height="30.0" width="30.0" x="585.0" y="375.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-emitir" id="sid-emitir_gui" isExpanded="false">
+        <omgdc:Bounds height="80.0" width="100.0" x="680.0" y="160.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-bifurcacion" id="sid-bifurcacion_gui">
+        <omgdc:Bounds height="40.0" width="40.0" x="820.0" y="470.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-recibir" id="sid-recibir_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="900.0" y="450.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-validar" id="sid-validar_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="900.0" y="610.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-union" id="sid-union_gui">
+        <omgdc:Bounds height="40.0" width="40.0" x="1040.0" y="630.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-plazo" id="sid-plazo_gui">
+        <omgdc:Bounds height="30.0" width="30.0" x="1110.0" y="635.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-pagar" id="sid-pagar_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="1180.0" y="610.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-cerrada" id="sid-cerrada_gui">
+        <omgdc:Bounds height="28.0" width="28.0" x="1330.0" y="636.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-anotacion" id="sid-anotacion_gui">
+        <omgdc:Bounds height="40.0" width="120.0" x="300.0" y="250.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="sid-mensaje-2" id="sid-mensaje-2_gui">
+        <omgdi:waypoint x="950.0" y="100.0" />
+        <omgdi:waypoint x="950.0" y="450.0" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+  <bpmndi:BPMNDiagram id="sid-diagrama-emitir">
+    <bpmndi:BPMNPlane bpmnElement="sid-emitir" id="sid-plano-emitir">
+      <bpmndi:BPMNShape bpmnElement="sid-emitir-inicio" id="sid-emitir-inicio_gui">
+        <omgdc:Bounds height="30.0" width="30.0" x="50.0" y="100.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-seleccionar" id="sid-seleccionar_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="120.0" y="75.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-registrar" id="sid-registrar_gui" isExpanded="true">
+        <omgdc:Bounds height="170.0" width="420.0" x="270.0" y="30.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-registrar-inicio" id="sid-registrar-inicio_gui">
+        <omgdc:Bounds height="30.0" width="30.0" x="290.0" y="100.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-generar" id="sid-generar_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="350.0" y="75.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-enviar" id="sid-enviar_gui">
+        <omgdc:Bounds height="80.0" width="100.0" x="500.0" y="75.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-registrar-fin" id="sid-registrar-fin_gui">
+        <omgdc:Bounds height="28.0" width="28.0" x="640.0" y="101.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-dato-orden" id="sid-dato-orden_gui">
+        <omgdc:Bounds height="50.0" width="36.0" x="382.0" y="140.0" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="sid-emitir-fin" id="sid-emitir-fin_gui">
+        <omgdc:Bounds height="28.0" width="28.0" x="740.0" y="101.0" />
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</semantic:definitions>
