@@ -44,6 +44,16 @@ function modelo(id: string, nombre: string): string {
   return id;
 }
 
+/** Topes de gasto: los comprueban la API al encolar y el worker antes de cada llamada a Claude. */
+export type TopesIa = Pick<ConfigIaServidor, 'presupuestoMensualUsd' | 'limiteUsuarioMensualUsd'>;
+
+function leerTopesIa(env: NodeJS.ProcessEnv): TopesIa {
+  return {
+    presupuestoMensualUsd: numero(env.PRESUPUESTO_IA_MENSUAL_USD, 100, 'PRESUPUESTO_IA_MENSUAL_USD'),
+    limiteUsuarioMensualUsd: numero(env.LIMITE_IA_USUARIO_MENSUAL_USD, 25, 'LIMITE_IA_USUARIO_MENSUAL_USD')
+  };
+}
+
 export function leerConfigIa(env: NodeJS.ProcessEnv = process.env): ConfigIaServidor {
   const permitidos = (env.MODELOS_IA_PERMITIDOS || 'claude-opus-5,claude-sonnet-5')
     .split(',').map((m) => m.trim()).filter(Boolean).map((m) => modelo(m, 'MODELOS_IA_PERMITIDOS'));
@@ -51,8 +61,7 @@ export function leerConfigIa(env: NodeJS.ProcessEnv = process.env): ConfigIaServ
     configurada: !!(env.ANTHROPIC_API_KEY ?? '').trim(),
     modelosPermitidos: permitidos,
     modeloAnalisis: modelo((env.MODELO_IA_ANALISIS || 'claude-sonnet-5').trim(), 'MODELO_IA_ANALISIS'),
-    presupuestoMensualUsd: numero(env.PRESUPUESTO_IA_MENSUAL_USD, 100, 'PRESUPUESTO_IA_MENSUAL_USD'),
-    limiteUsuarioMensualUsd: numero(env.LIMITE_IA_USUARIO_MENSUAL_USD, 25, 'LIMITE_IA_USUARIO_MENSUAL_USD')
+    ...leerTopesIa(env)
   };
 }
 
@@ -83,6 +92,8 @@ export interface ConfigWorker {
   concurrencia: number;
   pulseUrl?: string;
   pulseToken?: string;
+  /** Los mismos topes que la API (PRESUPUESTO_IA_MENSUAL_USD, LIMITE_IA_USUARIO_MENSUAL_USD). */
+  topesIa: TopesIa;
 }
 
 export function leerConfigWorker(env: NodeJS.ProcessEnv = process.env): ConfigWorker {
@@ -94,6 +105,7 @@ export function leerConfigWorker(env: NodeJS.ProcessEnv = process.env): ConfigWo
     urlAnthropic: (env.ANTHROPIC_BASE_URL ?? '').trim() || undefined,
     concurrencia: Math.max(1, Math.floor(numero(env.IA_CONCURRENCIA, 2, 'IA_CONCURRENCIA'))),
     pulseUrl: (env.PULSE_URL ?? '').trim() || undefined,
-    pulseToken: (env.PULSE_TOKEN ?? '').trim() || undefined
+    pulseToken: (env.PULSE_TOKEN ?? '').trim() || undefined,
+    topesIa: leerTopesIa(env)
   };
 }

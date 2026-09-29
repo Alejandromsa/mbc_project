@@ -46,6 +46,49 @@ test('la IA del servidor genera el proceso desde el editor y queda guardado como
   await expect(fila(page, 1)).toContainText('Proceso generado con IA desde texto pegado');
 });
 
+test('si el servidor no permite el modelo elegido, usa otro y el editor lo avisa', async ({ page }) => {
+  await entrar(page, 'editor');
+  await irAlProceso(page, 'Proceso sin revisiones');
+  const procesoId = new URL(page.url()).pathname.split('/').pop();
+  await page.getByRole('link', { name: 'Empezar a dibujarlo en el editor' }).click();
+  await expect(barra(page)).toContainText('sin revisiones todavía');
+
+  // El diálogo solo ofrece Opus 5 y Sonnet 5, y este servidor permite los dos: la petición pide
+  // Haiku 4.5, como si quien administra hubiera dejado fuera el modelo elegido.
+  await page.route('**/api/ia/generaciones', (route) =>
+    route.continue({ postData: JSON.stringify({ ...route.request().postDataJSON(), modelo: 'claude-haiku-4-5' }) }));
+  // El seguimiento (SSE) espera a que la prueba lo suelte: así se ven los avisos antes de que se guarde
+  let soltar;
+  const suelto = new Promise((r) => { soltar = r; });
+  await page.route('**/api/ia/ejecuciones/*/eventos', async (route) => { await suelto; await route.continue(); });
+
+  await page.locator('#btnIngest').click();
+  await page.evaluate(() => { document.querySelector('#ingestModal .ingest-more').open = true; });
+  await page.locator('#notesInput').fill('La mesa de ayuda recibe el reclamo del cliente, lo registra en el CRM y lo deriva al área responsable.');
+  await page.locator('#btnIngestGo').click();
+  await page.locator('#modalOk').click();   // nivel de detalle y modelo
+
+  // Aviso de la barra (queda tras el diálogo de ingesta) y nota en el progreso, que es lo que se ve mientras genera
+  await expect(page.locator('.piq-proyecto-aviso.piq-aviso-atencion'))
+    .toContainText('El servidor de IA no permite Claude Haiku 4.5: esta generación usa Claude Opus 5.');
+  await expect(page.locator('#ingestProgressText'))
+    .toContainText('Claude Haiku 4.5 no está permitido en el servidor: se usa Claude Opus 5. En cola en el servidor de IA');
+  await page.screenshot({ path: 'resultados/ia-modelo-sustituido.png' });
+  // Captura del aviso de la barra, que el diálogo de ingesta tapa (solo para revisar su aspecto)
+  const ingesta = page.locator('#ingestModal');
+  await ingesta.evaluate((m) => { m.style.visibility = 'hidden'; });
+  await page.locator('.piq-proyecto-aviso').screenshot({ path: 'resultados/ia-modelo-sustituido-aviso.png' });
+  await ingesta.evaluate((m) => { m.style.visibility = ''; });
+  soltar();
+
+  await expect(page.locator('.piq-proyecto-aviso')).toContainText('Proceso generado con IA y guardado como v1', { timeout: 30_000 });
+  expect(await nodos(page)).toBe(3);
+  // El coste del copiloto nombra el modelo que se usó de verdad
+  await expect(page.locator('#copilotMessages')).toContainText('precio de lista de Claude Opus 5');
+  const { ejecuciones } = await (await page.request.get(`/api/ia/procesos/${procesoId}`)).json();
+  expect(ejecuciones.map((e) => e.modelo)).toEqual(['claude-opus-5']);
+});
+
 test('una generación que terminó con la pestaña cerrada se ofrece al volver a abrir el proceso', async ({ page }) => {
   await entrar(page, 'editor');
   await irAlProceso(page, 'Proceso sin revisiones');
