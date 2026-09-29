@@ -23,7 +23,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Seguridad web (ola 2) | Montserrat propia, CSP obligatoria, `Permissions-Policy`, `fronteras.mjs` | `plataforma/csp` | `infra/Caddyfile`, fuentes, `herramientas/` | ✅ PR #16 |
 | Editor (ola 2) | Borradores locales, JSON completo, esquema v1, texto de Lint, tildes, casillas de Word | `plataforma/editor-pendientes` | `apps/web/src/app/`, `packages/dominio` | ✅ PR #17 |
 | Idiomas (ola 3) | La plataforma en español e inglés | `plataforma/i18n-shell` | `apps/web/src/shell/`, pantallas de los módulos | ✅ PR #18 |
-| BPMN | Importador: carriles, subprocesos, tipos y robustez | `plataforma/bpmn-importador` | `packages/bpmn`, `apps/web/src/app/bpmn/` | ⏳ |
+| BPMN | Importador: carriles, subprocesos, tipos y robustez | `plataforma/bpmn-importador` | `packages/bpmn`, `apps/web/src/app/bpmn/` | ✅ PR #20 |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
