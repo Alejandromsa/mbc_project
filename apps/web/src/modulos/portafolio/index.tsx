@@ -9,6 +9,7 @@ import { Link, Route, Router, Switch } from 'wouter';
 import { Vacio, useTitulo } from '../../shell/ui';
 import { Cliente } from './paginas/Cliente';
 import { Tablero } from './paginas/Tablero';
+import { useT } from './textos';
 import './estilos.css';
 
 /** wouter solo aplica decodeURI a la ruta: el resto (%2F, %26…) se decodifica aquí. */
@@ -34,6 +35,7 @@ export function RutasPortafolio() {
 
 /** La del shell enlaza a «/», que aquí dentro es el portafolio. */
 function NoEncontrada() {
-  useTitulo('No encontrada');
-  return <Vacio>Esta página no existe. <Link href="/">Volver al portafolio</Link>.</Vacio>;
+  const t = useT();
+  useTitulo(t('noEncontrada'));
+  return <Vacio>{t.rico('noEncontradaTexto', {}, { enlace: (texto) => <Link href="/">{texto}</Link> })}</Vacio>;
 }

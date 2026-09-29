@@ -2,12 +2,14 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
+import { useT } from '../i18n';
 import { useIrA, useVolver } from '../navegacion';
 import { CLAVE_SESION, useSesion, useUsuario } from '../sesion';
-import { Aviso, Boton, Campo, ErrorDe, useTitulo } from '../ui';
+import { Aviso, Boton, Campo, EnlaceEditor, ErrorDe, SelectorIdioma, useTitulo } from '../ui';
 
 export function Entrar() {
-  useTitulo('Entrar');
+  const t = useT();
+  useTitulo(t('entrar.titulo'));
   const volver = useVolver();
   const irA = useIrA();
   const cliente = useQueryClient();
@@ -33,16 +35,17 @@ export function Entrar() {
   return (
     <main className="acceso">
       <form className="tarjeta acceso-tarjeta" onSubmit={enviar}>
+        <SelectorIdioma />
         <img src="/logo-mbc.svg" alt="MBC" width={96} height={24} />
         <h1>ProcessIQ</h1>
-        <p className="sutil">Entra con tu cuenta para trabajar en los proyectos del equipo.</p>
-        <Campo etiqueta="Correo" type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Campo etiqueta="Contraseña" type="password" autoComplete="current-password" required value={clave} onChange={(e) => setClave(e.target.value)} />
+        <p className="sutil">{t('entrar.intro')}</p>
+        <Campo etiqueta={t('entrar.correo')} type="email" autoComplete="username" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Campo etiqueta={t('entrar.clave')} type="password" autoComplete="current-password" required value={clave} onChange={(e) => setClave(e.target.value)} />
         <ErrorDe error={entrar.error} />
-        <Boton type="submit" variante="primario" cargando={entrar.isPending}>Entrar</Boton>
+        <Boton type="submit" variante="primario" cargando={entrar.isPending}>{t('entrar.boton')}</Boton>
         <p className="sutil pie">
-          ¿No tienes cuenta o no recuerdas la contraseña? Pídesela a un administrador.<br />
-          También puedes <a href="/">usar el editor sin cuenta</a> (el trabajo queda en este navegador).
+          {t('entrar.sinCuenta')}<br />
+          {t.rico('entrar.editorSinCuenta', {}, { enlace: (texto) => <EnlaceEditor href="/">{texto}</EnlaceEditor> })}
         </p>
       </form>
     </main>
@@ -50,7 +53,8 @@ export function Entrar() {
 }
 
 export function CambiarClave() {
-  useTitulo('Cambiar contraseña');
+  const t = useT();
+  useTitulo(t('clave.titulo'));
   const usuario = useUsuario();
   const volver = useVolver();
   const irA = useIrA();
@@ -76,19 +80,19 @@ export function CambiarClave() {
 
   return (
     <form className="tarjeta formulario-estrecho" onSubmit={enviar}>
-      <h1>Cambiar contraseña</h1>
+      <h1>{t('clave.titulo')}</h1>
       {usuario.debeCambiarClave && (
-        <Aviso tipo="atencion">Estás usando una contraseña temporal. Elige una propia para continuar.</Aviso>
+        <Aviso tipo="atencion">{t('clave.avisoTemporal')}</Aviso>
       )}
-      <Campo etiqueta={usuario.debeCambiarClave ? 'Contraseña temporal' : 'Contraseña actual'} type="password"
+      <Campo etiqueta={usuario.debeCambiarClave ? t('clave.temporal') : t('clave.actual')} type="password"
         autoComplete="current-password" required autoFocus value={actual} onChange={(e) => setActual(e.target.value)} />
-      <Campo etiqueta="Contraseña nueva" type="password" autoComplete="new-password" required minLength={10}
-        ayuda="Al menos 10 caracteres, no solo números y sin tu usuario de correo." value={nueva} onChange={(e) => setNueva(e.target.value)} />
-      <Campo etiqueta="Repite la contraseña nueva" type="password" autoComplete="new-password" required value={repetir}
+      <Campo etiqueta={t('clave.nueva')} type="password" autoComplete="new-password" required minLength={10}
+        ayuda={t('clave.nuevaAyuda')} value={nueva} onChange={(e) => setNueva(e.target.value)} />
+      <Campo etiqueta={t('clave.repetir')} type="password" autoComplete="new-password" required value={repetir}
         onChange={(e) => setRepetir(e.target.value)} />
-      {noCoinciden && <Aviso tipo="error">Las dos contraseñas nuevas no coinciden.</Aviso>}
+      {noCoinciden && <Aviso tipo="error">{t('clave.noCoinciden')}</Aviso>}
       <ErrorDe error={cambiar.error} />
-      <Boton type="submit" variante="primario" cargando={cambiar.isPending}>Guardar contraseña</Boton>
+      <Boton type="submit" variante="primario" cargando={cambiar.isPending}>{t('clave.guardar')}</Boton>
     </form>
   );
 }

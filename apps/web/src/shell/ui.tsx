@@ -1,10 +1,11 @@
 // Piezas de interfaz del shell (sin librería de componentes: pocas y sencillas).
 import {
   useEffect, useId, useRef, useState,
-  type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes
+  type AnchorHTMLAttributes, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes
 } from 'react';
 import { ErrorApi, type EstadoRevision } from './api';
-import { ESTADOS } from './formato';
+import { IDIOMAS, cambiarIdioma, useT, type Idioma } from './i18n';
+import { mensajeDeError } from './mensajes';
 
 export function useTitulo(titulo: string) {
   useEffect(() => { document.title = `${titulo} · ProcessIQ`; }, [titulo]);
@@ -14,9 +15,10 @@ type Variante = 'primario' | 'secundario' | 'peligro' | 'sutil';
 
 export function Boton({ variante = 'secundario', cargando = false, className = '', children, ...resto }:
   ButtonHTMLAttributes<HTMLButtonElement> & { variante?: Variante; cargando?: boolean }) {
+  const t = useT();
   return (
     <button type="button" {...resto} className={`boton boton-${variante} ${className}`} disabled={resto.disabled || cargando} aria-busy={cargando}>
-      {cargando ? 'Un momento…' : children}
+      {cargando ? t('comun.unMomento') : children}
     </button>
   );
 }
@@ -58,10 +60,14 @@ export function Aviso({ tipo = 'info', children }: { tipo?: 'info' | 'error' | '
   return <div className={`aviso aviso-${tipo}`} role={tipo === 'error' ? 'alert' : 'status'}>{children}</div>;
 }
 
-/** Muestra el error de una llamada a la API, con el detalle de validación si lo hay. */
+/**
+ * Muestra el error de una llamada a la API, con el detalle de validación si lo hay.
+ * En inglés, el mensaje del servidor (en español) se traduce si se conoce (mensajes.ts).
+ */
 export function ErrorDe({ error }: { error: unknown }) {
+  const t = useT();
   if (!error) return null;
-  const mensaje = error instanceof Error ? error.message : 'Algo salió mal.';
+  const mensaje = mensajeDeError(error, t.idioma, t('comun.algoSalioMal'));
   const detalles = error instanceof ErrorApi && Array.isArray(error.detalles) ? error.detalles.map(String) : [];
   return (
     <Aviso tipo="error">
@@ -72,7 +78,8 @@ export function ErrorDe({ error }: { error: unknown }) {
 }
 
 export function Insignia({ estado }: { estado: EstadoRevision }) {
-  return <span className={`insignia insignia-${estado}`}>{ESTADOS[estado]}</span>;
+  const t = useT();
+  return <span className={`insignia insignia-${estado}`}>{t.estado(estado)}</span>;
 }
 
 export function Etiqueta({ children, tono = 'neutro' }: { children: ReactNode; tono?: 'neutro' | 'aviso' }) {
@@ -80,7 +87,8 @@ export function Etiqueta({ children, tono = 'neutro' }: { children: ReactNode; t
 }
 
 export function Cargando() {
-  return <p className="cargando" role="status">Cargando…</p>;
+  const t = useT();
+  return <p className="cargando" role="status">{t('comun.cargando')}</p>;
 }
 
 export function Vacio({ children }: { children: ReactNode }) {
@@ -108,16 +116,44 @@ export function Dialogo({ abierto, titulo, onCerrar, children, ancho = false }:
 
 /** Contraseña temporal: se muestra una sola vez, con botón para copiarla. */
 export function ClaveTemporal({ clave, para }: { clave: string; para: string }) {
+  const t = useT();
   const [copiada, setCopiada] = useState(false);
   return (
     <div className="clave-temporal">
-      <p>Contraseña temporal de <strong>{para}</strong>. Solo se muestra ahora: entrégasela por un canal seguro. Deberá cambiarla al entrar.</p>
+      <p>{t.rico('claveTemporal.texto', { para })}</p>
       <div className="clave-temporal-valor">
         <code>{clave}</code>
         <Boton variante="sutil" onClick={() => navigator.clipboard.writeText(clave).then(() => setCopiada(true))}>
-          {copiada ? 'Copiada' : 'Copiar'}
+          {copiada ? t('comun.copiada') : t('comun.copiar')}
         </Boton>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Enlace que abre el editor (/, /?proceso=…, /?revision=…). El editor no se
+ * traduce: en inglés, el `title` avisa de que abre en español.
+ */
+export function EnlaceEditor({ title, ...resto }: AnchorHTMLAttributes<HTMLAnchorElement>) {
+  const t = useT();
+  return <a {...resto} title={title ?? (t('comun.editorEnEspanol') || undefined)} />;
+}
+
+/** Nombre de cada idioma en su propio idioma, como se suele mostrar en un selector. */
+const NOMBRE_IDIOMA: Record<Idioma, string> = { es: 'Español', en: 'English' };
+
+/** «ES / EN»: cambia el idioma del shell y lo recuerda en este navegador (i18n.ts). */
+export function SelectorIdioma() {
+  const t = useT();
+  return (
+    <div className="idioma" role="group" aria-label={t('idioma.grupo')}>
+      {IDIOMAS.map((i) => (
+        <button key={i} type="button" lang={i} aria-label={NOMBRE_IDIOMA[i]} title={NOMBRE_IDIOMA[i]}
+          aria-pressed={t.idioma === i} onClick={() => cambiarIdioma(i)}>
+          {i.toUpperCase()}
+        </button>
+      ))}
     </div>
   );
 }

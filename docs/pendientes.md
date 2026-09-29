@@ -56,7 +56,8 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo `invitados` | ⏳ ola 2 |
 | Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo (`colaboracion`) | ⏳ ola 2: incremento 1 en revisión ([ADR 21](adr/0021-presencia-y-eventos-por-sse.md)) |
 | Edición simultánea del mismo diagrama (CRDT u operaciones en vivo) | Núcleo | 🔜 por decidir, sobre la base de `colaboracion` (necesitaría canal en los dos sentidos: otra ADR) |
-| Interfaz en inglés | Núcleo | 🔜 ola 3 (toca todas las pantallas: va cuando no haya módulos a medias) |
+| Interfaz en inglés: la plataforma (shell y pantallas de los módulos) | Núcleo | ⏳ ola 3: español e inglés, en revisión (`plataforma/i18n-shell`) |
+| Interfaz en inglés: el editor | Núcleo | 🔜 lo cubre la fidelidad byte a byte: hay que traducirlo sin cambiar el editor en español, que es el que se compara con el MVP |
 
 ## 5. Deuda técnica y hallazgos abiertos
 

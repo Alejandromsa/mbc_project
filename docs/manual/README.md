@@ -2,7 +2,7 @@
 
 Guía para consultores, managers y administradores: cómo entrar, organizar proyectos, dibujar y aprobar procesos, usar la IA y exportar entregables.
 
-Actualizado: 28-sep-2026.
+Actualizado: 29-sep-2026.
 
 Los términos del producto se explican en el [glosario](../glosario.md).
 
@@ -108,7 +108,23 @@ Pulsa «Salir», a la derecha de la cabecera. La página se recarga y no queda e
 | «Administración ▾» | Solo administradores: despliega «Usuarios», «Catálogos», «Auditoría», «IA» y «Sistema» (ver [9](#9-administración)). Un punto rojo avisa de que «Sistema» tiene algo que revisar |
 | «Editor libre» | Abre el editor sin proyecto; el trabajo queda en este navegador |
 | Tu nombre y tu rol | Rol en la organización: Administrador, Consultor o Lector |
+| «ES / EN» | Idioma de la plataforma (ver [2.7](#27-idioma-español-o-inglés)) |
 | «Cambiar contraseña» · «Salir» | Ver arriba |
+
+### 2.7 Idioma: español o inglés
+
+La plataforma de proyectos está en **español** y en **inglés**, para trabajar con clientes o equipos que no hablan español.
+
+- **Para cambiarlo**, pulsa «ES» o «EN» en la cabecera, junto a tu nombre, o en la pantalla «Entrar». El cambio es inmediato: no hace falta recargar.
+- **Se recuerda en este navegador.** La próxima vez que entres desde él, la plataforma sale en el idioma que elegiste; en otro navegador u otro equipo, vuelve a elegirlo. Si tienes otra pestaña abierta, cambia también.
+- **Por defecto, español**, aunque tu navegador esté en inglés: es el idioma del equipo y de los procesos.
+- **Qué se traduce:** menús, botones, títulos, avisos, estados («Draft», «In review», «Approved»), roles, fechas y números, y los mensajes de error más habituales.
+- **Qué no se traduce:**
+  - **el editor**, que sigue en español (en inglés, los enlaces que llevan a él lo avisan al pasar el ratón); tampoco la vista del cliente de un enlace de revisión;
+  - lo que escribe el equipo: nombres de proyectos y procesos, mensajes de revisión, la ficha, los KPIs y los verbos del catálogo;
+  - algunos textos que genera el servidor, como el detalle de un error de validación.
+
+Donde la versión inglesa menciona un botón o menú del editor, lo cita tal como aparece, en español, con la traducción entre paréntesis: “Exportar → JSON” (Export → JSON).
 
 ---
 
@@ -233,7 +249,7 @@ Mientras editas un proceso de proyecto, el editor guarda una copia en **tu naveg
   - «Descartarlos»: se abre la versión del servidor y la copia local se pierde.
   - Si los cambios eran sobre otra versión, el botón dice «Seguir con mis cambios sobre la vN».
 
-El borrador local solo existe en ese navegador y en ese equipo. Para que el equipo vea tu trabajo, guarda una revisión.
+El borrador local solo existe en ese navegador y en ese equipo. Para que el equipo vea tu trabajo, guarda una revisión. Al guardarla, la copia local se borra; las de otros procesos que llevan más de 30 días sin cambios se borran solas la próxima vez que abres un proceso.
 
 ### 4.6 Aviso de conflicto
 
@@ -440,7 +456,7 @@ El panel «IA» es el **copiloto**. Tiene acciones rápidas y un cuadro de coman
 |---|---|---|
 | «Generar proceso desde descripción» | Genera con IA por el mismo camino que la ingesta | Modo básico por palabras clave |
 | «Sugerir KPIs aplicables», «Proponer reingeniería to-be», «Generar matriz RACI», «Generar SIPOC», «Matriz impacto-esfuerzo», «Oportunidades de automatización», «Cuello de botella / ruta crítica», «Backlog de iniciativas», «Resumen ejecutivo» | Informe de la IA sobre este proceso, en texto, dentro del panel | Resultado local, por reglas o plantillas; RACI, SIPOC e impacto-esfuerzo abren una matriz |
-| «Analisis profundo de dolores (IA)» | Ver [6.9](#69-análisis-de-pains-con-ia) | Pide configurar la IA |
+| «Análisis profundo de dolores (IA)» | Ver [6.9](#69-análisis-de-pains-con-ia) | Pide configurar la IA |
 | «Detectar pains en el diagrama», «Comparador de escenarios (What-If)», «Análisis de variantes (event log)», «Mapa de valor Lean (VA/NVA)», «Autoajustar (verificar cruces)», «Reorganizar diagrama (compactar)», «Insertar compuertas de convergencia» | Siempre locales, sin IA | Igual |
 
 > Los informes de la IA en el copiloto **no se guardan con el proceso**. Copia lo que necesites antes de cerrar.
@@ -500,7 +516,7 @@ Algunas reglas:
 
 Los avisos tienen severidad crítica, alta, media o baja. Haz clic en un aviso para ir al nodo.
 
-> El panel indica que la severidad crítica «bloquea export». Hoy la exportación no se impide; aun así, no entregues un proceso con avisos críticos.
+> El panel describe la severidad crítica como «crítico (conviene resolverlo antes de exportar)»: la exportación no se bloquea, pero no entregues un proceso con avisos críticos.
 
 En un proceso de proyecto, los verbos permitidos y prohibidos son los de tu organización.
 
@@ -528,7 +544,7 @@ En un proceso de proyecto, los verbos permitidos y prohibidos son los de tu orga
 ### 5.18 Nuevo proceso e importar JSON en el editor
 
 - **«Nuevo»** vacía el lienzo. En el editor libre, lo actual se pierde si no lo exportaste.
-- **«Importar proyecto JSON»** (icono de subida) carga un JSON exportado y **reemplaza** el proceso abierto.
+- **«Importar proyecto JSON»** (icono de subida) carga un JSON exportado y **reemplaza** el proceso abierto. Restaura las dos vistas (As-Is y To-Be), los KPIs, RACI, SIPOC y la simulación; un JSON antiguo, solo con la vista activa, se importa como antes.
 
 En un proceso de proyecto, ambos cambios solo llegan al proyecto si después guardas una revisión.
 
@@ -557,8 +573,8 @@ La primera vez que generas en el editor libre sin código, aparece «Interpretar
 ### 6.2 Generar un proceso desde documentos o transcripciones
 
 1. Pulsa «Ingestar». Se abre la pestaña «📝 Notas / Documentación».
-2. Suelta tus documentos en la zona «Suelta aquí tus documentos» o haz clic para elegirlos. Admite Word (`.docx`), PDF, PowerPoint (`.pptx`), texto y BPMN. Puedes elegir varios a la vez.
-3. Para sumar más material, pulsa «+ Anadir otra fuente». También puedes abrir «o pega el texto a mano».
+2. Suelta tus documentos en la zona «Suelta aquí tus documentos» o haz clic para elegirlos. Admite Word (`.docx`), PDF, PowerPoint (`.pptx`), texto y BPMN. Puedes elegir varios a la vez. De un Word se leen también los controles de contenido de las plantillas y el estado de cada casilla: ☒ marcada, ☐ sin marcar.
+3. Para sumar más material, pulsa «+ Añadir otra fuente». También puedes abrir «o pega el texto a mano».
 4. Para una entrevista, usa la pestaña «🎤 Audio / Transcripción»: pega la transcripción (o grábala con «🔴 Grabar» en Chrome o Edge) y pulsa «Generar proceso desde transcripción →».
 5. Pulsa «Generar proceso» (con varias fuentes, «Combinar N fuentes y generar»).
 6. Si hay una transcripción con participantes, aparece «👥 ¿Quién es quién en la reunión?». Escribe el **rol** de cada persona (el rol será el carril, no el nombre) y pulsa «Usar estos roles». Deja en blanco a quien no participa en el proceso (por ejemplo, quien facilita la reunión).
@@ -648,7 +664,7 @@ Si no hay IA disponible, el editor extrae actividades por **palabras clave**. El
 
 ### 6.9 Análisis de pains con IA
 
-En el copiloto, pulsa «Analisis profundo de dolores (IA)». La respuesta separa dos cosas:
+En el copiloto, pulsa «Análisis profundo de dolores (IA)». La respuesta separa dos cosas:
 
 1. **Dolores detectados en el flujo**, con evidencia del propio proceso. Se añaden a sus actividades; los ves en el panel «Pains».
 2. **Hipótesis del sector**, que la IA no encontró en este flujo. Solo aparecen en el copiloto, como preguntas para validar con el cliente. No se añaden al diagrama.
@@ -674,11 +690,11 @@ Los fija quien opera el servidor. Puedes ver cuánto llevas gastado en ✨ «Aju
 
 Pulsa «Exportar» en la cabecera. La exportación se hace **en tu navegador** y el archivo se descarga directamente, con un nombre como `ProcessIQ_Proceso_de_compras_2026-09-28.pptx`.
 
-Se exporta lo que ves: la vista (As-Is o To-Be) y el nivel de detalle activos.
+Se exporta lo que ves: la vista (As-Is o To-Be) y el nivel de detalle activos. El JSON es la excepción: lleva el proceso completo.
 
 | Opción del menú | Qué obtienes | Para qué |
 |---|---|---|
-| «JSON · proyecto» | Archivo `.json` con los datos, la ficha y el diagrama de la vista activa | Copia de respaldo; llevar el trabajo a otro equipo o a un proyecto |
+| «JSON · proyecto» | Archivo `.json` con el proceso completo: las dos vistas (As-Is y To-Be), la ficha, los KPIs, RACI, SIPOC, la simulación y los carriles, como una revisión | Copia de respaldo; llevar el trabajo a otro equipo o a un proyecto |
 | «SVG · vectorial» | Imagen vectorial del diagrama | Documentos y ediciones sin pérdida |
 | «PNG · imagen» | Imagen del diagrama con fondo blanco | Correos, chats, documentos |
 | «BPMN 2.0 · Bizagi/Camunda» | Archivo BPMN 2.0 estándar | Abrirlo en otras herramientas BPMN |
@@ -727,7 +743,7 @@ El proceso se crea con su v1 («Importado del editor libre de un navegador»), c
 
 Cada archivo se convierte en un proceso con su v1. Al terminar, cada uno ofrece «Abrir en el editor» y «Ver sus revisiones».
 
-> El JSON exportado solo contiene la vista activa (As-Is o To-Be) con su ficha. Para conservar las dos vistas, importa desde el editor libre del mismo navegador (8.1).
+> El JSON exportado lleva el proceso completo (las dos vistas, la ficha, los KPIs, RACI, SIPOC y la simulación), así que el proceso llega entero al proyecto. Un JSON exportado con una versión anterior de ProcessIQ solo trae la vista que estaba activa.
 
 Solo puedes importar a proyectos donde eres editor o propietario y que no estén archivados. Para un solo JSON también sirve «Nuevo proceso» dentro del proyecto (ver [4.1](#41-crear-un-proceso)).
 
