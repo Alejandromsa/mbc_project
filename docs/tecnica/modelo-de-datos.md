@@ -736,6 +736,8 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
 | [0003_observabilidad.sql](../../packages/db/migraciones/0003_observabilidad.sql) | 26-sep-2026 | Tipo `origen_error`. Tablas `errores` y `latidos`. |
 | [0004_plantillas_proceso.sql](../../packages/db/migraciones/0004_plantillas_proceso.sql) | 28-sep-2026 | Tabla `plantillas_proceso`. |
 | [0005_auditoria_organizacion.sql](../../packages/db/migraciones/0005_auditoria_organizacion.sql) | 28-sep-2026 | Columna `auditoria.organizacion_id` (FK nulable), su índice y el relleno de las filas existentes (dos `UPDATE` añadidos a mano). |
+| [0006_conocimiento_busqueda.sql](../../packages/db/migraciones/0006_conocimiento_busqueda.sql) | 29-sep-2026 | Extensiones `pg_trgm` y `unaccent`, función `conocimiento_normalizar` (añadidas a mano, [ADR 19](../adr/0019-busqueda-pg-trgm-unaccent.md)). Tablas `conocimiento_indice` y `conocimiento_marco`. |
+| [0007_invitados_enlaces.sql](../../packages/db/migraciones/0007_invitados_enlaces.sql) | 29-sep-2026 | Tablas `invitados_enlaces` e `invitados_comentarios` ([ADR 20](../adr/0020-rutas-publicas-con-token.md)). |
 | [0008_colaboracion_presencias.sql](../../packages/db/migraciones/0008_colaboracion_presencias.sql) | 28-sep-2026 | Tabla `presencias` (colaboración, [ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)) con sus FK en cascada e índice por último latido. |
 
 Todas solo añaden: ninguna borra ni renombra. Cada migración tiene su instantánea en `migraciones/meta/NNNN_snapshot.json` y una entrada en [meta/_journal.json](../../packages/db/migraciones/meta/_journal.json) (`idx`, `when` en milisegundos, `tag`).

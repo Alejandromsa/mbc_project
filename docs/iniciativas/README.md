@@ -22,7 +22,7 @@ Salen de la fase 4 de `docs/arquitectura.md` §13. Para tomar una, se reserva co
 
 | Propuesta | Tipo previsto | Nota |
 |---|---|---|
-| Interfaz en inglés | Núcleo | Toca todas las pantallas; el editor está cubierto por la fidelidad |
+| Interfaz en inglés del editor (la plataforma ya lo está) | Núcleo | El editor está cubierto por la fidelidad byte a byte: hay que traducirlo sin cambiar el editor en español |
 
 ## Reservas
 

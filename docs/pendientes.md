@@ -2,11 +2,11 @@
 
 Todo lo que queda por hacer, con quién lo tiene y en qué estado está. Lo mantiene plataforma: el PR que cierra un punto lo marca aquí (✅) y, en la siguiente limpieza, lo quita.
 
-Actualizado: 28-sep-2026.
+Actualizado: 29-sep-2026.
 
 **Estados:** ⏳ en curso · 🔜 siguiente ola · ⛔ bloqueado · 🙋 lo hace una persona · ✅ hecho.
 
-## 1. Equipo de agentes (en curso)
+## 1. Equipo de agentes
 
 Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en sus zonas; abre un PR y no lo fusiona. Plataforma revisa, fusiona de uno en uno (regenerando migraciones si hace falta) y despliega. Reglas: [docs/equipo/](equipo/README.md).
 
@@ -14,11 +14,16 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 |---|---|---|---|---|
 | Tipado | Quitar `@ts-nocheck` de `pptx.ts`, `word.ts`, `ficha.ts` y `extraccion.ts` sin cambiar el JS emitido | `plataforma/tipar-nocheck` | `packages/exportar`, `packages/documentos` | ✅ PR #4 |
 | IA | Correcciones del núcleo de IA ([§5.1](#51-ia)) | `plataforma/ia-robustez` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `worker.ts` | ✅ PR #7 |
-| Operación | Seguridad y operación del servidor ([§5.2](#52-seguridad-y-operación)), despliegue automático a staging | `plataforma/operacion` | `infra/`, `docker-compose*.yml`, `.env*.example`, `config.ts`, `cli.ts`, `rutas/auditoria.ts`, `rutas/sistema.ts`, runbooks | ⏳ |
+| Operación | Seguridad y operación del servidor ([§5.2](#52-seguridad-y-operación)), despliegue automático a staging | `plataforma/operacion` | `infra/`, `docker-compose*.yml`, `.env*.example`, `config.ts`, `cli.ts`, `rutas/auditoria.ts`, `rutas/sistema.ts`, runbooks | ✅ PR #9 |
 | Portafolio | Iniciativa `portafolio`: tablero por cliente e indicadores | `portafolio/tablero` | [ficha](iniciativas/portafolio.md) | ✅ PR #6 |
-| Conocimiento | Iniciativa `conocimiento`: búsqueda sobre entregables y comparativo APQC | `conocimiento/busqueda` | [ficha](iniciativas/conocimiento.md) | ⏳ |
-| Invitados (ola 2) | Iniciativa `invitados`: enlace de solo lectura con caducidad y comentarios del cliente | `invitados/enlaces` | [ficha](iniciativas/invitados.md) | ⏳ |
-| Colaboración (ola 2) | Núcleo: presencia, «editando» y aviso de revisiones nuevas | `plataforma/colaboracion` | [ficha](iniciativas/colaboracion.md) | ⏳ incremento 1 en revisión (PR #15) |
+| Conocimiento | Iniciativa `conocimiento`: búsqueda sobre entregables y comparativo APQC | `conocimiento/busqueda` | [ficha](iniciativas/conocimiento.md) | ✅ PR #11 |
+| Invitados (ola 2) | Iniciativa `invitados`: enlace de solo lectura con caducidad y comentarios del cliente | `invitados/enlaces` | [ficha](iniciativas/invitados.md) | ✅ PR #13 |
+| Colaboración (ola 2) | Núcleo: presencia, «editando» y aviso de revisiones nuevas | `plataforma/colaboracion` | [ficha](iniciativas/colaboracion.md) | ✅ PR #15 |
+| Librerías (ola 2) | Evaluar pptxgenjs y mammoth: auditoría sin excepciones | `plataforma/librerias` | `apps/web/package.json`, ADR 17 | ✅ PR #14 |
+| Seguridad web (ola 2) | Montserrat propia, CSP obligatoria, `Permissions-Policy`, `fronteras.mjs` | `plataforma/csp` | `infra/Caddyfile`, fuentes, `herramientas/` | ✅ PR #16 |
+| Editor (ola 2) | Borradores locales, JSON completo, esquema v1, texto de Lint, tildes, casillas de Word | `plataforma/editor-pendientes` | `apps/web/src/app/`, `packages/dominio` | ✅ PR #17 |
+| Idiomas (ola 3) | La plataforma en español e inglés | `plataforma/i18n-shell` | `apps/web/src/shell/`, pantallas de los módulos | ✅ PR #18 |
+| BPMN | Importador: carriles, subprocesos, tipos y robustez | `plataforma/bpmn-importador` | `packages/bpmn`, `apps/web/src/app/bpmn/` | ⏳ |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -52,11 +57,11 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Iniciativa | Tipo | Estado |
 |---|---|---|
 | Portafolio de procesos por cliente e indicadores | Módulo `portafolio` | ✅ PR #6 |
-| Búsqueda sobre entregables anteriores y comparativo APQC PCF | Módulo `conocimiento` | ⏳ ola 1 (el comparativo necesita el archivo APQC) |
-| Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo `invitados` | ⏳ ola 2 |
-| Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo (`colaboracion`) | ⏳ ola 2: incremento 1 en revisión ([ADR 21](adr/0021-presencia-y-eventos-por-sse.md)) |
+| Búsqueda sobre entregables anteriores y comparativo APQC PCF | Módulo `conocimiento` | ✅ PR #11 (el comparativo necesita el archivo APQC: §2) |
+| Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo `invitados` | ✅ PR #13 |
+| Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo (`colaboracion`) | ✅ PR #15 ([ADR 21](adr/0021-presencia-y-eventos-por-sse.md)) |
 | Edición simultánea del mismo diagrama (CRDT u operaciones en vivo) | Núcleo | 🔜 por decidir, sobre la base de `colaboracion` (necesitaría canal en los dos sentidos: otra ADR) |
-| Interfaz en inglés: la plataforma (shell y pantallas de los módulos) | Núcleo | ⏳ ola 3: español e inglés, en revisión (`plataforma/i18n-shell`) |
+| Interfaz en inglés: la plataforma (shell y pantallas de los módulos) | Núcleo | ✅ PR #18 |
 | Interfaz en inglés: el editor | Núcleo | 🔜 lo cubre la fidelidad byte a byte: hay que traducirlo sin cambiar el editor en español, que es el que se compara con el MVP |
 
 ## 5. Deuda técnica y hallazgos abiertos
