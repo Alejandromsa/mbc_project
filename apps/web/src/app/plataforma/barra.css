@@ -66,3 +66,39 @@
   background: var(--white); font: inherit; font-size: var(--font-sm); font-weight: 600; cursor: pointer;
 }
 .piq-dialogo-acciones .piq-dialogo-principal { background: var(--trace); border-color: var(--trace); color: var(--white); }
+
+/* Avisos con acciones (p. ej. «Cargar la nueva versión» / «Seguir con la mía») */
+.piq-aviso-acciones { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-3); }
+.piq-aviso-acciones button {
+  padding: var(--space-1) var(--space-3); border: 1px solid var(--gray-300); border-radius: var(--radius-sm);
+  background: var(--white); color: var(--gray-800); font: inherit; font-weight: 600; cursor: pointer;
+}
+.piq-aviso-acciones button:hover { border-color: var(--trace); color: var(--trace-dk); }
+.piq-aviso-acciones .piq-aviso-principal { background: var(--trace); border-color: var(--trace); color: var(--white); }
+.piq-aviso-acciones .piq-aviso-principal:hover { background: var(--trace-dk); color: var(--white); }
+
+/* Colaboración (plataforma/colaboracion.js, ADR 21): quién más tiene abierto el proceso */
+.piq-presencia { display: flex; align-items: center; gap: var(--space-2); flex: none; }
+.piq-presencia[hidden] { display: none; }
+.piq-presencia-lista { display: flex; align-items: center; margin: 0; padding: 0 0 0 6px; list-style: none; }
+.piq-avatar {
+  display: grid; place-items: center; width: 26px; height: 26px; margin-left: -6px; border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--white); color: var(--white); font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+  line-height: 1; cursor: default; user-select: none;
+}
+.piq-avatar-c0 { background: var(--mbc-azul); }
+.piq-avatar-c1 { background: #6A1B9A; }
+.piq-avatar-c2 { background: #2E7D32; }
+.piq-avatar-c3 { background: var(--trace-dk); }
+.piq-avatar-c4 { background: #37474F; }
+.piq-avatar-mas { background: var(--gray-100); color: var(--gray-700); }
+/* Editando: anillo ámbar (el mismo color que «Cambios sin guardar») */
+.piq-avatar-editando { box-shadow: 0 0 0 2px var(--white), 0 0 0 4px var(--warning); position: relative; z-index: 1; }
+.piq-presencia-editando { color: var(--warning); font-size: var(--font-xs); font-weight: 600; white-space: nowrap; }
+/* Lápiz dibujado con una máscara: Montserrat no tiene el carácter y el de reserva se ve borroso */
+.piq-presencia-editando::before {
+  content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M11.6 1.2l3.2 3.2L5.2 14H2v-3.2z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M11.6 1.2l3.2 3.2L5.2 14H2v-3.2z'/%3E%3C/svg%3E") center / contain no-repeat;
+}

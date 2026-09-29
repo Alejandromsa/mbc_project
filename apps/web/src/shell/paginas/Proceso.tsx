@@ -1,12 +1,13 @@
 // Un proceso: sus revisiones y el flujo borrador -> en revisión -> aprobada.
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
 import { api, type EstadoRevision, type Revision } from '../api';
+import { conectarColaboracion, dondeEsta, iniciales, type Presente } from '../colaboracion';
 import { ROLES_PROYECTO, enEditor, fecha } from '../formato';
 import { puede } from '../permisos';
 import { useUsuario } from '../sesion';
-import { AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Insignia, Vacio, useTitulo } from '../ui';
+import { AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Etiqueta, Insignia, Vacio, useTitulo } from '../ui';
 import { InvitadosDelProceso } from '../../modulos/invitados';
 
 export function Proceso({ id }: { id: string }) {
@@ -19,6 +20,7 @@ export function Proceso({ id }: { id: string }) {
   const [plantillaDe, setPlantillaDe] = useState<Revision | null>(null);
   const [plantillaCreada, setPlantillaCreada] = useState<string | null>(null);
   const esAdmin = useUsuario().rol === 'admin';
+  const presentes = usePresencia(id, !!consulta.data, consulta.data?.revisiones[0]);
 
   const cambiarEstado = useMutation({
     mutationFn: ({ revision, estado }: { revision: string; estado: EstadoRevision }) => api.cambiarEstado(revision, estado),
@@ -47,6 +49,7 @@ export function Proceso({ id }: { id: string }) {
         <div>
           <h1>{proceso.nombre}</h1>
           <p className="sutil">Tu rol: <strong>{ROLES_PROYECTO[rol]}</strong> · Actualizado el {fecha(proceso.actualizadoEn)}</p>
+          <QuienLoTieneAbierto presentes={presentes} />
         </div>
         <div className="acciones">
           {escribe && <Boton onClick={() => setRenombrando(true)}>Renombrar</Boton>}
@@ -91,6 +94,53 @@ export function Proceso({ id }: { id: string }) {
         <Renombrar id={proceso.id} nombreActual={proceso.nombre} proyectoId={proceso.proyectoId} onCerrar={() => setRenombrando(false)} />
       </Dialogo>
     </>
+  );
+}
+
+/**
+ * Colaboración (ADR 21): esta página da su latido como «viendo» y escucha el proceso.
+ * Devuelve quién más lo tiene abierto; cuando alguien guarda una revisión (o cambia
+ * el estado de la última), vuelve a pedir el proceso y la tabla se actualiza sola.
+ */
+function usePresencia(procesoId: string, cargado: boolean, ultima: Revision | undefined): Presente[] {
+  const cliente = useQueryClient();
+  const [presentes, setPresentes] = useState<Presente[]>([]);
+  // Lo que muestra la tabla ahora (null = aún no se cargó: la consulta ya traerá lo último)
+  const mostrada = useRef<string | null>(null);
+  mostrada.current = cargado ? (ultima ? `${ultima.id}:${ultima.estado}` : '') : null;
+  useEffect(() => {
+    if (!cargado) return;
+    const conexion = conectarColaboracion({
+      procesoId,
+      lugar: 'shell',
+      alPresencia: (lista) => setPresentes(lista.filter((p) => !p.yo)),
+      alRevision: (r) => {
+        const llega = r ? `${r.id}:${r.estado}` : '';
+        if (mostrada.current !== null && llega !== mostrada.current) cliente.invalidateQueries({ queryKey: ['proceso', procesoId] });
+      }
+    });
+    return () => conexion.cerrar();
+  }, [procesoId, cargado, cliente]);
+  return presentes;
+}
+
+function QuienLoTieneAbierto({ presentes }: { presentes: Presente[] }) {
+  return (
+    <div aria-live="polite">
+      {presentes.length > 0 && (
+        <p className="sutil">
+          {presentes.length === 1 ? 'Ahora lo tiene abierto:' : 'Ahora lo tienen abierto:'}{' '}
+          {presentes.map((p) => {
+            const edita = p.estado === 'editando';
+            return (
+              <span key={p.usuarioId} title={`${p.nombre}: ${edita ? 'editando' : 'viendo'} ${dondeEsta(p)}`}>
+                <Etiqueta tono={edita ? 'aviso' : 'neutro'}>{iniciales(p.nombre)} · {p.nombre}{edita ? ', editando' : ''}</Etiqueta>{' '}
+              </span>
+            );
+          })}
+        </p>
+      )}
+    </div>
   );
 }
 
