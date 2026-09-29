@@ -24,6 +24,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
   - un límite no numérico en la auditoría ya no da error 500;
   - el worker purga cada hora las sesiones caducadas.
 - **IA:** el consumo de las llamadas cortadas a mitad (cancelación, inactividad, corte de red o parada del worker) se suma al coste de la ejecución y llega a Pulse; el worker vuelve a comprobar el presupuesto mensual y el límite por persona antes de cada llamada, reintentos incluidos; si el modelo elegido no está permitido, el servidor usa otro y el editor lo avisa; un aviso de la cola despierta a todos los bucles del worker; los reintentos se deciden por la clase marcada en el error, no por su texto.
+- **portafolio:** tablero por cliente en «Portafolio»: avance de los procesos hacia la aprobación e indicadores de su última revisión (actividades, roles, pains, tipo de ejecución, KPIs con valor y hallazgos del Playbook), solo con los proyectos que cada uno puede ver.
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 

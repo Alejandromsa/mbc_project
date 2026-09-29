@@ -1,0 +1,84 @@
+/* ============================================================
+   Portafolio (docs/iniciativas/portafolio.md). Solo clases .portafolio-*,
+   con los tokens de src/tokens.css y las piezas del shell (tabla, tarjeta…).
+   ============================================================ */
+
+/* Rampa de un solo tono (del más oscuro = aprobado al más claro = sin revisiones):
+   se lee como avance y no depende de distinguir colores. */
+.portafolio-tramo-aprobado { background: var(--success); }
+.portafolio-tramo-revision { background: #4E9F63; }
+.portafolio-tramo-borrador { background: #8CC49A; }
+.portafolio-tramo-sin { background: var(--gray-150); }
+
+.portafolio-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* .tabla th/.tabla td alinean a la izquierda con más especificidad */
+.tabla th.portafolio-num, .tabla td.portafolio-num { text-align: right; }
+.portafolio-sin-cliente { font-style: italic; }
+.portafolio-cliente { font-weight: 600; }
+.portafolio-casilla { margin-top: 0; }
+.portafolio-nota { font-size: var(--font-sm); margin: calc(-1 * var(--space-2)) 0 var(--space-4); }
+
+/* ---------- Barra de avance ---------- */
+.portafolio-barra {
+  display: flex; gap: 2px; height: 10px; min-width: 120px;
+  border-radius: 4px; overflow: hidden; background: var(--white);
+}
+.portafolio-barra > span { display: block; min-width: 4px; }
+.portafolio-barra-grande { height: 16px; margin: var(--space-2) 0 var(--space-3); }
+.portafolio-avance { display: flex; align-items: center; gap: var(--space-3); }
+.portafolio-avance .portafolio-barra { flex: 1; max-width: 260px; }
+.portafolio-avance-texto { font-size: var(--font-sm); color: var(--gray-700); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.portafolio-col-avance { width: 42%; }
+
+.portafolio-leyenda { list-style: none; padding: 0; margin: var(--space-3) 0 0; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); font-size: var(--font-sm); color: var(--gray-700); }
+.portafolio-leyenda li { display: inline-flex; align-items: center; gap: var(--space-2); }
+.portafolio-leyenda strong { color: var(--gray-900); font-variant-numeric: tabular-nums; }
+.portafolio-muestra { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+
+/* ---------- Cifras ---------- */
+.portafolio-cifras {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+}
+.portafolio-cifra {
+  background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5); box-shadow: var(--shadow-xs); min-width: 0;
+}
+.portafolio-cifra dt { font-size: var(--font-sm); font-weight: 600; color: var(--gray-600); }
+.portafolio-cifra dd { margin: var(--space-1) 0 0; display: flex; flex-direction: column; gap: 2px; }
+.portafolio-cifra-valor { font-size: var(--font-2xl); font-weight: 700; color: var(--mbc-azul); line-height: var(--leading-tight); }
+.portafolio-cifra-nota { font-size: var(--font-xs); color: var(--gray-600); }
+
+/* ---------- Bloques del detalle ---------- */
+.portafolio-bloque { margin-bottom: var(--space-4); min-width: 0; }
+.portafolio-bloque h2 { margin: 0 0 var(--space-3); font-size: var(--font-md); }
+.portafolio-bloque-cabecera { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); flex-wrap: wrap; }
+.portafolio-bloque-cabecera h2 { margin: 0; }
+.portafolio-bloque-cabecera p { margin: 0; font-size: var(--font-sm); }
+.portafolio-dos-columnas { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: var(--space-4); align-items: start; }
+
+/* Barras horizontales (tipo de ejecución): una sola serie, en el acento */
+.portafolio-barras { width: 100%; border-collapse: collapse; font-size: var(--font-sm); }
+.portafolio-barras th { text-align: left; font-weight: 500; color: var(--gray-800); padding: var(--space-1) var(--space-3) var(--space-1) 0; white-space: nowrap; }
+.portafolio-barras td { padding: var(--space-1) 0; }
+.portafolio-barras td.portafolio-num { padding-left: var(--space-3); }
+.portafolio-barras-pista { width: 100%; }
+.portafolio-barras-pista span { display: block; height: 10px; min-width: 4px; background: var(--trace); border-radius: 0 4px 4px 0; }
+.portafolio-sin-tipo th { color: var(--gray-600); font-style: italic; }
+.portafolio-sin-tipo .portafolio-barras-pista span { background: var(--gray-400); }
+
+.portafolio-pains td { vertical-align: top; }
+.portafolio-categoria { display: block; font-size: var(--font-xs); color: var(--gray-600); margin-top: 2px; }
+.portafolio-categoria a { color: var(--gray-700); }
+
+/* ---------- Procesos por proyecto ---------- */
+.portafolio-proyecto { margin-bottom: var(--space-5); }
+.portafolio-proyecto h3 { display: flex; align-items: center; gap: var(--space-2); font-size: var(--font-md); margin: 0 0 var(--space-2); }
+.portafolio-proyecto h3 a { color: var(--mbc-azul); text-decoration: none; }
+.portafolio-proyecto h3 a:hover { text-decoration: underline; }
+.portafolio-tabla td .insignia { margin-left: var(--space-1); }
+
+@media (max-width: 900px) {
+  .portafolio-dos-columnas { grid-template-columns: minmax(0, 1fr); }
+  .portafolio-col-avance { width: auto; }
+}
