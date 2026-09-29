@@ -34,12 +34,17 @@
 (tls-ninguno) {
 }
 
+# Cabeceras de todo el sitio. La E2E (pruebas/e2e/src/csp.mjs) las lee de aquí y
+# sirve la web con las mismas: una directiva nueva se prueba con `pnpm e2e`.
+# Qué necesita cada directiva de la CSP: docs/tecnica/seguridad.md §9.
 (cabeceras-seguridad) {
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.anthropic.com; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		Permissions-Policy "camera=(), geolocation=(), microphone=(self)"
 		-Server
 	}
 }
@@ -79,6 +84,8 @@
 		templates @html
 		header @html Cache-Control "no-cache"
 		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		# Montserrat (public/fonts/): nombres sin hash, así que una semana y no «immutable»
+		header /fonts/* Cache-Control "public, max-age=604800"
 		file_server
 	}
 
