@@ -69,6 +69,17 @@ export async function laminasPptx(buffer) {
 
 const texto = (d) => d.datos.toString('utf8');
 
+// D7 (docs/fase1-divergencias.md): la app nueva exporta el JSON completo (las
+// dos vistas, KPIs, RACI, SIPOC, simulación y carriles). Se compara la parte que
+// exporta el MVP: sus claves, en su orden. Lo nuevo lo prueba divergencias.spec.mjs.
+export const CLAVES_JSON_MVP = ['meta', 'ficha', 'nodes', 'edges', 'exportedAt'];
+export function jsonDelMvp(json) {
+  const d = JSON.parse(json);
+  // El del MVP pasa tal cual, byte a byte
+  if (JSON.stringify(Object.keys(d)) === JSON.stringify(CLAVES_JSON_MVP)) return json;
+  return JSON.stringify(Object.fromEntries(CLAVES_JSON_MVP.filter((k) => k in d).map((k) => [k, d[k]])), null, 2);
+}
+
 /**
  * Carga un proceso de ejemplo y devuelve sus artefactos.
  * @returns {Promise<Record<string, string>>} clave -> contenido textual
@@ -85,7 +96,7 @@ export async function capturarDemo(page, demo) {
 
   const json = await descargar(page, () => clicExport(page, 'json'));
   a['nombre-archivo.txt'] = json.nombre;
-  a['proyecto.json'] = texto(json);
+  a['proyecto.json'] = jsonDelMvp(texto(json));
   a['diagrama.svg'] = texto(await descargar(page, () => clicExport(page, 'svg')));
   a['proceso.bpmn'] = texto(await descargar(page, () => clicExport(page, 'bpmn')));
   a['informe.doc'] = texto(await descargar(page, () => clicExport(page, 'word')));

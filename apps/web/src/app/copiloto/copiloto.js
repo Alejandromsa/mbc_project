@@ -109,7 +109,7 @@ function handleCopilotAction(action) {
       setTimeout(insertMergeGateways, 250);
       break;
     case 'ai-pains':
-      copilotPost('user', 'Analisis profundo de dolores (IA).');
+      copilotPost('user', 'Análisis profundo de dolores (IA).');
       setTimeout(aiAnalyzePains, 200);
       break;
     case 'autofit':

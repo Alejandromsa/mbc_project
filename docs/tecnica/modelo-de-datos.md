@@ -785,7 +785,7 @@ El esquema es **abierto** (`loose`): acepta y conserva claves que no conoce. Sol
 | `edges` | lista | sí | cada arista ([§8.5](#85-aristas)) + `from`/`to` existentes | Aristas de la vista activa. |
 | `kpiValues` | objeto | no | registro de objetos | Valores de KPI capturados ([§8.10](#810-kpis-kpivalues)). |
 | `activeView` | `'asis'` \| `'tobe'` | no | ninguna | Vista activa ([§8.7](#87-vistas-as-is-y-to-be)). |
-| `views` | objeto | no | ninguna | Las dos vistas. |
+| `views` | objeto | no | tolerante: se normaliza, no se rechaza ([§8.7](#87-vistas-as-is-y-to-be)) | Las dos vistas. |
 | `lanes` | objeto | no | ninguna | Caché del layout de carriles ([§8.6](#86-carriles)). |
 | `raci` | objeto | no | ninguna | Matriz RACI ([§8.11](#811-análisis-guardados)). |
 | `sipoc` | objeto | no | ninguna | Tabla SIPOC. |
@@ -873,7 +873,7 @@ Tipos de ejecución (catálogo `EXECUTION_TYPES`):
 
 **Claves internas (prefijo `_`):**
 
-- `CLAVES_EFIMERAS` = `_d`, `_dSerie`, `_band`, `_inferredOwner`, `_sello`. Son cachés de pintado (ruta SVG de la arista, banda, responsable inferido, sello del modelo de niveles). La migración desde v0 y el editor las quitan antes de guardar.
+- `CLAVES_EFIMERAS` = `_d`, `_dSerie`, `_band`, `_inferredOwner`, `_sello`. Son cachés de pintado (ruta SVG de la arista, banda, responsable inferido, sello del modelo de niveles). `migrarProyecto` las quita de `nodes`, `edges` y de cada vista, venga de v0 o ya sea v1, y el editor también antes de guardar.
 - `_autoGen: true` **no** es efímera: marca el fin «Caso no procede» que crea el motor (`asegurarRamasDeDecision`) y se guarda.
 - `_hijos` y `_detalle` (ids y etiquetas de los nodos agrupados) marcan las cajas de grupo de los niveles Ejecutivo y Actividad. Tampoco son efímeras.
 
@@ -901,8 +901,13 @@ Las cachés `_d` (path SVG) y `_dSerie` se quitan como en los nodos.
 
 - `activeView`: `'asis'` o `'tobe'`.
 - `views`: `{ asis: { nodes, edges } | null, tobe: { nodes, edges } | null }`. Guarda las dos versiones del diagrama. `nodes` y `edges` de primer nivel son una copia de la vista activa.
-- El editor quita las `CLAVES_EFIMERAS` también dentro de `views`.
-- **Por el esquema solo se validan `nodes` y `edges` de primer nivel.** Los de `views` no se validan: un nodo inválido dentro de la vista inactiva se guarda sin error (comprobado con `migrarProyecto`).
+- El editor y `migrarProyecto` quitan las `CLAVES_EFIMERAS` también dentro de `views`.
+- **Validación tolerante.** Hasta el 29-sep-2026 las vistas no se revisaban, así que puede haber revisiones guardadas con cualquier cosa dentro. Por eso `migrarProyecto` las **normaliza en vez de rechazarlas** (`normalizarVistas`), con las mismas reglas que la migración desde v0 aplica al primer nivel:
+  - `views` que no es un objeto: se quita (el editor la trata como `{ asis: null, tobe: null }`);
+  - `asis` o `tobe` que no es un objeto: `null`; `nodes` o `edges` que no son una lista: `[]`; las entradas que no son objetos se quitan;
+  - nodos: `x`/`y` no finitos pasan a `0`, `w`/`h` no válidos toman el tamaño de su tipo, y la etiqueta ausente pasa a `''` (si no es texto, se convierte en texto); aristas: la etiqueta igual;
+  - las demás claves de `views` se conservan tal cual, y también el orden de las claves de cada nodo (la huella de los borradores no cambia).
+- Después, `ProyectoV1Esquema` exige esa forma (coordenadas finitas, tamaños positivos y etiquetas de texto) sin transformarla. En las vistas **no** se exigen ids únicos, tipos conocidos, pains válidos ni aristas con extremos existentes: eso sigue siendo solo del primer nivel, la vista activa.
 
 ### 8.8 Ficha de Proceso
 
@@ -973,7 +978,7 @@ Los que añade la IA traen además `evidence`, `impact` y `source: 'ia'` (`PainI
 
 ### 8.13 `schemaVersion` y migración desde el MVP (v0)
 
-**v0** es el formato del MVP 3.8.9: el export JSON (`{ meta, ficha, nodes, edges, exportedAt }`) y lo que guarda `localStorage` (`processiq.v1`, que además lleva `views`, `lanes`, `raci`…). No tiene número de versión.
+**v0** es el formato del MVP 3.8.9: el export JSON (`{ meta, ficha, nodes, edges, exportedAt }`) y lo que guarda `localStorage` (`processiq.v1`, que además lleva `views`, `lanes`, `raci`…). No tiene número de versión. El «Exportar → JSON» del editor de ahora también es v0, pero completo: lleva además `activeView`, `views`, `raci`, `sipoc`, `simResults`, `kpiValues` y `lanes` (divergencia D7 en [fase1-divergencias.md](../fase1-divergencias.md)).
 
 `migrarProyecto(entrada)`:
 
@@ -996,10 +1001,13 @@ Qué hace la migración v0 → v1:
 - Copia `kpiValues`, `raci`, `sipoc`, `simResults`, `views`, `activeView` y `lanes` si no son `null`.
 - **Descarta todo lo demás** del primer nivel (`exportedAt`, `nextId`, `savedAt`…). El editor recalcula `nextId` al abrir.
 
+Después, venga de la versión que venga (también si ya era v1), `normalizarV1` quita las `CLAVES_EFIMERAS` de `nodes`, `edges` y de cada vista, y normaliza `views` ([§8.7](#87-vistas-as-is-y-to-be)).
+
 Cosas a tener en cuenta:
 
 - **Idempotente:** un v1 válido sale con el mismo contenido (lo prueba [esquema.test.ts](../../packages/dominio/src/esquema.test.ts)).
-- Con una entrada que ya es v1 no se ejecuta ninguna migración. Se conservan las claves desconocidas, **no se quitan las efímeras** y no se completa nada: `meta` y `ficha` tienen que venir enteras.
+- Con una entrada que ya es v1 no se ejecuta ninguna migración: se conservan las claves desconocidas y no se completa nada del primer nivel (`meta` y `ficha` tienen que venir enteras). Sí se quitan las efímeras y se normalizan las vistas, como desde v0.
+- Ningún contenido que se aceptaba antes de esos dos cambios (29-sep-2026) se rechaza ahora: los fixtures del MVP, los v1 que guardaba la versión anterior y lo que envía el editor salen idénticos; solo cambian las vistas con cachés o con forma rara.
 - **Zod reordena las claves:** primero las del esquema y después las demás (en los nodos, `pains` pasa a ir tras `label`). No compares por texto la entrada con la salida.
 - **Añadir la versión 2:**
   1. Añadir `MIGRACIONES[1]` (de v1 a v2).

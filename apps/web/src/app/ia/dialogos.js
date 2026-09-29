@@ -54,15 +54,15 @@ function askProfundidad(info) {
   return new Promise(resolve => {
     const html =
       '<p class="panel-hint">El proceso se genera <b>completo</b> en cualquier caso. Esto define ' +
-      'con cuanto detalle lo mira la IA y en que vista se abre; podras cambiar de vista cuando ' +
+      'con cuánto detalle lo mira la IA y en qué vista se abre; podrás cambiar de vista cuando ' +
       'quieras con el selector <b>Nivel de detalle</b>, sin volver a generar.</p>' +
       '<div class="prof-opts">' +
       '<label class="prof-opt"><input type="radio" name="prof" value="1" />' +
-      '<span><b>Ejecutivo</b><small>Los hitos y las decisiones. Para comite o SteerCo.</small></span></label>' +
+      '<span><b>Ejecutivo</b><small>Los hitos y las decisiones. Para comité o SteerCo.</small></span></label>' +
       '<label class="prof-opt"><input type="radio" name="prof" value="2" checked />' +
       '<span><b>Actividad</b><small>Lo que hace cada rol de principio a fin. El equilibrio habitual.</small></span></label>' +
       '<label class="prof-opt"><input type="radio" name="prof" value="3" />' +
-      '<span><b>Detalle</b><small>Cada paso operativo. Para manual de procedimientos o automatizacion.</small></span></label>' +
+      '<span><b>Detalle</b><small>Cada paso operativo. Para manual de procedimientos o automatización.</small></span></label>' +
       '</div>' +
       // v3.8.7: el modelo se elige AQUI, viendo lo que cuesta cada uno (antes
       // solo estaba en Ajustes de IA). Se guarda como preferencia del navegador.

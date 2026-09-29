@@ -164,6 +164,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
     - Las librerías que sondean `eval` se configuran para no hacerlo (zod: `jitless`, ver `apps/web/public/zod-sin-eval.js`).
     - Lo que prohíbe la CSP se prueba con código que corre la propia página (`setTimeout('…')`, un `<script>` insertado), nunca con el código de `page.evaluate`. Y siempre con un control que demuestre que la política bloquea: sin él, «cero violaciones» puede ser una CSP que no se aplica.
 
+22p. **La herramienta de edición se comió un espacio al final del reemplazo.** Para cambiar «crítico bloquea export · » en `index.html`, el texto buscado terminaba en espacio y el nuevo también. El buscado coincidió con su espacio, pero el nuevo llegó sin él: quedó «exportar) ·<span…», pegado a la etiqueta siguiente. El build y las pruebas pasaban; se vio al revisar `git diff` con `cat -A`.
+    → **Regla:** un reemplazo con la herramienta de edición no empieza ni termina en espacio: se alarga hasta un carácter visible (`· <span class=…`). Después de editar textos de interfaz, revisar el diff con los espacios a la vista (`git diff | cat -A`).
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.
