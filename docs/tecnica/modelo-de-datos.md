@@ -448,6 +448,43 @@ Errores inesperados de API, web, editor y worker ([ADR 15](../adr/0015-observabi
 
 Drizzle crea el esquema `drizzle` con la tabla `__drizzle_migrations (id, hash, created_at)`. Guarda una fila por migración aplicada, con la marca de tiempo del journal en `created_at`. No se toca a mano ([§7](#7-migraciones)).
 
+### Invitados (iniciativa `invitados`)
+
+Enlaces de solo lectura a una revisión y los comentarios de quien los abre ([ficha](../iniciativas/invitados.md), [ADR 20](../adr/0020-rutas-publicas-con-token.md)). Los escribe solo el módulo `apps/api/src/modulos/invitados`.
+
+#### `invitados_enlaces`
+
+| Columna | Tipo | Nulo | Por defecto | Significado |
+|---|---|:-:|---|---|
+| `id` | uuid | no | `gen_random_uuid()` | Clave primaria. |
+| `organizacion_id`, `proyecto_id`, `proceso_id`, `revision_id` | uuid | no | — | FK (`cascade`) a la revisión compartida y a lo que la contiene. |
+| `token_hash` | text | no | — | SHA-256 del token del enlace, único. El token solo se muestra al crearlo. |
+| `destinatario` | text | no | — | A quién se envió (texto libre). |
+| `admite_comentarios` | boolean | no | `true` | Si el invitado puede comentar. |
+| `caduca_en` | timestamptz | no | — | Alta + los días elegidos (14 por defecto, 90 como máximo). |
+| `revocado_en`, `revocado_por` | timestamptz, uuid | sí | — | Revocado si tiene fecha; `revocado_por` FK → `usuarios` (`set null`). |
+| `creado_por` | uuid | no | — | FK → `usuarios` (`no action`). |
+| `creado_en` | timestamptz | no | `now()` | Alta. |
+| `ultimo_acceso` | timestamptz | sí | — | Última vez que alguien lo abrió. |
+
+Índices `invitados_enlaces_proceso_idx (proceso_id)` y `invitados_enlaces_revision_idx (revision_id)`.
+
+#### `invitados_comentarios`
+
+| Columna | Tipo | Nulo | Por defecto | Significado |
+|---|---|:-:|---|---|
+| `id` | uuid | no | `gen_random_uuid()` | Clave primaria. |
+| `enlace_id` | uuid | no | — | FK → `invitados_enlaces` (`cascade`). |
+| `revision_id` | uuid | no | — | FK → `revisiones` (`cascade`): la del enlace. |
+| `elemento_id` | text | sí | — | Id del nodo comentado; `null` = la revisión en general. |
+| `elemento_etiqueta` | text | sí | — | Etiqueta del nodo al comentar («(To-Be)» si es de esa vista). |
+| `nombre` | text | no | — | El nombre que escribió el invitado (no se piden correos). |
+| `texto` | text | no | — | El comentario (hasta 4 000 caracteres). |
+| `creado_en` | timestamptz | no | `now()` | Alta. |
+| `resuelto_en`, `resuelto_por` | timestamptz, uuid | sí | — | Resuelto si tiene fecha; `resuelto_por` FK → `usuarios` (`set null`). |
+
+Índices `invitados_comentarios_enlace_idx (enlace_id)` y `invitados_comentarios_revision_idx (revision_id)`.
+
 ---
 
 ## 5. Canales `LISTEN/NOTIFY`
