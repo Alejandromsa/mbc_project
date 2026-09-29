@@ -41,6 +41,7 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 | `/api/invitados/…`, `/api/publico/invitados/…`, `/?invitado=<token>` | `invitados` |
 | `/api/publico/` (prefijo sin sesión: cada ruta valida su propio token) | `nucleo` (lo estrena `invitados`) |
 | `/api/procesos/:id/presencia`, `/api/procesos/:id/eventos` | `colaboracion` (núcleo) |
+| `/fonts/` (Montserrat), `/zod-sin-eval.js` | `nucleo` |
 
 ### Base de datos
 
