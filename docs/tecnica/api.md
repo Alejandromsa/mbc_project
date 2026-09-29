@@ -85,10 +85,18 @@ Permiso: **público** = sin sesión; **usuario** = cualquier sesión válida; **
 | GET | `/api/sistema/errores/:huella` | admin | Últimas repeticiones de un error |
 | GET | `/api/portafolio/clientes` | usuario | Portafolio: clientes de los proyectos visibles, con su avance |
 | GET | `/api/portafolio/cliente?nombre=` | usuario | Portafolio: un cliente con sus procesos e indicadores |
+| POST | `/api/invitados/revisiones/:id/enlaces` | escribir | Invitados: crea un enlace de solo lectura a una revisión (el token solo va en esta respuesta) |
+| GET | `/api/invitados/procesos/:id/enlaces` | escribir ⁴ | Invitados: enlaces de las revisiones del proceso |
+| POST | `/api/invitados/enlaces/:id/revocar` | escribir | Invitados: revoca un enlace |
+| GET | `/api/invitados/procesos/:id/comentarios` | leer | Invitados: comentarios de los invitados en el proceso |
+| POST | `/api/invitados/comentarios/:id/resolver` | escribir | Invitados: marca o desmarca un comentario como resuelto |
+| GET | `/api/publico/invitados/:token` | público (token) | Invitados: la revisión del enlace, el nombre del proceso y los comentarios de ese enlace |
+| POST | `/api/publico/invitados/:token/comentarios` | público (token) | Invitados: el invitado comenta la revisión o un elemento del diagrama |
 
 ¹ También con la contraseña temporal pendiente de cambio (ver [Contraseña temporal](#contraseña-temporal)).
 ² `escribir` para pasar de `borrador` a `en_revision`; `aprobar` para aprobar o devolver.
 ³ Un usuario que no es admin solo recibe las activas.
+⁴ Se comprueba sin mirar si el proyecto está archivado: la lista se sigue viendo, pero no se crea ni se revoca (409 `ARCHIVADO`).
 
 ## Convenciones generales
 
@@ -118,6 +126,8 @@ Toda petición que no sea `GET`, `HEAD` u `OPTIONS` debe traer la cabecera `Orig
 ### Rutas públicas
 
 Solo tres rutas no piden sesión: `GET /api/salud`, `POST /api/sesion` y `POST /api/errores`. Cualquier otra ruta bajo `/api`, **incluso una que no existe**, responde 401 sin sesión. Con sesión, una ruta inexistente responde 404 `{ "error": { "mensaje": "Ruta no encontrada." } }`.
+
+**Prefijo `/api/publico/`** ([ADR 20](../adr/0020-rutas-publicas-con-token.md)): las rutas que cuelgan de él no leen la cookie ni ven a ningún usuario, aunque el navegador tenga sesión. Cada una valida su propio token (hoy, las de [invitados](#invitados-apiinvitados-y-apipublicoinvitados)). Tienen límite de uso por IP, y las escrituras siguen exigiendo el `Origin`. Bajo ese prefijo, una ruta que no existe responde 404, no 401.
 
 ### Contraseña temporal
 
@@ -175,12 +185,14 @@ Un proyecto archivado es de solo lectura:
 
 ### Límites de uso
 
-Los dos límites viven en memoria (hay una sola instancia de la API) y se reinician al reiniciarla. La IP es la primera de `X-Forwarded-For`, que pone Caddy; sin ella, `local`.
+Los límites viven en memoria (hay una sola instancia de la API) y se reinician al reiniciarla. La IP es la primera de `X-Forwarded-For`, que pone Caddy; sin ella, `local`.
 
 | Ruta | Límite | Respuesta |
 |---|---|---|
 | `POST /api/sesion` | Más de 10 fallos en 15 min **por correo o por IP** bloquean ese correo o esa IP hasta que acaba la ventana (cuenta desde el primer fallo). Un acceso correcto borra los fallos del correo, no los de la IP. | 429 `BLOQUEADO` |
 | `POST /api/errores` | 20 informes por minuto y por IP. Se cuenta antes de validar el cuerpo. | 429 `LIMITE` |
+| Todo `/api/publico/` | 120 peticiones por minuto y por IP, también con tokens inventados (`app.ts`). | 429 `LIMITE` |
+| `POST /api/publico/invitados/:token/comentarios` | 20 comentarios cada 10 min por enlace. | 429 `LIMITE` |
 
 ### Ejemplo: sesión con `curl` en desarrollo
 
@@ -888,7 +900,9 @@ Un proceso completo del que se parte al crear otro (`POST /api/proyectos/:id/pro
 | 403 | `ORIGEN` | Escritura con un `Origin` distinto de `ORIGEN_PUBLICO` (o sin él) | toda ruta que no sea GET/HEAD/OPTIONS |
 | 403 | `CAMBIAR_CLAVE` | Hay que cambiar la contraseña temporal antes | toda ruta salvo las de sesión y las públicas |
 | 403 | `PERMISO` | No eres admin, tu rol de proyecto no tiene la capacidad o (lector de organización) intentas crear un proyecto | rutas de admin, de proyecto y `POST /api/proyectos` |
+| 403 | `INVITADOS_SIN_COMENTARIOS` | El enlace de invitado no admite comentarios | `POST /api/publico/invitados/:token/comentarios` |
 | 404 | *(sin código)* | No existe, id con formato inválido o proyecto sin acceso | cualquier ruta con id; ruta inexistente |
+| 404 | `INVITADOS_ENLACE_NO_VALIDO` | Token de invitado inventado, mal formado, caducado, revocado o de un proyecto archivado (el mismo mensaje en todos los casos) | `/api/publico/invitados/…` |
 | 409 | `ARCHIVADO` | El proyecto está archivado | escrituras en proyectos, procesos, revisiones e IA |
 | 409 | `DUPLICADO` | Ya existe un usuario con ese correo, un tema con esa clave o una plantilla con ese nombre | `POST /api/usuarios`, `POST /api/catalogos/temas`, `POST` y `PATCH /api/catalogos/plantillas` |
 | 409 | `AUTOBLOQUEO` | Un admin intenta quitarse el rol `admin` o desactivarse | `PATCH /api/usuarios/:id` |
@@ -902,8 +916,7 @@ Un proceso completo del que se parte al crear otro (`POST /api/proyectos/:id/pro
 | 409 | `CLAVE_RESERVADA` | La clave del tema es `mbc` o `bbva` | `POST /api/catalogos/temas` |
 | 413 | *(sin código)* | Cuerpo de más de 8 MB | cualquier ruta |
 | 429 | `BLOQUEADO` | Más de 10 fallos de acceso en 15 min por correo o IP | `POST /api/sesion` |
-| 429 | `LIMITE` | Más de 20 informes de error por minuto e IP | `POST /api/errores` |
-| 500 | `INTERNO` | Error inesperado; trae `referencia` (= `X-Request-Id`) | cualquier ruta |
+| 429 | `LIMITE` | Más de 20 informes de error por minuto e IP; más de 120 peticiones por minuto e IP a `/api/publico/`; más de 20 comentarios en 10 min por enlace de invitado | `POST /api/errores`, `/api/publico/…` || 500 | `INTERNO` | Error inesperado; trae `referencia` (= `X-Request-Id`) | cualquier ruta |
 | 0 | `RED` | **Solo en el cliente** ([api.ts](../../apps/web/src/shell/api.ts)): no hubo respuesta del servidor | — |
 
 ## Acciones de auditoría
@@ -942,6 +955,10 @@ Todas las escrituras relevantes llaman a `registrar()` ([auditoria.ts](../../app
 | `catalogo.plantilla.alta` | `plantilla_proceso` | `{ nombre, revisionId }` | `POST /api/catalogos/plantillas` |
 | `catalogo.plantilla.cambio` | `plantilla_proceso` | campos enviados | `PATCH /api/catalogos/plantillas/:id` |
 | `catalogo.plantilla.baja` | `plantilla_proceso` | `{ nombre }` | `DELETE /api/catalogos/plantillas/:id` |
+| `invitados.enlace.alta` | `invitados_enlace` | `{ procesoId, revisionId, numero, destinatario, dias, admiteComentarios }` | `POST /api/invitados/revisiones/:id/enlaces` |
+| `invitados.enlace.baja` | `invitados_enlace` | `{ procesoId, revisionId, destinatario }` | `POST /api/invitados/enlaces/:id/revocar` |
+| `invitados.comentario.alta` | `invitados_comentario` | `{ enlaceId, procesoId, revisionId, nombre, elementoId }` (sin usuario: lo escribe un invitado) | `POST /api/publico/invitados/:token/comentarios` |
+| `invitados.comentario.resolucion` | `invitados_comentario` | `{ procesoId, resuelto }` | `POST /api/invitados/comentarios/:id/resolver` |
 
 No dejan rastro: `POST /api/ia/ejecuciones/:id/descartar` y `POST /api/errores`.
 
@@ -979,7 +996,7 @@ Los demás errores de Anthropic se reenvían con su estado original.
 
 ## Módulos de iniciativas
 
-Cada iniciativa monta sus rutas bajo `/api/<clave>/` ([docs/equipo/nueva-iniciativa.md](../equipo/nueva-iniciativa.md)). Todas exigen sesión y aplican las convenciones de arriba. El detalle de cada una está en su ficha ([registro](../iniciativas/README.md)).
+Cada iniciativa monta sus rutas bajo `/api/<clave>/` ([docs/equipo/nueva-iniciativa.md](../equipo/nueva-iniciativa.md)). Todas exigen sesión y aplican las convenciones de arriba, salvo las que cuelgan de `/api/publico/<clave>/`, que validan su propio token ([ADR 20](../adr/0020-rutas-publicas-con-token.md)). El detalle de cada una está en su ficha ([registro](../iniciativas/README.md)).
 
 ### Portafolio (`/api/portafolio`)
 
@@ -989,6 +1006,27 @@ Cada iniciativa monta sus rutas bajo `/api/<clave>/` ([docs/equipo/nueva-iniciat
 |---|---|
 | `GET /api/portafolio/clientes` | `{ "clientes": [ { cliente, proyectos, procesos, avance, actualizadoEn } ] }`. Agrupa por el texto `cliente` de los proyectos sin distinguir mayúsculas, tildes ni espacios; `cliente: ""` son los proyectos sin cliente (al final). `avance` cuenta los procesos por estado de su última revisión (aprobada, en revisión, borrador, sin revisiones). |
 | `GET /api/portafolio/cliente?nombre=…` | `{ cliente, resumen, indicadores, proyectos: [ { id, nombre, archivado, procesos: [ { id, nombre, ultimaRevision, indicadores, contenidoInvalido } ] } ] }`. Los indicadores salen del contenido v1 de la última revisión: actividades por tipo, roles, tipo de ejecución, pains y su puntuación, KPIs y hallazgos del linter del Playbook (con los verbos de la organización). 404 `PORTAFOLIO_CLIENTE_NO_ENCONTRADO` si el usuario no ve ningún proyecto de ese cliente, igual que si no existe. |
+
+### Invitados (`/api/invitados` y `/api/publico/invitados`)
+
+[modulos/invitados](../../apps/api/src/modulos/invitados) · [ficha](../iniciativas/invitados.md) · [ADR 20](../adr/0020-rutas-publicas-con-token.md). Enlaces de solo lectura a una revisión, con caducidad, para que el cliente la vea sin cuenta y la comente.
+
+Con sesión (gestión del equipo). El objeto `enlace` es `{ id, revisionId, destinatario, admiteComentarios, caducaEn, revocadoEn, creadoEn, ultimoAcceso, creadoPor, comentarios, estado }`, con `creadoPor` = nombre, `comentarios` = cuántos llegaron por él y `estado` = `activo` | `caducado` | `revocado`. **Nunca lleva el token.** El `comentario` es `{ id, enlaceId, revisionId, destinatario, nombre, texto, elementoId, elementoEtiqueta, creadoEn, resueltoEn, resueltoPor }` (`resueltoPor` = nombre).
+
+| Método y ruta | Cuerpo | Respuesta | Auditoría |
+|---|---|---|---|
+| `POST /api/invitados/revisiones/:id/enlaces` | `destinatario` (1–120), `dias` (entero 1–90, por defecto 14), `admiteComentarios` (por defecto `true`) | 201 `{ enlace, token, url }`. `url` = `ORIGEN_PUBLICO` + `/?invitado=<token>`. **Solo aquí** viajan el token y la URL; en la base queda su SHA-256. 404 si la revisión no existe o no hay acceso; 403 `PERMISO`; 409 `ARCHIVADO` | `invitados.enlace.alta` |
+| `GET /api/invitados/procesos/:id/enlaces` | — | `{ enlaces: [ … ] }`, del más nuevo al más antiguo, de todas las revisiones | — |
+| `POST /api/invitados/enlaces/:id/revocar` | — | `{ enlace }`. Revocar otra vez no cambia nada ni se audita | `invitados.enlace.baja` |
+| `GET /api/invitados/procesos/:id/comentarios` | — | `{ comentarios: [ … ] }`, del más nuevo al más antiguo | — |
+| `POST /api/invitados/comentarios/:id/resolver` | `resuelto` (boolean, por defecto `true`) | `{ comentario }`. `false` lo reabre | `invitados.comentario.resolucion` (solo si cambia) |
+
+Sin sesión, con el token (lo que usa el invitado; `Cache-Control: no-store`). Token inventado, mal formado, caducado, revocado o de un proyecto archivado: siempre **404 `INVITADOS_ENLACE_NO_VALIDO`**, con el mismo mensaje.
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /api/publico/invitados/:token` | — | `{ proceso: { nombre }, revision: { numero, creadaEn, contenido }, enlace: { destinatario, caducaEn, admiteComentarios }, comentarios: [ { id, nombre, texto, elementoId, elementoEtiqueta, creadoEn, resuelto } ] }`. Solo los comentarios de ese enlace; nada del proyecto ni del equipo. Anota `ultimoAcceso` |
+| `POST /api/publico/invitados/:token/comentarios` | `nombre` (1–120), `texto` (1–4000), `elementoId` (id de un nodo de la revisión, opcional), `vista` (`asis` \| `tobe`, opcional: dónde buscar el nodo) | 201 `{ comentario }`. 400 `VALIDACION` si el nodo no está en la revisión; 403 `INVITADOS_SIN_COMENTARIOS`; 429 `LIMITE` (20 cada 10 min por enlace). Guarda la etiqueta del nodo (con «(To-Be)» si es de esa vista). Auditoría `invitados.comentario.alta`, sin usuario |
 
 ## Observaciones y puntos por confirmar
 

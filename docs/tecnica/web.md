@@ -12,11 +12,12 @@ Qué hay en `apps/web`: el editor de procesos y el shell de proyectos, cómo se 
 
 | Página | URL | Código | Tecnología | Para qué |
 |---|---|---|---|---|
-| Editor | `/`, `/?proceso=<id>`, `/?revision=<id>` | [index.html](../../apps/web/index.html), [src/main.js](../../apps/web/src/main.js), [src/app/](../../apps/web/src/app/) | JavaScript del MVP 3.8.9 partido en módulos ES | Diagramar, diagnosticar y exportar un proceso |
+| Editor | `/`, `/?proceso=<id>`, `/?revision=<id>`, `/?invitado=<token>` | [index.html](../../apps/web/index.html), [src/main.js](../../apps/web/src/main.js), [src/app/](../../apps/web/src/app/) | JavaScript del MVP 3.8.9 partido en módulos ES | Diagramar, diagnosticar y exportar un proceso |
 | Shell de proyectos | `/proyectos/…` | [proyectos/index.html](../../apps/web/proyectos/index.html), [src/shell/](../../apps/web/src/shell/) | React 19, TypeScript estricto, TanStack Query, wouter | Acceso, proyectos, procesos, revisiones y administración |
 
 - **Sin parámetros**, el editor es el del MVP: guarda en el navegador y no habla con la API. Lo comprueban las pruebas de fidelidad y la última prueba E2E.
 - **Con `?proceso=` o `?revision=`**, el editor entra en **modo proyecto** (sección 4): abre y guarda revisiones en la API.
+- **Con `?invitado=<token>`**, el editor abre en **modo lectura** la revisión compartida con ese enlace, sin sesión ([invitado.js](../../apps/web/src/app/plataforma/invitado.js), [ADR 20](../adr/0020-rutas-publicas-con-token.md)): modo «Presentar», «Ficha del proceso» y un panel de comentarios; un clic en un elemento ancla el comentario. No lee ni escribe `processiq.v1`.
 - El editor reutiliza piezas del shell: el cliente de la API ([api.ts](../../apps/web/src/shell/api.ts)), los textos ([formato.ts](../../apps/web/src/shell/formato.ts)), los permisos ([permisos.ts](../../apps/web/src/shell/permisos.ts)) y el registro de errores ([observabilidad.ts](../../apps/web/src/shell/observabilidad.ts)). El shell no importa nada del editor.
 
 ```mermaid
@@ -162,6 +163,7 @@ Claves del navegador (todas reservadas en [iniciativas/README.md](../iniciativas
 | `processiq.ai` | Editor | Modo de IA, código de equipo o clave propia, URL del intermediario, modelo |
 | `processiq.ia.costes` | Editor | Últimas 20 ejecuciones de IA, para calibrar la estimación de coste |
 | `processiq.importacion.descartado` | Shell | Fecha del guardado cuya importación se rechazó |
+| `processiq.invitados.vista` | Vista del invitado (`?invitado=`) | Copia de la revisión compartida mientras está abierta; se borra al salir |
 
 ### 3.4 `window.ProcessIQ`: el gancho de pruebas
 
@@ -342,6 +344,7 @@ Detalle en la sección 4.
 | [plataforma/catalogos.js](../../apps/web/src/app/plataforma/catalogos.js) | Catálogos de la organización reemplazados en sitio |
 | [plataforma/ia.js](../../apps/web/src/app/plataforma/ia.js) | IA del servidor: `crearIaRemota()` |
 | [plataforma/barra.css](../../apps/web/src/app/plataforma/barra.css) | Estilos de la barra, los avisos y los diálogos (clases `piq-`) |
+| [plataforma/invitado.js](../../apps/web/src/app/plataforma/invitado.js) | Vista del invitado (`/?invitado=<token>`, iniciativa `invitados`): la revisión del enlace en modo lectura, la ficha y los comentarios. Estilos en [modulos/invitados/vista.css](../../apps/web/src/modulos/invitados/vista.css), todos bajo `html.invitados-modo` |
 
 ---
 
@@ -464,7 +467,7 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 | Archivo | Qué hace |
 |---|---|
 | [main.tsx](../../apps/web/src/shell/main.tsx) | Monta React: `LimiteDeErrores`, `QueryClientProvider`, `Router` con base `/proyectos` y las rutas |
-| [sesion.tsx](../../apps/web/src/shell/sesion.tsx) | `useSesion`, `useUsuario`, la guardia `ConSesion` y el marco (cabecera y menú) |
+| [sesion.tsx](../../apps/web/src/shell/sesion.tsx) | `useSesion`, `useUsuario`, la guardia `ConSesion` y el marco: cabecera y menú, con los módulos de iniciativa y el desplegable «Administración» (`MenuAdministracion`, un `<details>` que se cierra al elegir, al pulsar fuera o con Escape) |
 | [api.ts](../../apps/web/src/shell/api.ts) | Cliente tipado de la API, `pedir()` y `ErrorApi` |
 | [ui.tsx](../../apps/web/src/shell/ui.tsx) | Componentes de interfaz |
 | [permisos.ts](../../apps/web/src/shell/permisos.ts) | Capacidades por rol de proyecto, solo para mostrar u ocultar botones |

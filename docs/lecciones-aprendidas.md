@@ -137,6 +137,12 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22j. **Postgres 17 ejecuta las funciones de un índice con un `search_path` seguro.** Una función IMMUTABLE que envuelve `unaccent` sin calificar el esquema funciona en una consulta normal, pero `CREATE INDEX` falla con «function unaccent(text) does not exist». Pasa también en `REINDEX`, `VACUUM`, `ANALYZE` y en la restauración de una copia. Se comprobó con un control en el Postgres de desarrollo (ADR 19).
     → **Regla:** toda función usada en un índice (o en una vista materializada) califica cada objeto que usa: `public.unaccent('public.unaccent'::regdictionary, …)`. Falla incluso con la tabla vacía, así que la propia migración lo delata en las pruebas; aun así, probar `pg_dump` y `pg_restore` con datos.
 
+22k. **La vista previa de la Ficha deja sus estilos en toda la página del editor.** `openFichaPreview()` mete en `#modalBody` un `<style>` con reglas de elemento (`body`, `h1`, `h2`, `p`, `table`, `td`…) y al cerrar el modal solo lo oculta. En la vista del invitado, el título del panel de comentarios salió subrayado en azul después de abrir la ficha. Las pruebas pasaban; se vio en una captura.
+    → **Regla:** lo que se añada al editor fija con su clase los márgenes, bordes y tipografía de sus títulos, párrafos y tablas (una clase gana a esas reglas de elemento), y se revisa con una captura tomada **después** de abrir la Ficha.
+
+22l. **Una casilla controlada por datos del servidor no cambia al hacer clic.** «Resuelto» usaba `checked={!!c.resueltoEn}` y solo cambiaba al volver la consulta; `check()` de Playwright falló con «Clicking the checkbox did not change its state», y la persona veía la casilla inmóvil un momento.
+    → **Regla:** una casilla o un conmutador que guarda en la API lleva estado local (cambia al clic y vuelve atrás si la API falla) y, al responder, se actualiza la caché con `setQueryData` en lugar de esperar a que se vuelva a consultar.
+
 22m. **La ADR 17 decía que el aviso de `image-size` «desaparece al actualizar pptxgenjs», y era falso.**
     - La última pptxgenjs (4.0.1) sigue pidiendo `image-size ^1.2.1`, y el arreglo solo existe en la 2.0.3.
     - Además, pptxgenjs ni siquiera usa `image-size`: ningún archivo de su `dist/` la menciona.

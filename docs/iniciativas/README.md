@@ -13,7 +13,7 @@
 | `nucleo` | ProcessIQ: editor, proyectos, revisiones, IA en el servidor, catálogos, observabilidad, importación | Plataforma (@Alejandromsa) | Núcleo | en producción | [arquitectura](../arquitectura.md) |
 | `portafolio` | Portafolio de procesos por cliente e indicadores | @Alejandromsa (agente) | Módulo | en desarrollo | [portafolio.md](portafolio.md) |
 | `conocimiento` | Búsqueda sobre entregables y comparativo APQC | @Alejandromsa (agente) | Módulo | en desarrollo | [conocimiento.md](conocimiento.md) |
-| `invitados` | Revisión por invitados externos: enlace de solo lectura con caducidad y comentarios | @Alejandromsa (agente) | Módulo (con rutas públicas) | reservada | [invitados.md](invitados.md) |
+| `invitados` | Revisión por invitados externos: enlace de solo lectura con caducidad y comentarios | @Alejandromsa (agente) | Módulo (con rutas públicas) | en desarrollo | [invitados.md](invitados.md) |
 | `colaboracion` | Colaboración en tiempo real: presencia, «editando» y aviso de revisiones nuevas | Plataforma (agente) | Núcleo | reservada | [colaboracion.md](colaboracion.md) |
 
 ## Propuestas sin reservar
@@ -62,6 +62,7 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 |---|---|---|
 | `piq_sesion` | Cookie | `nucleo` |
 | `processiq.v1`, `processiq.ui`, `processiq.ai`, `processiq.ia.costes`, `processiq.proceso.<id>`, `processiq.abriendo`, `processiq.importacion.descartado` | `localStorage` | `nucleo` |
+| `processiq.invitados.vista` | `localStorage` (efímera: se borra al salir) | `invitados` |
 
 ### Variables de entorno
 

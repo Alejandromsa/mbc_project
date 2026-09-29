@@ -24,6 +24,7 @@ async function abrirSiniestrosEnEditor(page) {
 
 test('KPIs y verbos de la organización llegan al editor; el editor libre sigue con los de fábrica', async ({ page, browser }) => {
   await entrar(page, 'admin');
+  await page.getByRole('navigation', { name: 'Secciones' }).getByText('Administración').click();
   await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Catálogos' }).click();
 
   await page.getByRole('button', { name: 'Nuevo KPI' }).click();

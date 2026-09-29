@@ -63,6 +63,8 @@ Rutas de la API que no exigen sesión (`PUBLICAS` en [app.ts](../../apps/api/src
 | `POST /api/sesion` | Entrar |
 | `POST /api/errores` | Informes de error de la web (también desde la pantalla «Entrar») |
 
+Además, el prefijo **`/api/publico/`** ([ADR 20](../adr/0020-rutas-publicas-con-token.md)): sus rutas no leen la cookie ni ven a ningún usuario y validan su propio token. Hoy solo las usa la iniciativa `invitados` (`/api/publico/invitados/:token`). Tienen límite de uso por IP y sus escrituras exigen el `Origin` como las demás.
+
 Todas las demás rutas `/api/*` exigen una sesión válida. La referencia completa de rutas está en [api.md](api.md).
 
 ## 3. Cuentas locales
@@ -142,6 +144,8 @@ Cada inicio de sesión crea una sesión nueva con un token nuevo. Las sesiones a
 |---|---|---|---|
 | Intentos de entrar | 10 fallos en 15 minutos, por correo **y** por IP | `LimitadorAccesos`, [rutas/sesion.ts](../../apps/api/src/rutas/sesion.ts) | `429 BLOQUEADO` |
 | Informes de error | 20 por minuto por IP | `LimiteInformes`, [rutas/sistema.ts](../../apps/api/src/rutas/sistema.ts) | `429 LIMITE` |
+| Rutas públicas con token (`/api/publico/`) | 120 peticiones por minuto por IP, también con tokens inventados | `LimitadorAccesos` en [app.ts](../../apps/api/src/app.ts) | `429 LIMITE` |
+| Comentarios de invitados | 20 cada 10 minutos por enlace | [modulos/invitados/publico.ts](../../apps/api/src/modulos/invitados/publico.ts) | `429 LIMITE` |
 | Informes de error (navegador) | Como mucho 10 por página, sin repetir el mismo error | [shell/observabilidad.ts](../../apps/web/src/shell/observabilidad.ts) | — |
 | Cuerpo de la petición (API) | 8 MB | `bodyLimit`, [app.ts](../../apps/api/src/app.ts) | `413` |
 | Cuerpo de la petición (intermediario) | 2 MB | [intermediario](../../apps/intermediario/src/index.ts) | `413` |
@@ -207,6 +211,7 @@ La organización es la del autor. Sin autor (una entrada fallida, la línea de c
 | Proyectos | `proyecto.alta`, `proyecto.cambio`, `proyecto.miembro`, `proyecto.baja_miembro` | Nombre, cambios, usuario y rol |
 | Procesos y revisiones | `proceso.alta`, `proceso.cambio`, `revision.alta`, `revision.estado` | Número, conflicto, estado anterior y nuevo |
 | IA | `ia.generacion`, `ia.analisis`, `ia.cancelacion` | Ejecución, modelo, caracteres y **nombres** de las fuentes (no su texto) |
+| Invitados | `invitados.enlace.alta`, `invitados.enlace.baja`, `invitados.comentario.alta`, `invitados.comentario.resolucion` | Revisión, destinatario y caducidad del enlace; en los comentarios, sin autor y con el nombre que escribió el invitado |
 | Catálogos | `catalogo.kpi.alta`, `catalogo.kpi.cambio`, `catalogo.verbo`, `catalogo.verbo.baja`, `catalogo.tema.alta`, `catalogo.tema.cambio`, `catalogo.tema.baja` | Qué se cambió |
 | Línea de comandos ([cli.ts](../../apps/api/src/cli.ts)) | `cli.usuario.alta`, `cli.usuario.restablecer_clave` | Sin autor (`usuario_id` nulo), sin IP y con `origen: cli`; correo y, en el alta, rol |
 
@@ -322,6 +327,14 @@ El procedimiento está en [rotacion-secretos.md](../runbooks/rotacion-secretos.m
 
 Cuidado: si un código mete datos del proceso en el mensaje de un `Error`, esos datos acabarían en `errores`. Los mensajes de error no deben llevar contenido del usuario.
 
+### Invitados externos
+
+- Un enlace de invitado ([ADR 20](../adr/0020-rutas-publicas-con-token.md)) da acceso **sin cuenta** a una revisión: al diagrama, la ficha y las notas, no al proyecto, a otras revisiones ni al equipo. Quien tenga el enlace la ve: se comparte solo por canales de confianza.
+- El token son 32 bytes aleatorios; en la base solo está su SHA-256 y el enlace se muestra una vez. Caduca (14 días por defecto, 90 como máximo) y se revoca en el acto. Archivar el proyecto también lo corta.
+- Token inventado, caducado, revocado o de un proyecto archivado: el mismo 404, sin distinguir los casos.
+- De quien comenta solo se guarda el nombre que escribe; no se piden correos. La IP queda en la auditoría, como en cualquier escritura.
+- En el navegador del invitado, el editor no lee ni escribe el trabajo del editor libre (`processiq.v1`): usa `processiq.invitados.vista`, que se borra al salir. No informa de errores a «Sistema» (la URL lleva el token).
+
 ### Otros datos personales
 
 - **Registro de acceso y auditoría:** correo del usuario e IP.
@@ -384,6 +397,7 @@ Límites conocidos:
 | [sistema.test.ts](../../apps/api/src/sistema.test.ts) | 500 registrado con referencia; los 4xx no; informes de la web con límite por IP |
 | [semilla.test.ts](../../apps/api/src/semilla.test.ts) | Cada cuenta de prueba se comporta según su caso (temporal, inactiva, externa…) |
 | [index.test.ts](../../apps/intermediario/src/index.test.ts) (intermediario) | `/health` sin secretos; orígenes; código; modelos; JSON inválido; topes; 401 → 502 |
+| [invitados.test.ts](../../apps/api/src/modulos/invitados/invitados.test.ts) | Permisos para crear, listar y revocar enlaces; token válido, caducado, revocado, inventado y de un proyecto archivado (el mismo 404); el invitado no llega a otra revisión; las rutas públicas no ven la sesión y exigen `Origin`; límites de uso; auditoría |
 | E2E ([plataforma.spec.mjs](../../pruebas/e2e/plataforma.spec.mjs), [ia.spec.mjs](../../pruebas/e2e/ia.spec.mjs)) | Entrar y contraseña temporal en el navegador; permisos por rol; quien solo lee no usa la IA |
 
 Más detalle en [pruebas.md](pruebas.md).
@@ -398,7 +412,7 @@ Más detalle en [pruebas.md](pruebas.md).
 | `Permissions-Policy`, HSTS con `includeSubDomains`/`preload` | No se envían | — |
 | Redirección de HTTP a HTTPS | No hay: el puerto 80 es de IIS | Ver [servidor-local.md](../runbooks/servidor-local.md#problemas-conocidos) si se libera |
 | Antivirus de archivos | No aplica hoy: los documentos no se suben. Solo se suben imágenes de temas PPTX (PNG o JPEG en data URI, máx. ~1,5 MB, solo administradores) | ClamAV en el worker cuando se guarden originales |
-| Límite de uso por persona y por endpoint | Solo en «Entrar» y `/api/errores`, y en memoria | Contadores en Postgres |
+| Límite de uso por persona y por endpoint | Solo en «Entrar», `/api/errores` y `/api/publico/`, y en memoria | Contadores en Postgres |
 | Sesiones | Sin caducidad por inactividad; entrar no cierra las sesiones anteriores. Las filas caducadas las purga el worker cada hora | — |
 | Auditoría | Sin política de retención; la base no impide editar o borrar filas; las exportaciones no se auditan | — |
 | «Sistema» | Es del servidor entero: con varias organizaciones, cada administrador vería los errores (y el correo de quien los tuvo) de todas | Rol de operación del servidor cuando haya más de una organización |
@@ -406,7 +420,7 @@ Más detalle en [pruebas.md](pruebas.md).
 | Cifrado del disco del servidor | **Por confirmar** | — |
 | Tráfico interno | Sin TLS entre contenedores (misma máquina) | — |
 | Envío de datos a Anthropic | Sin política acordada con Legal ni revisión de la Ley 29733 | [arquitectura.md §4 y §8](../arquitectura.md#8-ia-en-producción) |
-| Invitados externos | No existen | Enlace de solo lectura con caducidad (fase 4) |
+| Invitados externos | El enlace es la única credencial: no hay identidad ni segundo factor, y quien lo reciba reenviado también entra. Sin avisos por correo. El límite de uso vive en memoria | Caducidad corta, revocar en cuanto no haga falta; contadores en Postgres si hay varias instancias |
 | Intermediario | Código compartido, sin límite de peticiones | Desaparece cuando todo pase por la API |
 | Fijación de versiones | Acciones de GitHub por etiqueta mayor (`@v7`) e imágenes base por etiqueta (`node:22-alpine`, `caddy:2-alpine`, `postgres:17-alpine`), no por hash | — |
 | Existencia de procesos | Un proceso de un proyecto sin acceso y uno inexistente responden 404 con mensajes distintos. Los ids son UUID aleatorios. (El cambio de estado de una revisión ya comprueba el acceso antes que el estado) | Mismo mensaje en los dos casos |

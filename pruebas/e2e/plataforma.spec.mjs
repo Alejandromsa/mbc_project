@@ -156,6 +156,7 @@ test('los cambios sin guardar sobreviven a una recarga y se pueden recuperar o d
 
 test('el administrador crea una cuenta y la persona entra con la contraseña temporal', async ({ page }) => {
   await entrar(page, 'admin');
+  await page.getByRole('navigation', { name: 'Secciones' }).getByText('Administración').click();
   await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Usuarios' }).click();
   await page.getByRole('button', { name: 'Nuevo usuario' }).click();
   await page.getByLabel('Nombre y apellido').fill('Persona Nueva');

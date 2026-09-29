@@ -1,6 +1,6 @@
 # Revisión por invitados externos (`invitados`)
 
-> **Estado:** reservada · **Responsable:** @Alejandromsa (agente de invitados) · **Desde:** 28-sep-2026
+> **Estado:** en desarrollo · **Responsable:** @Alejandromsa (agente de invitados) · **Desde:** 28-sep-2026
 
 ## Objetivo
 
@@ -57,7 +57,7 @@ Módulo dentro de la plataforma. Es el primero con **rutas públicas**, y eso ne
 
 | # | Qué entrega | Rama | PR | Estado |
 |---|---|---|---|---|
-| 1 | Enlaces, vista del invitado, comentarios y su gestión; ADR 20; E2E | `invitados/enlaces` | | ⏳ |
+| 1 | Enlaces, vista del invitado, comentarios y su gestión; ADR 20; E2E | `invitados/enlaces` | #13 | en revisión |
 
 ## Pruebas
 
