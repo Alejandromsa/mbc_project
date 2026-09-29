@@ -2,7 +2,7 @@
 
 Qué hay en `apps/web`: el editor de procesos y el shell de proyectos, cómo se construyen y se sirven, y cómo trabaja el editor dentro de un proyecto.
 
-**Actualizado:** 28-sep-2026.
+**Actualizado:** 29-sep-2026.
 
 ---
 
@@ -66,7 +66,19 @@ Las librerías que el MVP cargaba desde jsDelivr se instalan por npm con **versi
 
 - Las rutas están en `CDN` de [ingesta/formatos.js](../../apps/web/src/app/ingesta/formatos.js). El nombre `CDN` es histórico: ya no apuntan a un CDN.
 - Actualizar una de estas versiones obliga a pasar la fidelidad (PPTX y extracción se comparan byte a byte) y a revisar el [ADR 17](../adr/0017-excepciones-auditoria-dependencias.md) (excepciones de auditoría de pptxgenjs y mammoth).
-- Lo único externo que carga la web es Montserrat desde Google Fonts (mejora pendiente M1).
+
+**Montserrat (`/fonts/`).** La web no carga nada de otros sitios: la [CSP](seguridad.md#content-security-policy) no lo permite.
+
+| Pieza | Qué es |
+|---|---|
+| `@fontsource-variable/montserrat` 5.3.0 (versión exacta) | La fuente variable en woff2, en 5 subconjuntos Unicode. Sus archivos son **byte a byte** los que Google Fonts servía a Chrome (Montserrat v31). Licencia OFL 1.1 |
+| `copiar-vendor.mjs` | Copia los 5 woff2 y la licencia (`OFL.txt`) a `public/fonts/`, que está en `.gitignore` salvo el CSS |
+| [public/fonts/montserrat.css](../../apps/web/public/fonts/montserrat.css) (versionado) | Las 20 reglas `@font-face` que servía Google (400, 500, 600 y 700 × 5 subconjuntos), con el mismo orden, rangos Unicode y `font-display: swap`; solo cambian las URL |
+| `index.html` y `proyectos/index.html` | Enlazan ese CSS y precargan el subconjunto latino (`rel="preload"`), para que las etiquetas del lienzo se midan con Montserrat desde el primer pintado |
+
+- **La medida de los textos depende de estas reglas**, y con ella los SVG y el PPTX que compara la fidelidad. Medido en Chromium con 260 textos: estas reglas dan 0 diferencias con Google Fonts; el CSS de fontsource-variable (pesos `100 900`) dibuja a 800 real lo que la interfaz pide a 800 (antes, 700); las estáticas de `@fontsource/montserrat` miden distinto en todos los pesos (hasta 0,03 px).
+- Actualizar el paquete obliga a pasar `pnpm fidelidad`: el MVP de referencia sigue cargando Montserrat de Google Fonts ([pruebas.md §8](pruebas.md#qué-necesita-la-fidelidad)).
+- `/zod-sin-eval.js` (en `public/`, también enlazado desde las dos páginas) pone zod en modo `jitless` antes de cualquier módulo, para que no pruebe `new Function`, que la CSP prohíbe ([seguridad.md §9](seguridad.md#content-security-policy)).
 
 ### 2.3 Cómo lo sirve Caddy
 
@@ -79,9 +91,10 @@ Las librerías que el MVP cargaba desde jsDelivr se instalan por npm con **versi
 | `/proyectos*` | `try_files {path} /proyectos/index.html`, `Cache-Control: no-cache`. Los JS y CSS del shell están en `/assets/` |
 | `/` y `/index.html` | Se sirven como **plantilla** (`templates`) para resolver `{{.Host}}` en las etiquetas Open Graph; `no-cache` |
 | `/assets/*` | `Cache-Control: public, max-age=31536000, immutable` (nombres con hash) |
+| `/fonts/*` | `Cache-Control: public, max-age=604800` (una semana: los nombres no llevan hash) |
 | Error 404 | `/404.html` |
 
-- En todo el sitio: HSTS, `nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, sin cabecera `Server`, compresión zstd/gzip.
+- En todo el sitio: HSTS, `nosniff`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Content-Security-Policy`, `Permissions-Policy`, sin cabecera `Server`, compresión zstd/gzip. Qué permite cada directiva de la CSP y por qué: [seguridad.md §9](seguridad.md#content-security-policy). La E2E sirve la web con esas mismas cabeceras, leídas del Caddyfile.
 - El dominio (`DOMINIO`) y el modo del certificado (`TLS_MODO`: `acme`, `interno` o `ninguno`) salen de `.env`. El certificado se obtiene por TLS-ALPN porque IIS ocupa el puerto 80.
 - Staging tiene su propio Caddy detrás del de producción ([ADR 16](../adr/0016-staging-mismo-servidor.md)). Operación: [runbooks/servidor-local.md](../runbooks/servidor-local.md) y [runbooks/despliegue.md](../runbooks/despliegue.md).
 

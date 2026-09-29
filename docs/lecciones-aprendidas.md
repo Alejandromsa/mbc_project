@@ -152,6 +152,15 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
     - mirar el rango vulnerable y la primera versión corregida (`gh api advisories/<GHSA>`) y compararlos con el rango que pide la última versión de X (`pnpm view X dependencies`);
     - buscar en el código publicado de X si de verdad usa la dependencia. Si no la usa, se quita con `pnpm.overrides` (`"X>dep": "-"`) en lugar de aceptarla.
 
+22n. **Dos trampas al poner la CSP obligatoria.**
+    - **Un `eval` capturado también es una violación.** zod prueba `new Function` dentro de un `try` al crear cada esquema. No rompe nada, pero el navegador lo informaba en cada carga del editor y del shell. Solo se vio porque la CSP estuvo primero en modo de solo informe, con los informes recogidos.
+    - **`page.evaluate` no está sujeto a `'unsafe-eval'`.** DevTools deja pasar `eval` dentro de lo que ejecuta Playwright. En modo de solo informe, el `new Function` de la prueba de control se informó; en modo obligatorio, ni se bloqueó ni se informó. La prueba parecía demostrar que `eval` estaba prohibido y no demostraba nada.
+
+    → **Regla:**
+    - Una CSP nueva empieza en `Content-Security-Policy-Report-Only`, con los informes recogidos (en la E2E, `report-uri`), y no se hace obligatoria hasta que no quede ninguno. Que las pruebas pasen no basta.
+    - Las librerías que sondean `eval` se configuran para no hacerlo (zod: `jitless`, ver `apps/web/public/zod-sin-eval.js`).
+    - Lo que prohíbe la CSP se prueba con código que corre la propia página (`setTimeout('…')`, un `<script>` insertado), nunca con el código de `page.evaluate`. Y siempre con un control que demuestre que la política bloquea: sin él, «cero violaciones» puede ser una CSP que no se aplica.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.
