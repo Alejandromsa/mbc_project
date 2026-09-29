@@ -43,6 +43,13 @@
       "when": 1790632992515,
       "tag": "0005_auditoria_organizacion",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790645370688,
+      "tag": "0006_conocimiento_busqueda",
+      "breakpoints": true
     }
   ]
 }

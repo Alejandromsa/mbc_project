@@ -19,6 +19,7 @@ import { rutasSistema } from './rutas/sistema.js';
 import { registrarError } from './observabilidad.js';
 import type { Escucha } from './ia/avisos.js';
 import { rutasPortafolio } from './modulos/portafolio/index.js';
+import { rutasConocimiento } from './modulos/conocimiento/index.js';
 
 /** Rutas que no exigen sesión. */
 const PUBLICAS = new Set(['GET /api/salud', 'POST /api/sesion', 'POST /api/errores']);
@@ -118,5 +119,6 @@ export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp 
   app.route('/api/catalogos', rutasCatalogos());
   app.route('/api', rutasSistema());
   app.route('/api/portafolio', rutasPortafolio());
+  app.route('/api/conocimiento', rutasConocimiento());
   return app;
 }

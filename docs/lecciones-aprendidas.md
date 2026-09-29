@@ -40,6 +40,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 5c. **`structuredClone` en `dominio` rompió el typecheck de todos los paquetes que dependen de él**: cada paquete compila la fuente TS de sus dependencias con su propia configuración (`lib: ES2022`, sin tipos de DOM ni de Node).
    → **Regla:** los paquetes compartidos (`dominio` sobre todo) solo usan ECMAScript estándar: nada de globales del navegador ni de Node en `src/`. Tras tocar `dominio`, correr `pnpm typecheck` en la raíz, no solo en el paquete.
 
+5d. **La herramienta de escritura de archivos convirtió las secuencias de escape Unicode en el carácter literal.** Un `/[\u0300-\u036f]/g` para quitar tildes llegó al archivo con los dos caracteres combinantes reales, y un `'\ufeff…'` de una prueba, con un BOM invisible dentro de la cadena. Funcionaba igual, pero no se veía. `\s`, `\r` y `\n` sí llegaron intactos.
+    → **Regla:** no escribir `\uXXXX` en código a través de la herramienta de escritura. Usar propiedades Unicode (`/\p{M}/gu` para quitar tildes tras `normalize('NFD')`) o `String.fromCharCode(0xfeff)`. Tras escribir, comprobar con `od -c` o `grep` que no quedaron caracteres invisibles.
+
 ## Pruebas de fidelidad
 
 6. **Verde falso por `dist` desactualizado.** Se ejecutó Playwright directamente tras un build que había fallado y las pruebas pasaron contra la versión anterior.
@@ -130,6 +133,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 
 22h. **Un aviso de la barra del proyecto no se ve durante una generación.** El aviso de «modelo sustituido» se mostraba con `avisar()` al encolar, pero el diálogo de ingesta (z-index 1000, fondo desenfocado) tapa la barra (z-index 60), y al terminar el aviso de «guardado como vN» lo reemplaza. La E2E pasaba igual: `toContainText` no exige que el elemento se vea. Lo mostró la captura.
     → **Regla:** lo que la persona deba leer mientras genera va también en el progreso de la ingesta (`onEstado`). Un aviso nuevo se comprueba con una captura en el momento en que debería verse, no solo con `toContainText`.
+
+22j. **Postgres 17 ejecuta las funciones de un índice con un `search_path` seguro.** Una función IMMUTABLE que envuelve `unaccent` sin calificar el esquema funciona en una consulta normal, pero `CREATE INDEX` falla con «function unaccent(text) does not exist». Pasa también en `REINDEX`, `VACUUM`, `ANALYZE` y en la restauración de una copia. Se comprobó con un control en el Postgres de desarrollo (ADR 19).
+    → **Regla:** toda función usada en un índice (o en una vista materializada) califica cada objeto que usa: `public.unaccent('public.unaccent'::regdictionary, …)`. Falla incluso con la tabla vacía, así que la propia migración lo delata en las pruebas; aun así, probar `pg_dump` y `pg_restore` con datos.
 
 ## Portado de código
 
