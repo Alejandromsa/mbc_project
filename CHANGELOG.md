@@ -23,6 +23,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
   - al terminar una ejecución de IA se borran también los nombres de los participantes;
   - un límite no numérico en la auditoría ya no da error 500;
   - el worker purga cada hora las sesiones caducadas.
+- **portafolio:** tablero por cliente en «Portafolio»: avance de los procesos hacia la aprobación e indicadores de su última revisión (actividades, roles, pains, tipo de ejecución, KPIs con valor y hallazgos del Playbook), solo con los proyectos que cada uno puede ver.
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 
