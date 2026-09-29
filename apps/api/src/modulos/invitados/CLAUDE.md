@@ -9,5 +9,5 @@ Enlaces de solo lectura con caducidad para que el cliente revise una revisión s
   - Solo se lee la revisión del enlace. Nada del proyecto, del equipo ni de otros enlaces sale en la respuesta (las pruebas comprueban las claves exactas).
   - Respuestas con `Cache-Control: no-store`.
 - Del token solo se guarda el SHA-256 (`hashToken` de `seguridad.ts`); el token y la URL solo viajan en la respuesta de alta.
-- Auditoría: `invitados.enlace.alta`, `invitados.enlace.baja`, `invitados.comentario.alta` (sin autor, con el nombre que dio) e `invitados.comentario.resolucion`.
+- Auditoría: `invitados.enlace.alta`, `invitados.enlace.baja`, `invitados.comentario.alta` (con `registrarEvento`: sin autor, con la organización del enlace y el nombre que dio) e `invitados.comentario.resolucion`.
 - Pruebas: `invitados.test.ts` (Postgres real) y `pruebas/e2e/invitados.spec.mjs`. El límite de uso (120 por minuto e IP) vive en `app.ts`; el de comentarios (20 cada 10 min por enlace), aquí.

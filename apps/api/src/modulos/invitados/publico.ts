@@ -8,7 +8,7 @@ import { Hono } from 'hono';
 import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { invitadosComentarios, invitadosEnlaces, revisiones } from '@processiq/db';
-import { registrar } from '../../auditoria.js';
+import { registrarEvento } from '../../auditoria.js';
 import { ErrorHttp, type Entorno } from '../../contexto.js';
 import { LimitadorAccesos } from '../../rutas/sesion.js';
 import { cuerpo } from '../../validar.js';
@@ -82,10 +82,13 @@ export function rutasPublicasInvitados() {
       enlaceId: enlace.id, revisionId: enlace.revisionId, elementoId: d.elementoId, elementoEtiqueta,
       nombre: d.nombre, texto: d.texto
     }).returning();
-    // Sin autor: lo escribe alguien sin cuenta. El nombre que dio queda en el detalle
-    await registrar(c, 'invitados.comentario.alta', 'invitados_comentario', comentario!.id, {
-      enlaceId: enlace.id, procesoId: enlace.procesoId, revisionId: enlace.revisionId, nombre: d.nombre, elementoId: d.elementoId
-    }, null);
+    // Sin autor (lo escribe alguien sin cuenta) y con la organización del enlace, para que
+    // el administrador lo vea en su auditoría. El nombre que dio queda en el detalle.
+    await registrarEvento(db, {
+      accion: 'invitados.comentario.alta', entidad: 'invitados_comentario', entidadId: comentario!.id,
+      detalle: { enlaceId: enlace.id, procesoId: enlace.procesoId, revisionId: enlace.revisionId, nombre: d.nombre, elementoId: d.elementoId },
+      usuarioId: null, organizacionId: enlace.organizacionId, ip: c.get('ip')
+    });
     return c.json({ comentario: comentarioParaInvitado(comentario!) }, 201);
   });
 

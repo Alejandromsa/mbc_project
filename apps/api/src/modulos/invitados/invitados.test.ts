@@ -50,7 +50,7 @@ const crearEnlace = (quien: Cliente, revision: string, datos: Record<string, unk
 /** El invitado: sin sesión (cliente nuevo, sin cookie). */
 const invitado = () => cliente();
 const eventos = async (accion: string) =>
-  (await conexion.pool.query('select usuario_id, entidad, entidad_id, detalle from auditoria where accion = $1 order by id', [accion])).rows;
+  (await conexion.pool.query('select usuario_id, organizacion_id, entidad, entidad_id, detalle from auditoria where accion = $1 order by id', [accion])).rows;
 
 describe('invitados: enlaces', () => {
   it('el token solo viaja al crear el enlace; en la base queda su hash', async () => {
@@ -279,6 +279,15 @@ describe('invitados: comentarios', () => {
     expect(altas[1].detalle).toMatchObject({ enlaceId: enlace.enlace.id, revisionId: v1, procesoId, nombre: 'Carla Ruiz', elementoId: 'n2' });
     const resoluciones = await eventos('invitados.comentario.resolucion');
     expect(resoluciones.map((e: any) => [e.usuario_id, e.detalle.resuelto])).toEqual([[u.luis.id, true], [u.ana.id, false]]);
+    // Llevan la organización del enlace: el administrador los ve en su auditoría aunque no tengan autor
+    expect((await eventos('invitados.comentario.alta')).map((e: any) => e.organizacion_id)).toEqual(Array(3).fill(u.ana.organizacionId));
+    const admin = cliente();
+    await admin.entrar('admin@mbc.pe');
+    const auditoria = await admin.get('/api/auditoria?entidad=invitados_comentario');
+    expect(auditoria.json.eventos.map((e: any) => [e.accion, e.usuario])).toEqual([
+      ['invitados.comentario.resolucion', 'ana@mbc.pe'], ['invitados.comentario.resolucion', 'luis@mbc.pe'],
+      ['invitados.comentario.alta', null], ['invitados.comentario.alta', null], ['invitados.comentario.alta', null]
+    ]);
   });
 
   it('un comentario sobre el To-Be se busca en esa vista y el equipo lo ve marcado', async () => {
