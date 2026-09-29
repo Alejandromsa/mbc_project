@@ -96,8 +96,7 @@ describe('leerBpmn', () => {
     expect(r.nodos.map((n) => n.marker)).toEqual(['subprocess', 'subprocess']);
   });
 
-  it('un XML sin elementos BPMN devuelve conteo 0', () => {
-    const r = leerBpmn('<raiz/>', { siguienteId: 1, formas: FORMAS_POR_DEFECTO, leerXml });
-    expect(r.conteo.count).toBe(0);
+  it('un XML que no es BPMN lanza un error claro (en el MVP devolvía conteo 0)', () => {
+    expect(() => leerBpmn('<raiz/>', { siguienteId: 1, formas: FORMAS_POR_DEFECTO, leerXml })).toThrow(/no es un diagrama BPMN 2.0/);
   });
 });

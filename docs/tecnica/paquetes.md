@@ -57,7 +57,7 @@ Entre paquetes hermanos no hay dependencias: `documentos` no importa `bpmn`, ni 
 |---|---|:-:|:-:|---|
 | [dominio](#51-processiqdominio) | Modelo del proceso, catálogos, Ficha, validación del Playbook, esquema v1 y migración | ✓ | ✓ | 21 |
 | [motor](#52-processiqmotor) | Auto-layout por carriles, ruteo, calidad, niveles de detalle, operaciones del grafo | ✓ | — | 17 |
-| [bpmn](#53-processiqbpmn) | Import y export BPMN 2.0 | ✓ | — | 9 |
+| [bpmn](#53-processiqbpmn) | Import y export BPMN 2.0 | ✓ | — | 36 |
 | [exportar](#54-processiqexportar) | PPTX (temas mbc y bbva), informe Word, Ficha de Proceso | ✓ | — | 7 |
 | [documentos](#55-processiqdocumentos) | Extracción de Word/PDF/PPTX/texto, intérprete básico, participantes | ✓ | — | 7 |
 | [mining](#56-processiqmining) | Event logs CSV → proceso y variantes | ✓ | — | 8 |
@@ -230,19 +230,63 @@ Portado del MVP sin cambios de cálculo. No toca el DOM.
 | Símbolo | Qué es |
 |---|---|
 | `generarBpmnXml(proceso, idProceso)`, `ProcesoBpmn`, `CarrilesBpmn` | XML con proceso, `laneSet` (si hay carriles), elementos, flujos, eventos de borde, pains y metadatos como documentación, y diagrama (DI). |
-| `leerBpmn(xml, opciones)`, `OpcionesLectura`, `ResultadoLectura`, `LectorXml` | Lee un BPMN y devuelve `nodos`, `aristas`, nombre del proceso, siguiente id y conteo. No aplica nada al proceso abierto: eso lo hace la app. |
+| `leerBpmn(xml, opciones)`, `OpcionesLectura`, `ResultadoLectura`, `ConteoLectura`, `LectorXml` | Lee un BPMN y devuelve `nodos`, `aristas`, nombre del proceso, siguiente id, conteo, `origen` (`processiq` o `externo`), `carriles`, `subprocesos` y `avisos`. No aplica nada al proceso abierto: eso lo hace la app. Lanza, sin tocar nada, si el XML no es válido o no es BPMN 2.0. |
+| `EJECUCION_DE_TAREA` | Tarea BPMN → tipo de ejecución del editor en la lectura completa. |
+| `DocumentoXml`, `ElementoXml`, `NodoXml` | Lo mínimo del DOM que usa el importador ([xml.ts](../../packages/bpmn/src/xml.ts)). |
 
-**Quién lo usa:** navegador (`bpmn/exportar.js`, `bpmn/importar.js`). La ingesta de un `.bpmn` llega por `documentos`, que recibe el importador como parámetro.
+**Dos lecturas** ([importar.ts](../../packages/bpmn/src/importar.ts)):
 
-**Pruebas** — [bpmn.test.ts](../../packages/bpmn/src/bpmn.test.ts) (9): XML bien formado; mapeo de cada tipo de nodo; escape de textos; pains y metadatos; evento de borde, carriles y DI; sin `laneSet` si no hay carriles; ida y vuelta (tipos, compuertas, eventos y flujos); numeración de ids desde `siguienteId`; subprocesos y `callActivity`; XML sin elementos.
+- **BPMN exportado por el propio ProcessIQ** (`exporter="ProcessIQ"` en `<definitions>`): la lectura del MVP, sin cambios. Es plana (también lo de dentro de un `subProcess`), sin carriles ni posiciones, y un `boundaryEvent` llega como evento intermedio suelto. Exportar y volver a importar da lo mismo que en el MVP, y la fidelidad lo compara byte a byte (escenario «importación BPMN de los 14 ejemplos»). `origen: 'processiq'`, sin carriles ni avisos.
+- **BPMN de otra herramienta** (Bizagi, Signavio, Camunda, bpmn.io…): la lectura completa de [importar-externo.ts](../../packages/bpmn/src/importar-externo.ts) (divergencia D10). Un BPMN de ProcessIQ que pasó por otra herramienta (su `exporter` cambia) también la toma, y recupera de su `<documentation>` el sistema, el tiempo, el volumen y los pains que escribe el export.
+
+Qué hace la lectura completa:
+
+| Del BPMN | En el editor |
+|---|---|
+| `laneSet`/`lane`/`flowNodeRef`, también `childLaneSet` | `owner` = el carril más específico que lo referencia. Si ninguno lo referencia: el carril que contiene su caja en el dibujo; si no, el de su subproceso; y si el proceso no tiene carriles, el nombre del pool (`participant`). |
+| `subProcess`, `adHocSubProcess`, `transaction` con contenido (también anidados, y los plegados cuyo contenido se dibuja en otro plano) | Caja con marcador `subprocess` y, detrás, su contenido. La caja recibe las entradas del subproceso y enlaza con lo primero de dentro; sus salidas salen de lo último de dentro. Los eventos de inicio y fin sin tipo ni nombre del subproceso se quitan: solo marcaban esos bordes; con nombre quedan como hito (evento intermedio que lanza, sin tipo). Un fin de error, cancelación o compensación sigue siendo fin; uno de mensaje, señal o escalamiento pasa a evento intermedio que lanza y sigue. Si el subproceso no tiene salidas (el último paso, o un subproceso de evento), sus fines se quedan. El disparador de un subproceso de evento pasa a evento intermedio. |
+| Niveles | Con algún subproceso con contenido, todos los nodos llevan `nivel` (1 los del nivel superior, 3 el contenido de los subprocesos) y el contenido lleva `padre` = su subproceso: se ve en Detalle y se pliega en Actividad y Ejecutivo con la jerarquía explícita de `proyectarNivel` (la misma que usa la IA). Sin subprocesos, sin `nivel`: los niveles se deducen como siempre. |
+| Tareas | `executionType` según el campo `bpmn` del catálogo `EXECUTION_TYPES`: User Task → `system`, Service Task → `automatic`, Script Task → `ai`, Receive Task → `email`, Send Task → `send`, Manual Task y `task` → `manual`; Business Rule Task (sin fila en el catálogo) → `automatic`. `callActivity`: marcador `subprocess` (su contenido no está en el archivo). |
+| Compuertas | `exclusive`, `parallel`, `inclusive`; compleja → `inclusive` y basada en eventos → `exclusive`, como el MVP. Las ramas sin nombre de una basada en eventos llevan el nombre de su evento (si no, el editor las rotularía «Sí»/«No»). **Una exclusiva con una sola salida (convergencia) se quita** y sus entradas van a su destino: `asegurarRamasDeDecision` le añadiría un fin «Caso no procede» que no existe. |
+| Eventos | `eventType` `message`, `timer`, `error`, `signal`; `terminate: true` en el fin de terminación; `throw` en los intermedios que lanzan. Escalamiento, condicional, compensación, cancelación y múltiple no existen en el dominio: evento simple con el tipo en `notes`. Los eventos de enlace se unen (el que lanza con el que captura del mismo nombre). |
+| `boundaryEvent` | El primero de temporizador, error o mensaje de cada actividad → `boundary` de la actividad (con `interrupting`), y su camino de excepción sale de la actividad, rotulado con el nombre del evento. Los demás → evento intermedio justo después de su actividad. |
+| Marcadores de bucle | `standardLoopCharacteristics` → `loop`; `multiInstanceLoopCharacteristics` → `multiinstance` o `multiinstance-seq`. |
+| Datos | `dataInputAssociation`/`dataOutputAssociation` con objetos de datos → `docsIn`/`docsOut`; con almacenes → `system`. |
+| `documentation`, `textAnnotation` + `association` | `notes`. |
+| `messageFlow` entre elementos de dos pools | Flujo del editor, con su nombre. Los que van a un pool de caja negra se ignoran. |
+| Posiciones (`bpmndi`) | No se usan como coordenadas (ver abajo). Solo para el carril de lo que ningún carril referencia y para numerar los nodos de cada contenedor en el orden de lectura del dibujo. |
+| Nombres | En una sola línea (Bizagi y Signavio traen saltos). Referencias con prefijo (`tns:Tarea_1`) sin prefijo. |
+| Cualquier otro hijo de un proceso o subproceso (`group`, elementos de otros espacios de nombres…) | Se ignora con un aviso que dice cuáles y cuántos. |
+
+**Posiciones: medido, no se usan como coordenadas.** Con `window.ProcessIQ.quality()` en los tres fixtures (Bizagi, Signavio y Camunda), nivel Detalle:
+
+| Fixture | Orden del archivo (sin `bpmndi`) | Orden del dibujo (lo que hace el importador) | Coordenadas del dibujo, sin auto-layout |
+|---|---|---|---|
+| Bizagi (15 nodos, 4 carriles) | 0 sobre cajas, 2 cruces, score 6 | 0, 2, score 6 | 8 sobre cajas, 4 cruces, score 92 |
+| Signavio (18 nodos, 4 carriles, contenido en otro plano) | 0, 0, score 0 | 0, 0, score 0 | no aplica: el contenido del subproceso está en otro plano |
+| Camunda (24 nodos, 1 pool) | 0, 0, score 0 | 0, 0, score 0 | 8 sobre cajas, 0 cruces, score 80 |
+
+- Las coordenadas del dibujo (escaladas al tamaño de las cajas del editor) empeoran el resultado: las cajas del editor son más grandes y las flechas pisan cajas. Además, los carriles que dibuja el lienzo salen del auto-layout, y cualquier cambio vuelve a aplicarlo.
+- El orden de los nodos no cambia la calidad: la columna de cada nodo la fija su rank en el flujo. Solo desempata (qué carril aparece antes entre los que empiezan en la misma columna, qué caja va arriba en una pila) y da ids y códigos de actividad en el orden de lectura del dibujo. Por eso se usa solo así.
+
+**Quién lo usa:** navegador (`bpmn/exportar.js`, `bpmn/importar.js`; `ingesta/flujo.js` añade al mensaje del copiloto los carriles, los subprocesos y los avisos). La ingesta de un `.bpmn` llega por `documentos`, que recibe el importador como parámetro.
+
+**Pruebas:**
+
+| Archivo | Qué cubre |
+|---|---|
+| [bpmn.test.ts](../../packages/bpmn/src/bpmn.test.ts) (9) | XML bien formado; mapeo de cada tipo de nodo; escape de textos; pains y metadatos; evento de borde, carriles y DI; sin `laneSet` si no hay carriles; ida y vuelta (tipos, compuertas, eventos y flujos); numeración de ids desde `siguienteId`; subprocesos y `callActivity` (lectura del MVP); un XML que no es BPMN lanza. |
+| [importar-externo.test.ts](../../packages/bpmn/src/importar-externo.test.ts) (27) | Fixtures inventados con la forma de [Bizagi](../../packages/bpmn/src/__fixtures__/bizagi-reclamos.bpmn) (sin prefijo, subproceso desplegado, borde, datos, anotación, grupo), [Signavio](../../packages/bpmn/src/__fixtures__/signavio-compras.bpmn) (`semantic:`, pool de caja negra, carriles anidados, subproceso plegado con otro dentro) y [Camunda](../../packages/bpmn/src/__fixtures__/camunda-alta-cliente.bpmn) (`bpmn:`, pool sin carriles, compuerta basada en eventos, borde de error, enlaces, escalamiento, subproceso de evento): carriles, subprocesos y niveles, flujos resultantes, tipos, eventos y avisos. Robustez: los tres prefijos dan lo mismo, elementos desconocidos (también con nombres de `Object.prototype`), XML que no es BPMN, sin `bpmndi`, carriles por posición, 3 000 actividades, numeración. Tipos de tarea frente al catálogo. Un BPMN de ProcessIQ: lectura del MVP, la completa si pasó por otra herramienta, y pains dentro de la escala 1 a 5 del esquema. |
+
+Los fixtures se leen con el sufijo `?raw` de Vite ([raw.d.ts](../../packages/bpmn/src/raw.d.ts)): el paquete no necesita los tipos de Node. Los usan también `divergencias.spec.mjs` (D10) y la E2E `pruebas/e2e/importar-bpmn.spec.mjs`.
 
 **Trampas:**
 
-- **`leerBpmn` necesita un `DOMParser`.** En el navegador usa el global. En Node hay que pasar `opciones.leerXml`: las pruebas usan `@xmldom/xmldom`, que es solo `devDependency`.
-- El export conserva tipos de ejecución antiguos (`receive`, `ia`, `script`, `user`) que ya no están en el catálogo, por los datos existentes. No los quites.
-- **El import es plano.** Recorre todos los elementos del XML, también los que están dentro de un `subProcess`. Esos elementos llegan como nodos del mismo diagrama, además de la caja del subproceso (tarea con marcador `subprocess`).
-- **No lee carriles (`laneSet`) ni posiciones (DI).** Los nodos llegan en `(0, 0)` y sin `owner`; la app aplica después el auto-layout.
-- Un `boundaryEvent` llega como evento intermedio suelto, no enganchado a su actividad.
+- **`leerBpmn` necesita un `DOMParser`.** En el navegador usa el global. En Node hay que pasar `opciones.leerXml`: las pruebas usan `@xmldom/xmldom`, que es solo `devDependency` y **lanza** con un XML mal formado (el navegador devuelve un `<parsererror>`): `leerBpmn` cubre los dos casos.
+- El export conserva tipos de ejecución antiguos (`receive`, `ia`, `script`, `user`) que ya no están en el catálogo, por los datos existentes. No los quites. El export tampoco sigue al catálogo (`system` sale como `serviceTask`): por eso un BPMN de ProcessIQ que pasó por otra herramienta vuelve con `automatic` donde había `system`.
+- **No toques la lectura del MVP** (`leerComoMvp`): la fidelidad compara byte a byte lo que da con los BPMN que exporta el editor. Lo nuevo va en `importar-externo.ts`.
+- En la lectura completa, el orden de las claves de cada nodo es el de la lectura del MVP; lo nuevo (`marker`, `terminate`, `boundary`, `nivel`, `padre`) va al final.
+- Un nodo nuevo que no sea de tipo tarea, compuerta o evento necesita geometría (`formas`): sin `w`/`h` el lienzo queda en blanco.
 
 ### 5.4 `@processiq/exportar`
 

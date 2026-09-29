@@ -186,7 +186,7 @@ Se define al final de `init()` ([inicio.js](../../apps/web/src/app/inicio.js)). 
 | Grupo | Métodos |
 |---|---|
 | Ejemplos (14) | `loadDemo`, `loadComplex`, `loadComplex2` … `loadComplex12`, `loadFichaVentaLotes` |
-| Ficha y BPMN | `exportFicha()`, `openFichaPreview()`, `deriveFicha()`, `importBpmnXml(xml)`, `generateBpmnXml()` |
+| Ficha y BPMN | `exportFicha()`, `openFichaPreview()`, `deriveFicha()`, `importBpmnXml(xml)`, `generateBpmnXml()`. `importBpmnXml` devuelve el conteo (`count`, `tasks`, `gateways`, `events`, `flows`); con un BPMN de otra herramienta, además `carriles`, `subprocesos` y `avisos` |
 | Diagnóstico | `snapshot()` (nodos, aristas, tareas, decisiones, nombre), `quality()`, `autoFit(opciones)`, `svg()` |
 | Niveles | `nivel(n)` con n = 1, 2 o 3; `niveles()`; `modeloCompleto()` (nodos del modelo completo) |
 | Ruteo | `astar(bool)`: activa el ruteo A* (apagado por defecto, ver [HANDOFF](../mvp/HANDOFF.md)) |
@@ -223,7 +223,7 @@ Menú Exportar ([ui/cabecera.js](../../apps/web/src/app/ui/cabecera.js)). La app
 |---|---|---|---|
 | JSON | [exportar/archivos.js](../../apps/web/src/app/exportar/archivos.js) | — | Lo mismo que una revisión (`contenidoDe`): `meta`, `ficha`, `nodes`, `edges`, `activeView`, `views` (As-Is y To-Be), `raci`, `sipoc`, `simResults`, `kpiValues` y `lanes`, más `exportedAt`; el MVP exportaba solo `meta`, `ficha`, `nodes`, `edges` y `exportedAt` (divergencia D7). Sin `schemaVersion`: lo leen «Importar», «Nuevo proceso → JSON» y la importación asistida del shell. «Importar» restaura las dos vistas y los análisis; un JSON del MVP (sin `views`) se importa como siempre |
 | SVG / PNG | [exportar/archivos.js](../../apps/web/src/app/exportar/archivos.js) | — | Serializa el lienzo (`serializeCanvasSvg`) con los colores copiados de las variables CSS |
-| BPMN 2.0 | [bpmn/exportar.js](../../apps/web/src/app/bpmn/exportar.js) | `@processiq/bpmn` | Importar: [bpmn/importar.js](../../apps/web/src/app/bpmn/importar.js) o soltar un `.bpmn` en la ingesta |
+| BPMN 2.0 | [bpmn/exportar.js](../../apps/web/src/app/bpmn/exportar.js) | `@processiq/bpmn` | Importar: [bpmn/importar.js](../../apps/web/src/app/bpmn/importar.js) o soltar un `.bpmn` en la ingesta. Un BPMN del propio ProcessIQ se lee como en el MVP; uno de otra herramienta conserva carriles, pools, subprocesos (plegables con los niveles) y tipos, y el copiloto dice qué carriles y subprocesos trae y qué ignoró (divergencia D10, [paquetes §5.3](paquetes.md#53-processiqbpmn)). Un XML que no es BPMN da un mensaje claro y no toca el proceso abierto |
 | PPTX (MBC, BBVA y temas de la organización) | [exportar/pptx.js](../../apps/web/src/app/exportar/pptx.js) | `@processiq/exportar` | `construirPptx` y `posprocesarPptx` (JSZip convierte las líneas en conectores anclados). Guarda el resultado en `state._ultimoPptx` para las pruebas |
 | Word (informe) | [exportar/word.js](../../apps/web/src/app/exportar/word.js) | `@processiq/exportar` | `.doc` en HTML (`application/msword`) |
 | Ficha de Proceso | [exportar/ficha.js](../../apps/web/src/app/exportar/ficha.js) | `@processiq/exportar` | Vista previa en un modal y descarga como `.doc` |
@@ -331,7 +331,7 @@ Detalle en [ia.md](ia.md).
 | [exportar/word.js](../../apps/web/src/app/exportar/word.js) | Informe Word y `deriveFicha()` |
 | [exportar/ficha.js](../../apps/web/src/app/exportar/ficha.js) | Ficha de Proceso: vista previa y descarga |
 | [bpmn/exportar.js](../../apps/web/src/app/bpmn/exportar.js) | BPMN XML |
-| [bpmn/importar.js](../../apps/web/src/app/bpmn/importar.js) | Aplica un BPMN importado al proceso abierto |
+| [bpmn/importar.js](../../apps/web/src/app/bpmn/importar.js) | Aplica un BPMN importado al proceso abierto (auto-layout, simulación y modelo completo para los niveles) y arma el detalle del mensaje del copiloto (`detalleImportBpmn`) |
 | [ejemplos/ejemplos.js](../../apps/web/src/app/ejemplos/ejemplos.js) | 13 procesos de ejemplo |
 | [ejemplos/venta-lotes.js](../../apps/web/src/app/ejemplos/venta-lotes.js) | Ejemplo de entrenamiento de la Ficha |
 | [ejemplos/galeria.js](../../apps/web/src/app/ejemplos/galeria.js) | Selector de ejemplos |

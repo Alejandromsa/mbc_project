@@ -1,17 +1,16 @@
-// Importador BPMN 2.0 nativo (sin librerías). Portado del MVP 3.8.9
-// (importBpmnXml): aquí solo se LEE el XML; aplicar el resultado al proceso
-// abierto (reinicio, layout, simulación) es cosa de la app.
+// Importador BPMN 2.0 nativo (sin librerías): aquí solo se LEE el XML; aplicar
+// el resultado al proceso abierto (reinicio, layout, simulación) es cosa de la app.
+//
+// Dos lecturas:
+// - BPMN exportado por el propio ProcessIQ (`exporter="ProcessIQ"`): la del MVP 3.8.9
+//   (importBpmnXml), portada sin cambios. Exportar y volver a importar da lo mismo
+//   que en el MVP, y la fidelidad lo compara byte a byte.
+// - BPMN de otra herramienta (Bizagi, Signavio, Camunda, bpmn.io…): la lectura
+//   completa de importar-externo.ts (carriles, pools, subprocesos, posiciones, tipos).
 import type { Arista, FormaPorDefecto, Nodo, TipoNodo } from '@processiq/dominio';
+import { leerBpmnExterno } from './importar-externo.js';
+import type { DocumentoXml, ElementoXml } from './xml.js';
 
-/** Lo mínimo del DOM que usa el importador (DOMParser del navegador o @xmldom/xmldom). */
-interface ElementoXml {
-  localName: string | null;
-  getAttribute(nombre: string): string | null;
-}
-interface DocumentoXml {
-  getElementsByTagName(tag: string): ArrayLike<ElementoXml>;
-  querySelector?(sel: string): unknown;
-}
 export type LectorXml = (xml: string) => DocumentoXml;
 
 export interface OpcionesLectura {
@@ -22,13 +21,23 @@ export interface OpcionesLectura {
   leerXml?: LectorXml;
 }
 
+export interface ConteoLectura { count: number; tasks: number; gateways: number; events: number; flows: number }
+
 export interface ResultadoLectura {
   nodos: Nodo[];
   aristas: Arista[];
   /** Nombre del <process>, vacío si no tiene. */
   nombreProceso: string;
   siguienteId: number;
-  conteo: { count: number; tasks: number; gateways: number; events: number; flows: number };
+  conteo: ConteoLectura;
+  /** `processiq`: lo exportó este editor y se leyó como en el MVP. `externo`: lectura completa. */
+  origen: 'processiq' | 'externo';
+  /** Carriles (responsables) del archivo, en su orden. Vacío en la lectura del MVP. */
+  carriles: string[];
+  /** Subprocesos con contenido: se ven desplegados en el nivel Detalle y plegados en Actividad y Ejecutivo. */
+  subprocesos: number;
+  /** Lo que no se pudo representar tal cual, en frases para la persona. Vacío en la lectura del MVP. */
+  avisos: string[];
 }
 
 const lectorPorDefecto: LectorXml = (xml) => {
@@ -36,6 +45,35 @@ const lectorPorDefecto: LectorXml = (xml) => {
   if (!P) throw new Error('No hay DOMParser en este entorno: pasa opciones.leerXml.');
   return new P().parseFromString(xml, 'application/xml');
 };
+
+const NO_ES_XML = 'El archivo no es un XML válido: puede estar incompleto o no ser un diagrama BPMN.';
+
+/**
+ * Lee un BPMN 2.0 y devuelve nodos y aristas con ids nuevos (n1, n2… desde
+ * `siguienteId`). Tolera cualquier prefijo de namespace. Lanza, sin tocar nada,
+ * si el XML no es válido, si no es un BPMN 2.0 o si un BPMN de otra herramienta
+ * no trae actividades, eventos ni compuertas.
+ */
+export function leerBpmn(xmlString: string, opciones: OpcionesLectura): ResultadoLectura {
+  let doc: DocumentoXml;
+  // @xmldom/xmldom lanza con un XML mal formado; el navegador devuelve un <parsererror>
+  try { doc = (opciones.leerXml ?? lectorPorDefecto)(xmlString); } catch { throw new Error(NO_ES_XML); }
+  const hayError = typeof doc.querySelector === 'function'
+    ? !!doc.querySelector('parsererror')
+    : doc.getElementsByTagName('parsererror').length > 0;
+  if (hayError) throw new Error(NO_ES_XML);
+
+  const raiz = doc.documentElement;
+  if (!raiz || raiz.localName !== 'definitions') {
+    const nombre = (raiz && raiz.localName) || '';
+    if (nombre === 'Package') {
+      throw new Error('El archivo es XPDL (el formato antiguo de Bizagi y otras herramientas), no BPMN 2.0. Expórtalo de nuevo como BPMN 2.0.');
+    }
+    throw new Error('El archivo es XML, pero no es un diagrama BPMN 2.0: su elemento principal es <' + nombre + '> y debería ser <definitions>.');
+  }
+  if ((raiz.getAttribute('exporter') || '').trim() === 'ProcessIQ') return leerComoMvp(doc, opciones);
+  return leerBpmnExterno(doc, opciones);
+}
 
 const TAREAS = ['task', 'userTask', 'serviceTask', 'manualTask', 'sendTask', 'receiveTask', 'scriptTask', 'businessRuleTask', 'callActivity', 'subProcess'];
 const COMPUERTAS = ['exclusiveGateway', 'parallelGateway', 'inclusiveGateway', 'complexGateway', 'eventBasedGateway'];
@@ -52,15 +90,10 @@ const tipoGateway = (tag: string) => ({
 } as Record<string, string>)[tag] || 'exclusive';
 
 /**
- * Lee un BPMN 2.0 y devuelve nodos y aristas con ids nuevos (n1, n2… desde
- * `siguienteId`). Tolera cualquier prefijo de namespace. Lanza si el XML no es válido.
+ * La lectura del MVP 3.8.9, sin cambios: plana (también los elementos de dentro
+ * de un subProcess), sin carriles ni posiciones, nodos en (0, 0) y sin `owner`.
  */
-export function leerBpmn(xmlString: string, opciones: OpcionesLectura): ResultadoLectura {
-  const doc = (opciones.leerXml ?? lectorPorDefecto)(xmlString);
-  const hayError = typeof doc.querySelector === 'function'
-    ? !!doc.querySelector('parsererror')
-    : doc.getElementsByTagName('parsererror').length > 0;
-  if (hayError) throw new Error('El XML no es válido.');
+function leerComoMvp(doc: DocumentoXml, opciones: OpcionesLectura): ResultadoLectura {
   const local = (tag: string) => Array.from(doc.getElementsByTagName('*')).filter((el) => el.localName === tag);
 
   const { formas } = opciones;
@@ -112,6 +145,7 @@ export function leerBpmn(xmlString: string, opciones: OpcionesLectura): Resultad
   const nombreProceso = (proc && (proc.getAttribute('name') || '').trim()) || '';
   return {
     nodos, aristas, nombreProceso, siguienteId,
-    conteo: { count: tasks + gateways + events, tasks, gateways, events, flows }
+    conteo: { count: tasks + gateways + events, tasks, gateways, events, flows },
+    origen: 'processiq', carriles: [], subprocesos: 0, avisos: []
   };
 }

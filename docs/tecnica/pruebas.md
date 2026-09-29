@@ -39,8 +39,8 @@ Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 | Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 116 | Nada | Segundos |
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
 | Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 117 | Postgres de desarrollo | — |
-| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 36 | Web construida, Chromium, internet | ~2,5 min |
-| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 38 | Web construida, Chromium, Postgres de desarrollo | ~5 min |
+| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 37 | Web construida, Chromium, internet | ~2,5 min |
+| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 41 | Web construida, Chromium, Postgres de desarrollo | ~5 min |
 | Imágenes | `docker compose build` | [infra/](../../infra) | — | Docker | — |
 | Banco de calidad | Consola del navegador | [bench/](../../bench/README.md) | Manual | Procesos reales fuera del repositorio | — |
 
@@ -99,6 +99,7 @@ Vitest sin configuración propia: `vitest run` en cada paquete. No usan red ni b
 | [dominio/src/validacion.test.ts](../../packages/dominio/src/validacion.test.ts) | 5 | `validarProceso` (Playbook MBB) |
 | [motor/src/motor.test.ts](../../packages/motor/src/motor.test.ts) | 17 | Operaciones del grafo, layout, ruteo y calidad, niveles de detalle |
 | [bpmn/src/bpmn.test.ts](../../packages/bpmn/src/bpmn.test.ts) | 9 | `generarBpmnXml` y `leerBpmn` |
+| [bpmn/src/importar-externo.test.ts](../../packages/bpmn/src/importar-externo.test.ts) | 27 | BPMN de otras herramientas (fixtures inventados con la forma de Bizagi, Signavio y Camunda): carriles, pools, subprocesos, eventos de borde, prefijos y robustez |
 | [exportar/src/exportar.test.ts](../../packages/exportar/src/exportar.test.ts) | 7 | Ficha de Proceso, informe Word, PPTX |
 | [documentos/src/documentos.test.ts](../../packages/documentos/src/documentos.test.ts) | 7 | Intérprete de texto, proceso básico, participantes |
 | [mining/src/mining.test.ts](../../packages/mining/src/mining.test.ts) | 8 | Lectura de CSV y descubrimiento del proceso con la muestra |
@@ -212,6 +213,7 @@ No son tolerancias: son cambios intencionales ([fase1-divergencias.md](../fase1-
 | | `D7` | «Exportar → JSON» lleva las dos vistas y los análisis; se importa entero en otro navegador, y el MVP también lo abre |
 | | `D8` | El panel «Validaciones» ya no dice que lo crítico bloquea el export; con hallazgos críticos, JSON y BPMN se descargan igual |
 | | `D9` | Tildes de la interfaz: la lista de `textos-divergentes.mjs` está al día y en pantalla se ven los textos nuevos |
+| | `D10` | Un BPMN de otra herramienta conserva carriles y subprocesos; uno exportado por ProcessIQ se lee exactamente como en el MVP |
 
 La IA simulada intercepta en el navegador las llamadas a un intermediario ficticio y responde con un SSE como el de Anthropic. No hay red ni gasto.
 

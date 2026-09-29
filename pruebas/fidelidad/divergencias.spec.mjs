@@ -1,5 +1,6 @@
 // Diferencias intencionales con el MVP 3.8.9 (docs/fase1-divergencias.md).
 // Cada prueba documenta el comportamiento del MVP y verifica el nuevo.
+import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 import JSZip from 'jszip';
 import { CLAVES_JSON_MVP, VIEWPORT, abrirApp, clicExport, descargar, laminasPptx } from './src/escenarios.mjs';
@@ -314,4 +315,59 @@ test('D9: la interfaz del editor lleva sus tildes, y la lista de textos de la fi
     pista: 'Se combinarán en un solo AS-IS. Ante contradicciones prevalece la fuente más reciente (p. ej. la transcripción del levantamiento sobre un diagrama antiguo).',
     aviso: 'El análisis profundo de dolores usa la IA (Claude). Aún no configuraste tu API key. ¿Abrir Ajustes de IA?'
   });
+});
+
+// D10: BPMN de otras herramientas (fixtures inventados de packages/bpmn). El BPMN
+// exportado por el propio ProcessIQ se sigue leyendo como en el MVP: lo compara
+// byte a byte el escenario «importación BPMN de los 14 ejemplos».
+const fixtureBpmn = (nombre) => readFile(new URL(`../../packages/bpmn/src/__fixtures__/${nombre}`, import.meta.url), 'utf8');
+const importarBpmn = (page, xml) => page.evaluate((x) => {
+  try { return window.ProcessIQ.importBpmnXml(x); } catch (e) { return { error: String(e.message) }; }
+}, xml);
+const guardado = (page) => page.evaluate(() => {
+  const d = JSON.parse(localStorage.getItem('processiq.v1'));
+  return { nodos: d.nodes, carriles: d.lanes ? d.lanes.list : [] };
+});
+
+test('D10: un BPMN de otra herramienta conserva carriles y subprocesos; un XML que no es BPMN no borra el proceso abierto', async ({ browser }) => {
+  const xml = await fixtureBpmn('bizagi-reclamos.bpmn');
+
+  // MVP: plano y sin carriles; el inicio, el fin y la convergencia del subproceso quedan sueltos
+  const ref = await abrir(browser, PUERTO_REFERENCIA);
+  expect(await importarBpmn(ref.page, xml)).toEqual({ count: 19, tasks: 9, gateways: 3, events: 7, flows: 18 });
+  const mvp = await guardado(ref.page);
+  expect(mvp.carriles).toEqual(['Por asignar']);
+  expect(mvp.nodos.filter((n) => n.label === 'Caso no procede')).toHaveLength(1);
+  // Un XML que no es BPMN: devuelve 0 y el proceso abierto ya se borró
+  await ref.page.evaluate(() => window.ProcessIQ.loadDemo());
+  expect(await importarBpmn(ref.page, '<raiz/>')).toEqual({ count: 0 });
+  expect(await ref.page.evaluate(() => window.ProcessIQ.snapshot().nodes)).toBe(0);
+  expect(ref.errores).toEqual([]);
+  await ref.ctx.close();
+
+  // App nueva: carriles, subproceso con su contenido plegable y avisos
+  const nueva = await abrir(browser, PUERTO_NUEVA);
+  const r = await importarBpmn(nueva.page, xml);
+  expect(r).toMatchObject({ count: 15, tasks: 9, gateways: 2, events: 4, flows: 16, subprocesos: 1 });
+  expect(r.carriles).toEqual(['Cliente', 'Mesa de ayuda', 'Analista de reclamos', 'Supervisor']);
+  expect(r.avisos).toHaveLength(3);
+  const nuevo = await guardado(nueva.page);
+  expect([...nuevo.carriles].sort()).toEqual([...r.carriles].sort());
+  expect(nuevo.nodos.some((n) => n.label === 'Caso no procede')).toBe(false);
+  const sub = nuevo.nodos.find((n) => n.label === 'Evaluar reclamo');
+  expect(sub).toMatchObject({ marker: 'subprocess', owner: 'Analista de reclamos', boundary: { type: 'timer', interrupting: false } });
+  expect(nuevo.nodos.filter((n) => n.padre === sub.id).map((n) => n.label))
+    .toEqual(['Revisar antecedentes', 'Consultar historial del cliente', '¿Procede?', 'Calcular compensación', 'Redactar rechazo']);
+  // Niveles: el contenido se pliega en Actividad y vuelve en Detalle, sin llamar a nadie
+  await nueva.page.evaluate(() => window.ProcessIQ.nivel(2));
+  expect(await nueva.page.evaluate(() => window.ProcessIQ.snapshot().nodes)).toBe(10);
+  await nueva.page.evaluate(() => window.ProcessIQ.nivel(3));
+  expect(await nueva.page.evaluate(() => window.ProcessIQ.snapshot().nodes)).toBe(15);
+  // Un XML que no es BPMN: mensaje claro y el proceso abierto sigue ahí
+  expect(await importarBpmn(nueva.page, '<raiz/>')).toEqual({
+    error: 'El archivo es XML, pero no es un diagrama BPMN 2.0: su elemento principal es <raiz> y debería ser <definitions>.'
+  });
+  expect(await nueva.page.evaluate(() => window.ProcessIQ.snapshot().nodes)).toBe(15);
+  expect(nueva.errores).toEqual([]);
+  await nueva.ctx.close();
 });

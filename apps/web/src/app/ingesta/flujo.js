@@ -1,6 +1,6 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { extraerTexto } from '@processiq/documentos';
-import { importBpmnXml } from '../bpmn/importar.js';
+import { detalleImportBpmn, importBpmnXml } from '../bpmn/importar.js';
 import { copilotPost } from '../copiloto/copiloto.js';
 import { $ } from '../dom.js';
 import { state } from '../estado.js';
@@ -63,7 +63,7 @@ async function runIngest(source) {
         closeIngestModal();
         maybeFitOnLoad();
         activateTab('ficha');
-        copilotPost('ai', '**BPMN importado desde ' + escapeHtml(r.name) + ':** ' + r.result.count + ' elementos (' + r.result.tasks + ' actividades, ' + r.result.gateways + ' compuertas, ' + r.result.events + ' eventos) y ' + r.result.flows + ' flujos.');
+        copilotPost('ai', '**BPMN importado desde ' + escapeHtml(r.name) + ':** ' + r.result.count + ' elementos (' + r.result.tasks + ' actividades, ' + r.result.gateways + ' compuertas, ' + r.result.events + ' eventos) y ' + r.result.flows + ' flujos.' + detalleImportBpmn(r.result));
         return;
       }
       const tipo = /transcrip|audio|reunion|llamada|teams|zoom/i.test(r.name) ? 'transcripcion' : 'documento';
