@@ -83,6 +83,8 @@ services:
       IA_CONCURRENCIA: ${IA_CONCURRENCIA:-2}
       PULSE_URL: ${PULSE_URL:-}
       PULSE_TOKEN: ${PULSE_TOKEN:-}
+      PRESUPUESTO_IA_MENSUAL_USD: ${PRESUPUESTO_IA_MENSUAL_USD:-100}
+      LIMITE_IA_USUARIO_MENSUAL_USD: ${LIMITE_IA_USUARIO_MENSUAL_USD:-25}
     # Sin servidor HTTP: no hereda el healthcheck de la API
     healthcheck:
       disable: true

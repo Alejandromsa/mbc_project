@@ -6,18 +6,18 @@ import { Hono, type Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { ejecucionesIa, usuarios, type BaseDeDatos } from '@processiq/db';
+import { ejecucionesIa, usuarios } from '@processiq/db';
 import { migrarProyecto } from '@processiq/dominio';
 import { MODELOS_IA, PRECIOS_IA, TAREAS_IA, resumenProcesoParaIa } from '@processiq/ia';
 import { registrar } from '../auditoria.js';
 import { ErrorHttp, type Entorno, type UsuarioSesion } from '../contexto.js';
 import { CANAL_COLA, CANAL_EJECUCION, avisar, despertador } from '../ia/avisos.js';
 import type { EjecucionIa } from '../ia/cola.js';
+import { gastoDelMes, inicioDelMes, sinPresupuesto } from '../ia/presupuesto.js';
 import { exigirAdmin, type Capacidad } from '../permisos.js';
 import { cuerpo, esUuid } from '../validar.js';
 import { accesoProceso } from './procesos.js';
 
-const ZONA = 'America/Lima';
 const TERMINALES = new Set(['completada', 'fallida', 'cancelada']);
 /** Texto de fuentes admitido en una generación (el editor ya lo recorta a 180 000 caracteres). */
 const MAX_TEXTO = 1_000_000;
@@ -30,7 +30,8 @@ const GeneracionEsquema = z.object({
   roles: z.record(z.string().max(200), z.string().max(200)).nullable().optional(),
   variasFuentes: z.boolean().default(false),
   fuentes: z.array(z.object({ nombre: z.string().max(300), tipo: z.string().max(40), caracteres: z.number().int().nonnegative() })).max(50).default([]),
-  modelo: z.string().optional()
+  /** El elegido en el editor. Si el servidor no lo permite, usa otro y lo dice (modeloSustituido). */
+  modelo: z.string().max(100).optional()
 });
 
 const AnalisisEsquema = z.object({
@@ -48,28 +49,14 @@ function publica(e: EjecucionIa, conResultado: boolean) {
   return { ...resto, resultado: conResultado ? resultado : undefined };
 }
 
-/** Gasto del mes calendario (hora de Lima) de la organización y de la persona. */
-async function gastoDelMes(db: BaseDeDatos, organizacionId: string, usuarioId: string) {
-  const inicioMes = sql`(date_trunc('month', now() at time zone ${ZONA}) at time zone ${ZONA})`;
-  const [r] = await db.select({
-    organizacion: sql<number>`coalesce(sum(${ejecucionesIa.costeUsd}), 0)::float8`,
-    usuario: sql<number>`coalesce(sum(${ejecucionesIa.costeUsd}) filter (where ${ejecucionesIa.usuarioId} = ${usuarioId}), 0)::float8`
-  }).from(ejecucionesIa).where(and(eq(ejecucionesIa.organizacionId, organizacionId), gte(ejecucionesIa.creadoEn, inicioMes)));
-  return { organizacion: Number(r?.organizacion ?? 0), usuario: Number(r?.usuario ?? 0) };
-}
-
 async function exigirIaDisponible(c: Context<Entorno>, yo: UsuarioSesion) {
   const ia = c.get('config').ia;
   if (!ia.configurada) {
     throw new ErrorHttp(409, 'La IA del servidor no está configurada todavía (falta la clave de Anthropic). Avisa a quien administra ProcessIQ.', 'IA_NO_CONFIGURADA');
   }
-  const gasto = await gastoDelMes(c.get('db'), yo.organizacionId, yo.id);
-  if (gasto.organizacion >= ia.presupuestoMensualUsd) {
-    throw new ErrorHttp(409, `Se alcanzó el presupuesto mensual de IA de la organización (US$ ${ia.presupuestoMensualUsd}). Un administrador puede ampliarlo.`, 'PRESUPUESTO');
-  }
-  if (gasto.usuario >= ia.limiteUsuarioMensualUsd) {
-    throw new ErrorHttp(409, `Alcanzaste tu límite mensual de IA (US$ ${ia.limiteUsuarioMensualUsd}). Un administrador puede ampliarlo.`, 'LIMITE_USUARIO');
-  }
+  // El worker lo vuelve a comprobar antes de cada llamada (ia/ejecutar.ts)
+  const sin = await sinPresupuesto(c.get('db'), ia, yo.organizacionId, yo.id);
+  if (sin) throw new ErrorHttp(409, sin.mensaje, sin.codigo);
 }
 
 async function accesoEjecucion(c: Context<Entorno>, id: string, capacidad: Capacidad) {
@@ -113,16 +100,20 @@ export function rutasIa(opciones: { sondeoMs?: number } = {}) {
     const d = await cuerpo(c, GeneracionEsquema);
     const { proceso } = await accesoProceso(c.get('db'), yo, d.procesoId, 'escribir');
     const ia = c.get('config').ia;
-    const modelo = d.modelo ?? ia.modelosPermitidos[0]!;
-    if (!ia.modelosPermitidos.includes(modelo)) throw new ErrorHttp(400, `Modelo no permitido: ${modelo}.`, 'MODELO');
+    // El servidor decide el modelo: si no permite el pedido, usa el primero permitido y lo dice
+    const modelo = d.modelo && ia.modelosPermitidos.includes(d.modelo) ? d.modelo : ia.modelosPermitidos[0]!;
+    const modeloSustituido = d.modelo && d.modelo !== modelo ? { pedido: d.modelo, usado: modelo } : null;
     await exigirIaDisponible(c, yo);
     const e = await encolar(c, {
       organizacionId: yo.organizacionId, procesoId: proceso.id, usuarioId: yo.id, tipo: 'generacion', modelo,
       parametros: { etiqueta: d.etiqueta, vista: d.vista, roles: d.roles ?? null, variasFuentes: d.variasFuentes, fuentes: d.fuentes, caracteres: d.texto.length },
       texto: d.texto
     });
-    await registrar(c, 'ia.generacion', 'proceso', proceso.id, { ejecucionId: e.id, modelo, caracteres: d.texto.length, fuentes: d.fuentes.map((f) => f.nombre) });
-    return c.json({ ejecucion: publica(e, false) }, 202);
+    await registrar(c, 'ia.generacion', 'proceso', proceso.id, {
+      ejecucionId: e.id, modelo, ...(modeloSustituido ? { modeloPedido: modeloSustituido.pedido } : {}),
+      caracteres: d.texto.length, fuentes: d.fuentes.map((f) => f.nombre)
+    });
+    return c.json({ ejecucion: publica(e, false), modeloSustituido }, 202);
   });
 
   /** Análisis del proceso: pains o una tarea del copiloto (sustituye a aiAnalyzePains y runAiTask). */
@@ -218,8 +209,7 @@ export function rutasIa(opciones: { sondeoMs?: number } = {}) {
     const yo = c.get('usuario');
     exigirAdmin(yo);
     const db = c.get('db'), ia = c.get('config').ia;
-    const inicioMes = sql`(date_trunc('month', now() at time zone ${ZONA}) at time zone ${ZONA})`;
-    const delMes = and(eq(ejecucionesIa.organizacionId, yo.organizacionId), gte(ejecucionesIa.creadoEn, inicioMes));
+    const delMes = and(eq(ejecucionesIa.organizacionId, yo.organizacionId), gte(ejecucionesIa.creadoEn, inicioDelMes()));
     const porUsuario = await db.select({
       usuarioId: ejecucionesIa.usuarioId, nombre: usuarios.nombre, email: usuarios.email,
       ejecuciones: sql<number>`count(*)::int`,

@@ -30,8 +30,9 @@ function fallo(err: unknown, donde: string, detalle: Record<string, unknown> = {
   registrarError(conexion.db, { origen: 'worker', mensaje: String(e && e.message), pila: e && e.stack, ruta: donde, detalle }).catch(() => {});
 }
 
-const reportarGasto = (u: { modelo: string; entrada: number; salida: number; ejecucionId: string }) => {
-  log({ evento: 'gasto_ia', modelo: u.modelo, inputTokens: u.entrada, outputTokens: u.salida, ejecucionId: u.ejecucionId });
+const reportarGasto = (u: { modelo: string; entrada: number; salida: number; ejecucionId: string; parcial?: boolean }) => {
+  // parcial: respuesta cortada a mitad (cancelada, sin respuesta, corte de red o parada del worker)
+  log({ evento: 'gasto_ia', modelo: u.modelo, inputTokens: u.entrada, outputTokens: u.salida, ejecucionId: u.ejecucionId, ...(u.parcial ? { parcial: true } : {}) });
   if (!cfg.pulseUrl) return;
   fetch(cfg.pulseUrl, {
     method: 'POST',
@@ -41,7 +42,7 @@ const reportarGasto = (u: { modelo: string; entrada: number; salida: number; eje
 };
 
 const dependencias = {
-  db: conexion.db, claveAnthropic: cfg.claveAnthropic, urlAnthropic: cfg.urlAnthropic,
+  db: conexion.db, claveAnthropic: cfg.claveAnthropic, urlAnthropic: cfg.urlAnthropic, topes: cfg.topesIa,
   apagando: () => apagando, reportarGasto
 };
 
@@ -55,7 +56,7 @@ async function bucle(n: number) {
     await ejecutar(dependencias, e).catch((err) => fallo(err, 'ejecutar', { ejecucionId: e.id }));
     enCurso--;
     log({ evento: 'fin', trabajador: n, ejecucionId: e.id, segundos: Math.round((Date.now() - t0) / 1000) });
-    reloj.despertar();   // por si hay más en cola para los demás
+    reloj.despertar();   // por si hay más en cola para los demás (despierta a todos los que esperan)
   }
 }
 
