@@ -289,6 +289,10 @@ La salida real (láminas XML de los 14 ejemplos en los dos temas, Word y Ficha) 
 - **Tema nuevo del sistema** = entrada en `TEMAS_PPTX` + botón `data-export="pptx" data-tema="…"` en el menú. `mbc` y `bbva` están reservados: la base no puede redefinirlos.
 - **Constantes con nombre histórico** (`M_PRUNO`…) toman su valor del tema. Divergencia F1: en el MVP, `renderMiniDiagram` usaba constantes que solo existen dentro de `construirPptx` y el export con To-Be fallaba siempre. Ahora recibe `estilo` ([fase1-divergencias.md](../fase1-divergencias.md)).
 - **En una pestaña oculta, `pres.write()` no termina** (el navegador estrangula los timers). Playwright headless no tiene ese problema.
+- **pptxgenjs sigue en 3.12.0** ([ADR 17](../adr/0017-excepciones-auditoria-dependencias.md)).
+  - La 4.0.1 da el mismo `.pptx` byte a byte, pero no quita ningún aviso de la auditoría. Además, su campo `exports` no publica `dist/pptxgen.bundle.js`, así que habría que cambiar `scripts/copiar-vendor.mjs`.
+  - `image-size`, que declara y no usa, se quita del árbol con `pnpm.overrides`.
+  - Antes de cambiar de versión: la fidelidad solo compara las láminas (`ppt/slides/slideN.xml`), así que hay que comparar también el resto del paquete (`docProps`, diseños, tema, imágenes y relaciones) y buscar `image-size` en su `dist/`.
 
 ### 5.5 `@processiq/documentos`
 
@@ -320,6 +324,7 @@ La lectura real de `.docx`, `.pdf`, `.pptx` y `.txt` la cubren las pruebas de fi
 
 - **`extraccion.ts` está tipado** (28-sep-2026), con interfaces locales de lo que usa de pdf.js y JSZip. Su interfaz pública sigue en `extraccion-tipos.ts`.
 - **Las librerías llegan por el entorno**: `entorno.mammoth()`, `pdfjs()` y `jszip()` las cargan bajo demanda, con las versiones exactas que la web copia a `/vendor/`. El paquete no las importa.
+- **mammoth es la 1.13.0, no la 1.8.0 del MVP** (28-sep-2026, [ADR 17](../adr/0017-excepciones-auditoria-dependencias.md)). Con Word revisados extrae algo distinto: controles de contenido, párrafos movidos, filas eliminadas, casillas ([divergencia D6](../fase1-divergencias.md)). Para cambiar de versión: `pnpm fidelidad` y la prueba D6 de `divergencias.spec.mjs`, que fija esas diferencias.
 - **`importarBpmn` también llega por el entorno**, porque `documentos` no puede depender de `bpmn` (fronteras).
 - `interpretarTexto` usa `VERBS_ALLOWED` por referencia: en modo proyecto ve los verbos de la organización (efecto del [ADR 14](../adr/0014-catalogos-en-sitio.md)).
 

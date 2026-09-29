@@ -96,7 +96,7 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - 🔜 Textos sin tilde en la interfaz del editor («Anadir», «Analisis»): cambiarlos exige registrar la divergencia con el MVP.
 - 🔜 El importador BPMN aplana los subprocesos y no lee carriles ni posiciones.
 - 🔜 `herramientas/fronteras.mjs` no detecta `import './x.js'` sin `from`.
-- 🔜 Actualizar pptxgenjs y mammoth ([ADR 17](adr/0017-excepciones-auditoria-dependencias.md)), comprobando la fidelidad.
+- ✅ Avisos de la auditoría de pptxgenjs y mammoth ([ADR 17](adr/0017-excepciones-auditoria-dependencias.md)), sin excepciones: mammoth pasa a 1.13.0 (divergencia D6), e `image-size`, que pptxgenjs declara pero no usa, se quita con un override. pptxgenjs sigue en 3.12.0, porque la 4.0.1 no quita el aviso; da el mismo `.pptx` y está evaluada en la ADR.
 
 ### 5.4 Documentación
 

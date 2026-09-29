@@ -137,6 +137,15 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22j. **Postgres 17 ejecuta las funciones de un índice con un `search_path` seguro.** Una función IMMUTABLE que envuelve `unaccent` sin calificar el esquema funciona en una consulta normal, pero `CREATE INDEX` falla con «function unaccent(text) does not exist». Pasa también en `REINDEX`, `VACUUM`, `ANALYZE` y en la restauración de una copia. Se comprobó con un control en el Postgres de desarrollo (ADR 19).
     → **Regla:** toda función usada en un índice (o en una vista materializada) califica cada objeto que usa: `public.unaccent('public.unaccent'::regdictionary, …)`. Falla incluso con la tabla vacía, así que la propia migración lo delata en las pruebas; aun así, probar `pg_dump` y `pg_restore` con datos.
 
+22m. **La ADR 17 decía que el aviso de `image-size` «desaparece al actualizar pptxgenjs», y era falso.**
+    - La última pptxgenjs (4.0.1) sigue pidiendo `image-size ^1.2.1`, y el arreglo solo existe en la 2.0.3.
+    - Además, pptxgenjs ni siquiera usa `image-size`: ningún archivo de su `dist/` la menciona.
+    - Actualizar habría costado un cambio en la copia del vendor y no habría quitado el aviso.
+
+    → **Regla:** antes de escribir que un aviso se arregla actualizando X:
+    - mirar el rango vulnerable y la primera versión corregida (`gh api advisories/<GHSA>`) y compararlos con el rango que pide la última versión de X (`pnpm view X dependencies`);
+    - buscar en el código publicado de X si de verdad usa la dependencia. Si no la usa, se quita con `pnpm.overrides` (`"X>dep": "-"`) en lugar de aceptarla.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.

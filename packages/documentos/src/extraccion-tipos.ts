@@ -14,7 +14,7 @@ export interface EntornoExtraccion {
   /** Lanza Error('CANCELLED') si el usuario canceló. */
   comprobarCancelado(): void;
   leer(archivo: ArchivoEntrada, como: 'text' | 'arraybuffer'): Promise<any>;
-  /** Cargadores diferidos de las librerías (mammoth 1.8.0, pdf.js 4.7.76, JSZip 3.10.1). */
+  /** Cargadores diferidos de las librerías (mammoth 1.13.0, pdf.js 4.7.76, JSZip 3.10.1). */
   mammoth(): Promise<{ extractRawText(o: { arrayBuffer: ArrayBuffer }): Promise<{ value: string }> }>;
   pdfjs(): Promise<any>;
   jszip(): Promise<any>;
