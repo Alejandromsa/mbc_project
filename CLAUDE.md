@@ -39,7 +39,7 @@ pnpm --filter @processiq/api semilla            # cuentas de prueba (*@processiq
 pnpm --filter @processiq/api worker             # worker de IA (cola ejecuciones_ia); con ANTHROPIC_API_KEY en .env.dev gasta de verdad
 pnpm --filter @processiq/api exec vitest run -t "numera las revisiones"   # una prueba de la API
 pnpm --filter @processiq/db generar             # nueva migración tras cambiar packages/db/src/esquema.ts
-pnpm e2e                                        # build + shell/editor/API/Postgres de punta a punta (Playwright, ~1 min; base processiq_e2e)
+pnpm e2e                                        # build + shell/editor/API/Postgres de punta a punta (Playwright, ~6 min; base processiq_e2e)
 infra/desplegar.sh staging | produccion [version] | versiones   # servidor: staging, promoción y reversión (docs/runbooks/despliegue.md)
 infra/sondear-main.sh --estado | --simular | --pausar | --reanudar   # servidor: el sondeo que despliega main en staging cada 10 min
 ```
