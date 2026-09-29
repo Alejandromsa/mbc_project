@@ -95,13 +95,22 @@ export const revisiones = pgTable('revisiones', {
 export const auditoria = pgTable('auditoria', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   usuarioId: uuid('usuario_id'),
+  /**
+   * Organización del evento: la del autor o, sin autor (entrada fallida, línea
+   * de comandos), la de la cuenta afectada. Nula si no se sabe (un correo que
+   * no existe): esas filas no las ve ningún administrador en la plataforma.
+   */
+  organizacionId: uuid('organizacion_id').references(() => organizaciones.id),
   accion: text('accion').notNull(),
   entidad: text('entidad').notNull(),
   entidadId: text('entidad_id'),
   detalle: jsonb('detalle').notNull().default(sql`'{}'::jsonb`),
   ip: text('ip'),
   creadoEn: creado()
-}, (t) => [index('auditoria_entidad_idx').on(t.entidad, t.entidadId)]);
+}, (t) => [
+  index('auditoria_entidad_idx').on(t.entidad, t.entidadId),
+  index('auditoria_organizacion_idx').on(t.organizacionId, t.id)
+]);
 
 export const tipoEjecucionIa = pgEnum('tipo_ejecucion_ia', ['generacion', 'pains', 'tarea']);
 export const estadoEjecucionIa = pgEnum('estado_ejecucion_ia', ['en_cola', 'ejecutando', 'completada', 'fallida', 'cancelada']);

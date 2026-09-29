@@ -1,0 +1,37 @@
+# ProcessIQ — Postgres de DESARROLLO y pruebas (API, E2E). No se usa en el servidor.
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down        # para; los datos siguen en el volumen
+# No necesita .env. Proyecto propio («processiq-dev»): los comandos de
+# producción (docker compose … --remove-orphans) no lo ven ni lo borran.
+# Puerto 5440 del PC y solo en 127.0.0.1: el 5432 lo ocupa un Postgres nativo, y
+# la contraseña de desarrollo es fija y conocida.
+name: processiq-dev
+
+services:
+  postgres-dev:
+    # El mismo nombre de contenedor y el mismo volumen que cuando estaba en
+    # docker-compose.yml (perfil dev): los datos se conservan
+    container_name: processiq-postgres-dev-1
+    image: postgres:17-alpine
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      POSTGRES_DB: processiq
+      POSTGRES_USER: processiq
+      POSTGRES_PASSWORD: processiq
+    ports:
+      - "127.0.0.1:5440:5432"
+    volumes:
+      - postgres_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U processiq -d processiq"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  postgres_dev:
+    # Nombre fijo: el del proyecto «processiq», donde se creó
+    name: processiq_postgres_dev

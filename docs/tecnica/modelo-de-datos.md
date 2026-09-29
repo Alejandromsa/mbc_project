@@ -34,6 +34,7 @@ erDiagram
   organizaciones ||--o{ verbos_playbook : "organizacion_id"
   organizaciones ||--o{ temas_pptx : "organizacion_id"
   organizaciones ||--o{ plantillas_proceso : "organizacion_id"
+  organizaciones ||--o{ auditoria : "organizacion_id (nulable)"
   usuarios ||--o{ plantillas_proceso : "creado_por (set null)"
   revisiones ||--o{ plantillas_proceso : "origen_revision_id (set null)"
   usuarios ||--o{ sesiones : "usuario_id (cascade)"
@@ -114,7 +115,7 @@ erDiagram
   }
 ```
 
-`auditoria`, `errores` y `latidos` no tienen claves foráneas: su `usuario_id` es una referencia lógica que sobrevive aunque el usuario desaparezca.
+`auditoria`, `errores` y `latidos` no tienen clave foránea hacia `usuarios`: su `usuario_id` es una referencia lógica que sobrevive aunque el usuario desaparezca. `auditoria` sí la tiene hacia `organizaciones`.
 
 ### Borrados en cascada
 
@@ -400,12 +401,13 @@ Restricción única `plantillas_proceso_org_nombre_uq (organizacion_id, nombre)`
 
 #### `auditoria`
 
-Quién hizo qué, sobre qué y cuándo. **Solo se inserta** (función `registrar()` de [auditoria.ts](../../apps/api/src/auditoria.ts)).
+Quién hizo qué, sobre qué y cuándo. **Solo se inserta** (funciones `registrar()` y `registrarEvento()` de [auditoria.ts](../../apps/api/src/auditoria.ts)). Cada administrador ve solo las filas de su organización.
 
 | Columna | Tipo | Nulo | Por defecto | Significado |
 |---|---|:-:|---|---|
 | `id` | bigserial | no | secuencia | Clave primaria. |
-| `usuario_id` | uuid | sí | — | Quién (sin FK). `null` si no había sesión. |
+| `usuario_id` | uuid | sí | — | Quién (sin FK). `null` si no había sesión y en la línea de comandos. |
+| `organizacion_id` | uuid | sí | — | FK a `organizaciones`. La del autor o, sin autor, la de la cuenta afectada (entidad `usuario`). `null` si no hay ninguna (correo inexistente). Las filas anteriores a la migración 0005 se rellenaron así. |
 | `accion` | text | no | — | Qué pasó ([§6.5](#65-auditoría)). |
 | `entidad` | text | no | — | Tipo de objeto (`proyecto`, `proceso`, `revision`, `usuario`, `kpi`, `verbo`, `tema_pptx`). |
 | `entidad_id` | text | sí | — | Id del objeto (texto: puede no ser uuid). |
@@ -413,7 +415,7 @@ Quién hizo qué, sobre qué y cuándo. **Solo se inserta** (función `registrar
 | `ip` | text | sí | — | IP del cliente. |
 | `creado_en` | timestamptz | no | `now()` | Momento. |
 
-Índice `auditoria_entidad_idx (entidad, entidad_id)`.
+Índices `auditoria_entidad_idx (entidad, entidad_id)` y `auditoria_organizacion_idx (organizacion_id, id)`.
 
 #### `errores`
 
@@ -595,7 +597,7 @@ Toda escritura relevante de la API llama a `registrar(c, accion, entidad, entida
 
 | Entidad | Acciones |
 |---|---|
-| `usuario` | `sesion.inicio`, `sesion.fallida`, `sesion.cierre`, `usuario.alta`, `usuario.cambio`, `usuario.cambio_clave`, `usuario.restablecer_clave` |
+| `usuario` | `sesion.inicio`, `sesion.fallida`, `sesion.cierre`, `usuario.alta`, `usuario.cambio`, `usuario.cambio_clave`, `usuario.restablecer_clave`; desde `cli.js`, `cli.usuario.alta` y `cli.usuario.restablecer_clave` (sin autor, `detalle.origen = 'cli'`) |
 | `proyecto` | `proyecto.alta`, `proyecto.cambio`, `proyecto.miembro`, `proyecto.baja_miembro` |
 | `proceso` | `proceso.alta`, `proceso.cambio`, `ia.generacion`, `ia.analisis`, `ia.cancelacion` |
 | `revision` | `revision.alta`, `revision.estado` |
@@ -660,6 +662,7 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
 | [0002_catalogos.sql](../../packages/db/migraciones/0002_catalogos.sql) | 26-sep-2026 | Tipo `tipo_verbo`. Tablas `kpis`, `temas_pptx`, `verbos_playbook`. |
 | [0003_observabilidad.sql](../../packages/db/migraciones/0003_observabilidad.sql) | 26-sep-2026 | Tipo `origen_error`. Tablas `errores` y `latidos`. |
 | [0004_plantillas_proceso.sql](../../packages/db/migraciones/0004_plantillas_proceso.sql) | 28-sep-2026 | Tabla `plantillas_proceso`. |
+| [0005_auditoria_organizacion.sql](../../packages/db/migraciones/0005_auditoria_organizacion.sql) | 28-sep-2026 | Columna `auditoria.organizacion_id` (FK nulable), su índice y el relleno de las filas existentes (dos `UPDATE` añadidos a mano). |
 
 Todas solo añaden: ninguna borra ni renombra. Cada migración tiene su instantánea en `migraciones/meta/NNNN_snapshot.json` y una entrada en [meta/_journal.json](../../packages/db/migraciones/meta/_journal.json) (`idx`, `when` en milisegundos, `tag`).
 

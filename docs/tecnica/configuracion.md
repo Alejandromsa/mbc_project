@@ -7,7 +7,7 @@ Actualizado: 28-sep-2026.
 Fuentes:
 
 - Plantillas: [.env.example](../../.env.example), [.env.staging.example](../../.env.staging.example) y [.env.dev.example](../../.env.dev.example).
-- Compose: [docker-compose.yml](../../docker-compose.yml) y [docker-compose.staging.yml](../../docker-compose.staging.yml).
+- Compose: [docker-compose.yml](../../docker-compose.yml), [docker-compose.staging.yml](../../docker-compose.staging.yml) y [docker-compose.dev.yml](../../docker-compose.dev.yml).
 - Código: [config.ts](../../apps/api/src/config.ts), [worker.ts](../../apps/api/src/worker.ts), [intermediario](../../apps/intermediario/src/index.ts), [Caddyfile](../../infra/Caddyfile), [respaldo.sh](../../infra/respaldo.sh) y [desplegar.sh](../../infra/desplegar.sh).
 
 > Los archivos `.env`, `.env.staging` y `.env.dev` tienen secretos y **nunca se suben al repositorio** (`.gitignore` solo deja pasar los `*.example`). Este documento solo recoge nombres y valores por defecto.
@@ -28,13 +28,13 @@ Fuentes:
 |---|---|---|---|
 | Dónde corre | Tu PC, con `pnpm` | El servidor, en Docker | El servidor, en Docker |
 | Archivo de configuración | `.env.dev` (plantilla `.env.dev.example`) | `.env.staging` (plantilla `.env.staging.example`) | `.env` (plantilla `.env.example`) |
-| Quién lee el archivo | `tsx --env-file-if-exists=../../.env.dev` en `pnpm --filter @processiq/api dev`, `worker` y `semilla` | `docker compose --env-file .env.staging` (lo hace `infra/desplegar.sh staging`) | `docker compose` (lee `.env` solo) |
-| Proyecto de Compose | — (solo `postgres-dev`, perfil `dev`) | `processiq-staging` | `processiq` |
-| Archivos de Compose | `docker-compose.yml` | `docker-compose.yml` + `docker-compose.staging.yml` | `docker-compose.yml` |
-| Base de datos | `postgres-dev` en el puerto 5440 del PC | Volumen propio de staging | Volumen de producción |
+| Quién lee el archivo | `tsx --env-file-if-exists=../../.env.dev` en `pnpm --filter @processiq/api dev`, `worker` y `semilla`; el intermediario (`pnpm --filter @processiq/intermediario dev`) lee `.env.dev`, o `.env` si no existe | `docker compose --env-file .env.staging` (lo hace `infra/desplegar.sh staging`) | `docker compose` (lee `.env` solo) |
+| Proyecto de Compose | `processiq-dev` (solo `postgres-dev`) | `processiq-staging` | `processiq` |
+| Archivos de Compose | `docker-compose.dev.yml` (no necesita `.env`) | `docker-compose.yml` + `docker-compose.staging.yml` | `docker-compose.yml` |
+| Base de datos | `postgres-dev` en `127.0.0.1:5440` | Volumen propio de staging | Volumen de producción |
 | Copias de seguridad | No hay | `CARPETA_RESPALDOS=./respaldos-staging` | `./respaldos` (por defecto) |
 | HTTPS | No (Vite en `http://localhost:5173`) | Lo termina el Caddy de producción; el de staging escucha HTTP en `:80` | Caddy con Let's Encrypt en el 443 |
-| Cómo se despliega | — | `infra/desplegar.sh staging` | `infra/desplegar.sh produccion [version]` |
+| Cómo se despliega | — | Solo, desde `main`, por sondeo (`infra/sondear-main.sh`); a mano, `infra/desplegar.sh staging` | `infra/desplegar.sh produccion [version]` |
 
 Cómo encajan los tres:
 
@@ -70,7 +70,7 @@ docker compose up -d api worker             # solo API y worker (topes y modelos
 | `ANTHROPIC_API_KEY` | `docker compose up -d intermediario api worker` |
 | `ACCESS_CODE`, `ALLOWED_ORIGINS` | `docker compose up -d intermediario` |
 | `PULSE_URL`, `PULSE_TOKEN` | `docker compose up -d intermediario worker` |
-| `RESPALDO_HORA`, `ZONA_HORARIA`, `RESPALDO_CADA_HORAS`, `RESPALDO_CONSERVAR` | `docker compose up -d respaldo` |
+| `RESPALDO_HORA`, `ZONA_HORARIA`, `RESPALDO_CADA_HORAS`, `RESPALDO_CONSERVAR`, `RESPALDO_ESPERA_INICIAL_S` | `docker compose up -d respaldo` |
 | `CARPETA_RESPALDOS` | `docker compose up -d api respaldo` |
 | `POSTGRES_PASSWORD` | Primero cámbiala **dentro** de Postgres. Sigue [rotacion-secretos.md](../runbooks/rotacion-secretos.md). |
 | `VERSION` | No la edites a mano: usa `infra/desplegar.sh produccion <version>`. |
@@ -112,7 +112,7 @@ Las lee Compose al cargar el archivo, y el contenedor `web` (Caddy) a través de
 | `SITIO_WEB` | Compose → `DOMINIO` de `web` | el valor de `DOMINIO` | No | Sustituye la dirección del sitio en Caddy. Staging usa `:80` (HTTP detrás del Caddy de producción). | S |
 | `PROXIES_CONFIABLES` | `web` (`trusted_proxies` de Caddy) | `127.0.0.1/32` | No | De quién se acepta `X-Forwarded-For`. Producción: nadie más que localhost (Caddy pone la IP real). Staging: `private_ranges`, para creer la IP que le pasa el Caddy de producción. | S |
 | `DOMINIO_STAGING` | `web` de producción ([staging.caddy](../../infra/caddy/staging.caddy)) | `staging.${DOMINIO}` | No | Dominio que el Caddy de producción reenvía al de staging. No está en ninguna plantilla. | P (opcional) |
-| `RED_BORDE` | Compose (nombre de la red) y `infra/desplegar.sh` | `processiq-borde` | No | Red Docker compartida por las dos pilas. Solo se cambia para pruebas aisladas. | Opcional |
+| `RED_BORDE` | Compose (nombre de la red) y `infra/desplegar.sh` (terminal, o si no `.env` y `.env.staging`) | `processiq-borde` | No | Red Docker compartida por las dos pilas. Solo se cambia para pruebas aisladas, y con el mismo valor en `.env` y `.env.staging`: si no, `infra/desplegar.sh staging` se niega. | Opcional (comentada en P y S) |
 | `VERSION` | Compose (etiqueta de las imágenes `processiq/web`, `api` e `intermediario`; argumento de construcción de la API) | `local` | No | Versión desplegada = commit de 8 caracteres. La escribe `infra/desplegar.sh` al final del archivo. Llega a la API como `PROCESSIQ_VERSION`. | P, S (la pone el script) |
 
 ### Base de datos y copias de seguridad
@@ -126,31 +126,32 @@ Las lee Compose al cargar el archivo, y el contenedor `web` (Caddy) a través de
 | `ZONA_HORARIA` | `respaldo` (como `TZ`) | `America/Lima` | No | Zona en la que se interpreta `RESPALDO_HORA`. | P, S (opcional) |
 | `RESPALDO_CADA_HORAS` | `respaldo` | `24` | No | Solo con `RESPALDO_HORA` vacía: cada cuántas horas se hace un `pg_dump` desde el arranque. | P, S (opcional) |
 | `RESPALDO_CONSERVAR` | `respaldo` | `14` | No | Cuántas copias se conservan; las más antiguas se borran. | P, S (opcional) |
-| `RESPALDO_ESPERA_INICIAL_S` | [respaldo.sh](../../infra/respaldo.sh) | `300` | No | Espera antes de la primera copia, para que la API haya creado las tablas. **Compose no la pasa al contenedor**: hoy solo se cambia editando `docker-compose.yml`. | — |
+| `RESPALDO_ESPERA_INICIAL_S` | `respaldo` ([respaldo.sh](../../infra/respaldo.sh)) | `300` | No | Espera antes de la primera copia, para que la API haya creado las tablas. | P (opcional, comentada) |
 | `CARPETA_RESPALDOS_LECTURA` | API | — (Compose: `/respaldos`) | No | Carpeta que lee «Sistema» para mostrar la última copia y el disco libre. Sin ella, «Sistema» no muestra copias. | Interna |
 | `CARPETA_MIGRACIONES` | API, `cli.ts`, `semilla` | `packages/db/migraciones` (imagen: `/app/dist/migraciones`) | No | Dónde están las migraciones SQL. La API las aplica al arrancar; el worker no. | Interna (Dockerfile) |
 | `POSTGRES_DB`, `POSTGRES_USER` | Contenedores `postgres` y `postgres-dev` | `processiq` | — | Nombre de la base y del usuario. Fijos en Compose. | Interna |
 | `PGHOST`, `PGUSER`, `PGDATABASE`, `PGPASSWORD` | `respaldo` (`pg_dump`) | `postgres`, `processiq`, `processiq`, `POSTGRES_PASSWORD` | — | Conexión de las copias. Fijas en Compose. | Interna |
 
-`postgres-dev` (perfil `dev`) tiene usuario, base y contraseña fijos (`processiq`) y publica el puerto 5440. Solo sirve para desarrollo y pruebas.
+`postgres-dev` ([docker-compose.dev.yml](../../docker-compose.dev.yml)) tiene usuario, base y contraseña fijos (`processiq`) y solo escucha en `127.0.0.1:5440`. Solo sirve para desarrollo y pruebas.
 
 ### API
 
 | Variable | Usa | Por defecto | Obligatoria | Efecto | Archivo |
 |---|---|---|---|---|---|
 | `ORIGEN_PUBLICO` | API | Compose: `https://${DOMINIO}`; código: ninguno | **Sí** (el código la exige) | Origen de la web. Toda escritura debe traer `Origin` igual a este valor (si no, 403 `ORIGEN`). Si empieza por `https://`, la cookie lleva `Secure`. Formato `http(s)://host[:puerto]`, sin ruta; se quitan las `/` finales. | S (explícita), D (`http://localhost:5173`); en P sale de `DOMINIO` |
-| `HORAS_SESION` | API | `12` | No | Duración fija de una sesión, en horas. | P, S, D (opcional) |
-| `PORT` | API | `8080` (Dockerfile y código) | No | Puerto HTTP de la API. En desarrollo, `8790`: es el que espera el proxy de Vite. | Interna; D (`8790`) |
+| `HORAS_SESION` | API | `12` | No | Duración fija de una sesión, en horas. Vacía: 12. Tiene que ser un número mayor que 0 (admite decimales); si no, la API no arranca. | P, S, D (opcional) |
+| `PORT` | API | `8080` (Dockerfile y código) | No | Puerto HTTP de la API. En desarrollo, `8790`: es el que espera el proxy de Vite. Vacía: 8080. Tiene que ser un entero entre 1 y 65535; si no, la API no arranca. | Interna; D (`8790`) |
 | `PROCESSIQ_VERSION` | API | `desarrollo` | No | Versión que muestra «Sistema». La fija la imagen a partir de `VERSION`. | Interna (Dockerfile) |
 | `NODE_ENV` | API, worker, intermediario, `semilla` | `production` en las imágenes | No | En las imágenes vale `production`. `semilla` se niega a correr con `production`. El intermediario no abre el puerto con `test`. | Interna |
 
 ### IA en el servidor (API y worker)
 
-La API solo **informa** si hay clave y aplica los topes: no llama a Anthropic. Quien llama es el `worker`. Ver [IA en el servidor](api.md#ia-en-el-servidor).
+La API solo **informa** si hay clave y aplica los topes: no llama a Anthropic, y en Docker no recibe la clave. Quien llama es el `worker`. Ver [IA en el servidor](api.md#ia-en-el-servidor).
 
 | Variable | Usa | Por defecto | Obligatoria | Efecto | Archivo |
 |---|---|---|---|---|---|
-| `ANTHROPIC_API_KEY` | worker (llama a Claude), API (`configurada`), intermediario | vacía | Para usar IA, **sí** | Clave de Anthropic, creada dentro de un workspace con tope de gasto. Sin ella, la API responde 409 `IA_NO_CONFIGURADA` y no encola; el worker avisa en su log. Se recortan los espacios. | P, S; D (solo si quieres IA real: **gasta de verdad**) |
+| `ANTHROPIC_API_KEY` | worker (llama a Claude), intermediario; la API solo en desarrollo (`.env.dev`) | vacía | Para usar IA, **sí** | Clave de Anthropic, creada dentro de un workspace con tope de gasto. Sin ella, la API responde 409 `IA_NO_CONFIGURADA` y no encola; el worker avisa en su log. Se recortan los espacios. | P, S; D (solo si quieres IA real: **gasta de verdad**) |
+| `IA_CONFIGURADA` | API | vacía | No | `si` si hay `ANTHROPIC_API_KEY`: Compose la calcula (`${ANTHROPIC_API_KEY:+si}`) para que la API sepa que la IA está configurada sin recibir la clave. También vale `sí`, `true` o `1`. | Interna |
 | `PRESUPUESTO_IA_MENSUAL_USD` | API y worker | `100` | No | Tope de gasto de la organización por mes calendario (hora de Lima), en US$ a precio de lista. Al alcanzarlo: 409 `PRESUPUESTO` al encolar; el worker lo vuelve a comprobar antes de cada llamada. | P, S (`10`) |
 | `LIMITE_IA_USUARIO_MENSUAL_USD` | API y worker | `25` | No | Tope de gasto de cada persona por mes. Al alcanzarlo: 409 `LIMITE_USUARIO`. | P, S (`5`) |
 | `MODELOS_IA_PERMITIDOS` | API | `claude-opus-5,claude-sonnet-5` | No | Modelos que se pueden elegir al generar, separados por comas. El primero es el de por defecto. Solo se admiten modelos con precio conocido: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`. | P (opcional) |
@@ -169,9 +170,9 @@ El intermediario sirve al editor libre (`/`) en el modo «Clave del equipo». Ca
 |---|---|---|---|---|---|
 | `ANTHROPIC_API_KEY` | intermediario | vacía | **Sí** | La misma clave que usa el worker. Sin ella (o sin `ACCESS_CODE`), `POST /ia/v1/messages` responde 500. `/ia/health` dice si tiene formato de clave (`ok`, `sospechoso`, `vacia`). | P, S |
 | `ACCESS_CODE` | intermediario | vacía | **Sí** | Código del equipo que se pone en los ajustes de IA del editor. Se compara en tiempo constante. Distinto en staging. | P, S |
-| `ALLOWED_ORIGINS` | intermediario | Compose: `https://${DOMINIO}`; código: ninguno (rechaza todo) | No en Docker | Orígenes permitidos, separados por comas. Solo hace falta si publicas en un puerto distinto de 443 (p. ej. `https://localhost:8443`). | P (opcional), S (explícita) |
+| `ALLOWED_ORIGINS` | intermediario | Compose: `https://${DOMINIO}`; código: ninguno (rechaza todo) | No en Docker; **sí** en desarrollo | Orígenes permitidos, separados por comas. En Docker solo hace falta si publicas en un puerto distinto de 443 (p. ej. `https://localhost:8443`). En desarrollo, `http://localhost:5173` (la web de Vite). | P (opcional), S (explícita), D (comentada) |
 | `PULSE_URL`, `PULSE_TOKEN` | intermediario | vacías | No | Igual que en el worker. | P (opcional) |
-| `PORT` | intermediario | `8787` | No | Puerto HTTP del intermediario. | Interna (Dockerfile) |
+| `PORT` | intermediario | `8787` | No | Puerto HTTP del intermediario. En desarrollo, el `PORT` de `.env.dev` es el de la API: el script de desarrollo usa siempre 8787, salvo que exportes `PORT` en la terminal. | Interna (Dockerfile) |
 
 ### Pruebas y CI
 
@@ -192,7 +193,7 @@ Lo que traen los `*.example` (las celdas «vacía» hay que completarlas). Lo qu
 |---|---|---|---|
 | `DOMINIO` | `mbc.asissoft.com` | `staging.mbc.asissoft.com` | — |
 | `ORIGEN_PUBLICO` | — (sale de `DOMINIO`) | `https://staging.mbc.asissoft.com` | `http://localhost:5173` |
-| `ALLOWED_ORIGINS` | comentada | `https://staging.mbc.asissoft.com` | — |
+| `ALLOWED_ORIGINS` | comentada | `https://staging.mbc.asissoft.com` | comentada (`http://localhost:5173`) |
 | `SITIO_WEB` | — | `:80` | — |
 | `TLS_MODO` | `acme` | `ninguno` | — |
 | `PROXIES_CONFIABLES` | — | `private_ranges` | — |
@@ -202,7 +203,7 @@ Lo que traen los `*.example` (las celdas «vacía» hay que completarlas). Lo qu
 | `PORT` | — | — | `8790` |
 | `HORAS_SESION` | `12` | `12` | — |
 | `ANTHROPIC_API_KEY` | vacía | vacía | — |
-| `ACCESS_CODE` | vacía | vacía | — |
+| `ACCESS_CODE` | vacía | vacía | comentada |
 | `PULSE_URL`, `PULSE_TOKEN` | vacías | — | — |
 | `PRESUPUESTO_IA_MENSUAL_USD` | `100` | `10` | — |
 | `LIMITE_IA_USUARIO_MENSUAL_USD` | `25` | `5` | — |
@@ -212,6 +213,8 @@ Lo que traen los `*.example` (las celdas «vacía» hay que completarlas). Lo qu
 | `CARPETA_RESPALDOS` | — (`./respaldos`) | `./respaldos-staging` | — |
 | `RESPALDO_HORA` | `03:00` | `03:30` | — |
 | `ZONA_HORARIA` | `America/Lima` | — | — |
+| `RESPALDO_ESPERA_INICIAL_S` | comentada (`300`) | — | — |
+| `RED_BORDE` | comentada (`processiq-borde`) | comentada (`processiq-borde`) | — |
 
 `infra/desplegar.sh` añade `VERSION=<commit>` al final de `.env` y `.env.staging` la primera vez, y la actualiza en cada despliegue.
 
@@ -219,8 +222,8 @@ Lo que traen los `*.example` (las celdas «vacía» hay que completarlas). Lo qu
 
 | Servicio | Comprueba | Si falla |
 |---|---|---|
-| Compose (cualquier comando) | `DOMINIO` y `POSTGRES_PASSWORD` presentes | No hace nada: «Falta DOMINIO en .env» o «Falta POSTGRES_PASSWORD en .env» |
-| API (`leerConfig`) | `DATABASE_URL` presente; `ORIGEN_PUBLICO` con forma de origen; `PRESUPUESTO_IA_MENSUAL_USD` y `LIMITE_IA_USUARIO_MENSUAL_USD` numéricos y ≥ 0; cada modelo de `MODELOS_IA_PERMITIDOS` y `MODELO_IA_ANALISIS`, conocido | El proceso termina con el motivo («Falta DATABASE_URL», «ORIGEN_PUBLICO debe ser un origen…», «MODELOS_IA_PERMITIDOS: modelo desconocido…»). Docker lo reinicia en bucle: mira `docker compose logs api`. |
+| Compose (cualquier comando con `docker-compose.yml`; `docker-compose.dev.yml` no las pide) | `DOMINIO` y `POSTGRES_PASSWORD` presentes | No hace nada: «Falta DOMINIO en .env» o «Falta POSTGRES_PASSWORD en .env» |
+| API (`leerConfig`) | `DATABASE_URL` presente; `ORIGEN_PUBLICO` con forma de origen; `HORAS_SESION` > 0 y `PORT` entre 1 y 65535 (vacías: su valor por defecto); `PRESUPUESTO_IA_MENSUAL_USD` y `LIMITE_IA_USUARIO_MENSUAL_USD` numéricos y ≥ 0; cada modelo de `MODELOS_IA_PERMITIDOS` y `MODELO_IA_ANALISIS`, conocido | El proceso termina con el motivo («Falta DATABASE_URL», «ORIGEN_PUBLICO debe ser un origen…», «HORAS_SESION debe ser un número mayor que 0…», «MODELOS_IA_PERMITIDOS: modelo desconocido…»). Docker lo reinicia en bucle: mira `docker compose logs api`. |
 | API (arranque) | Aplica las migraciones y asegura la organización y los catálogos | No arranca; el healthcheck (`/api/salud`) no se pone sano y el worker no arranca |
 | Worker (`leerConfigWorker`) | `DATABASE_URL` presente; `IA_CONCURRENCIA` numérico y ≥ 0 | El proceso termina. Sin `ANTHROPIC_API_KEY` arranca, pero lo avisa en el log. |
 | Intermediario | Nada | Arranca siempre. Sin clave o código, responde 500 a las llamadas; revisa `GET /ia/health`. |
@@ -262,16 +265,14 @@ docker compose -p processiq-prueba up -d --build
 
 ## Observaciones y puntos por confirmar
 
-Encontrados al revisar el código para este documento. No están corregidos.
+Encontrados al revisar el código para este documento. Las marcadas ✅ ya están corregidas.
 
-1. **El intermediario de desarrollo lee `.env`, no `.env.dev`.** Su script `dev` usa `--env-file-if-exists=../../.env`.
-   - Si el PC de desarrollo es el servidor, toma los secretos de producción.
-   - En ese archivo `ALLOWED_ORIGINS` suele estar vacía, y el código, sin Compose, no tiene valor por defecto. Por confirmar: las llamadas desde Vite (`Origin: http://localhost:5173`) se rechazarían con 403, salvo que añadas ese origen.
+1. ✅ **El intermediario de desarrollo leía `.env`, no `.env.dev`.** Ahora lee `.env.dev` y, solo si no existe, `.env` (avisa: en el servidor son los secretos de producción). `ALLOWED_ORIGINS=http://localhost:5173` está en `.env.dev.example`, comentada.
 2. **Puerto distinto de 443.** `ORIGEN_PUBLICO` vale por defecto `https://${DOMINIO}`, sin puerto. Si publicas en otro puerto (`PUERTO_HTTPS=8443`), el navegador envía `Origin: https://localhost:8443` y todas las escrituras (incluido entrar) dan 403 `ORIGEN`.
    - `.env.example` solo menciona `ALLOWED_ORIGINS` para ese caso.
    - La receta de `servidor-local.md` («Probar en local sin tocar producción») no fija `ORIGEN_PUBLICO`.
-3. **`HORAS_SESION` y `PORT` no se validan** (usan `Number(...)`, no el validador de los topes). En Docker no importa, porque Compose pone `12` si está vacía. En `.env.dev`, `HORAS_SESION=` vacía da 0 (sesiones que caducan al instante), y un texto da `NaN` (por confirmar: probablemente un 500 al entrar).
-4. **`RESPALDO_ESPERA_INICIAL_S`** existe en `respaldo.sh`, pero `docker-compose.yml` no la pasa al contenedor.
-5. **`RED_BORDE`**: Compose la toma del `.env`, pero `infra/desplegar.sh` solo de la terminal. Si la cambias solo en `.env`, el script comprobaría otra red.
-6. **Compose exige `DOMINIO` y `POSTGRES_PASSWORD` al cargar el archivo**, aunque solo arranques `postgres-dev`. La CI las pone para `docker compose build`. Por confirmar: en un PC sin `.env`, `docker compose --profile dev up -d postgres-dev` fallaría. Solución: pasarlas en la línea o crear un `.env` con valores de prueba.
-7. **`DOMINIO_STAGING`, `RED_BORDE`, `LATIDO_SEGUNDOS` y `ANTHROPIC_BASE_URL`** no están en ninguna plantilla. Las dos últimas tampoco las pasa Compose. Está bien para las de prueba, pero conviene saberlo.
+3. ✅ **`HORAS_SESION` y `PORT` no se validaban.** Ahora, vacías toman su valor por defecto, y un texto, un 0 o un puerto fuera de rango paran la API con un error que nombra la variable.
+4. ✅ **`RESPALDO_ESPERA_INICIAL_S`** no llegaba al contenedor: ahora Compose la pasa.
+5. ✅ **`RED_BORDE`**: `infra/desplegar.sh` solo la leía de la terminal. Ahora también de `.env` y `.env.staging`, y se niega si no coinciden.
+6. ✅ **Compose exigía `DOMINIO` y `POSTGRES_PASSWORD` para levantar `postgres-dev`.** Ahora está en `docker-compose.dev.yml`, que no necesita `.env`.
+7. **`DOMINIO_STAGING`, `LATIDO_SEGUNDOS` y `ANTHROPIC_BASE_URL`** no están en ninguna plantilla (`RED_BORDE` ya está, comentada). Las dos últimas tampoco las pasa Compose. Está bien para las de prueba, pero conviene saberlo.

@@ -13,6 +13,8 @@
 | `nucleo` | ProcessIQ: editor, proyectos, revisiones, IA en el servidor, catálogos, observabilidad, importación | Plataforma (@Alejandromsa) | Núcleo | en producción | [arquitectura](../arquitectura.md) |
 | `portafolio` | Portafolio de procesos por cliente e indicadores | @Alejandromsa (agente) | Módulo | en desarrollo | [portafolio.md](portafolio.md) |
 | `conocimiento` | Búsqueda sobre entregables y comparativo APQC | @Alejandromsa (agente) | Módulo | en desarrollo | [conocimiento.md](conocimiento.md) |
+| `invitados` | Revisión por invitados externos: enlace de solo lectura con caducidad y comentarios | @Alejandromsa (agente) | Módulo (con rutas públicas) | reservada | [invitados.md](invitados.md) |
+| `colaboracion` | Colaboración en tiempo real: presencia, «editando» y aviso de revisiones nuevas | Plataforma (agente) | Núcleo | reservada | [colaboracion.md](colaboracion.md) |
 
 ## Propuestas sin reservar
 
@@ -20,8 +22,6 @@ Salen de la fase 4 de `docs/arquitectura.md` §13. Para tomar una, se reserva co
 
 | Propuesta | Tipo previsto | Nota |
 |---|---|---|
-| Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo | Toca la sesión: las rutas públicas son del núcleo |
-| Colaboración en tiempo real | Núcleo | Toca el editor y el guardado de revisiones |
 | Interfaz en inglés | Núcleo | Toca todas las pantallas; el editor está cubierto por la fidelidad |
 
 ## Reservas
@@ -38,6 +38,9 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 | `/api/salud`, `/api/sesion`, `/api/usuarios`, `/api/directorio`, `/api/proyectos`, `/api/procesos`, `/api/revisiones`, `/api/auditoria`, `/api/ia`, `/api/catalogos`, `/api/sistema`, `/api/errores` | `nucleo` |
 | `/api/portafolio/…`, `/proyectos/portafolio/…` | `portafolio` |
 | `/api/conocimiento/…`, `/proyectos/conocimiento/…` | `conocimiento` |
+| `/api/invitados/…`, `/api/publico/invitados/…`, `/?invitado=<token>` | `invitados` |
+| `/api/publico/` (prefijo sin sesión: cada ruta valida su propio token) | `nucleo` (lo estrena `invitados`) |
+| `/api/procesos/:id/presencia`, `/api/procesos/:id/eventos` | `colaboracion` (núcleo) |
 
 ### Base de datos
 
@@ -48,6 +51,9 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 | `ia_cola`, `ia_ejecucion` | Canales `LISTEN/NOTIFY` | `nucleo` |
 | `portafolio_…` | Tablas y tipos | `portafolio` |
 | `conocimiento_…` | Tablas y tipos | `conocimiento` |
+| `invitados_…` | Tablas y tipos | `invitados` |
+| `presencias` | Tabla | `colaboracion` (núcleo) |
+| `procesos_evento` | Canal `LISTEN/NOTIFY` | `colaboracion` (núcleo) |
 | `pg_trgm`, `unaccent` | Extensiones de Postgres | `conocimiento` (las puede usar cualquiera) |
 
 ### Navegador
@@ -78,8 +84,10 @@ Todas las de `.env.example`, `.env.dev.example`, `.env.staging.example` y las de
 
 | Nombre | Tipo | Dueño |
 |---|---|---|
-| `web`, `api`, `worker`, `postgres`, `respaldo`, `intermediario`, `postgres-dev` | Servicios de `docker-compose.yml` | `nucleo` |
-| `processiq`, `processiq-staging` | Proyectos de Compose | `nucleo` |
+| `web`, `api`, `worker`, `postgres`, `respaldo`, `intermediario` | Servicios de `docker-compose.yml` | `nucleo` |
+| `postgres-dev` (contenedor `processiq-postgres-dev-1`, volumen `processiq_postgres_dev`) | Servicio de `docker-compose.dev.yml` | `nucleo` |
+| `processiq`, `processiq-staging`, `processiq-dev` | Proyectos de Compose | `nucleo` |
+| `ProcessIQ - sondeo de main a staging` | Tarea programada de Windows (`infra/instalar-sondeo.ps1`) | `nucleo` |
 | `processiq-borde` | Red Docker | `nucleo` |
 | `mbc.asissoft.com`, `staging.mbc.asissoft.com` | Dominios | `nucleo` |
 
@@ -89,6 +97,8 @@ Todas las de `.env.example`, `.env.dev.example`, `.env.staging.example` y las de
 |---|---|
 | 1 a 18 | `nucleo` (ver `docs/adr/README.md`) |
 | 19 | `conocimiento` (extensiones de Postgres para la búsqueda) |
-| **Siguiente libre: 20** | — |
+| 20 | `invitados` (rutas públicas bajo `/api/publico/` con token propio) |
+| 21 | `colaboracion` (presencia y eventos en vivo por SSE, sin WebSocket) |
+| **Siguiente libre: 22** | — |
 
 Al reservar un número, se añade su fila y se sube el «siguiente libre».

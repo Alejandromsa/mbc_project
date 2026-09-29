@@ -1,6 +1,6 @@
 {
-  "id": "f306a00b-04f2-484d-9265-0389d4a60880",
-  "prevId": "ca1519c7-45f4-4299-a43d-3b7ad9a79ed5",
+  "id": "6b435806-c53c-4d82-b04c-74e6866b7949",
+  "prevId": "f306a00b-04f2-484d-9265-0389d4a60880",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -126,6 +126,192 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.conocimiento_indice": {
+      "name": "conocimiento_indice",
+      "schema": "",
+      "columns": {
+        "proceso_id": {
+          "name": "proceso_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "texto": {
+          "name": "texto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "texto_parecido": {
+          "name": "texto_parecido",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fragmentos": {
+          "name": "fragmentos",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "indexado_en": {
+          "name": "indexado_en",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "conocimiento_indice_texto_idx": {
+          "name": "conocimiento_indice_texto_idx",
+          "columns": [
+            {
+              "expression": "conocimiento_normalizar(\"texto\") gin_trgm_ops",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "conocimiento_indice_proceso_id_procesos_id_fk": {
+          "name": "conocimiento_indice_proceso_id_procesos_id_fk",
+          "tableFrom": "conocimiento_indice",
+          "tableTo": "procesos",
+          "columnsFrom": [
+            "proceso_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "conocimiento_indice_revision_id_revisiones_id_fk": {
+          "name": "conocimiento_indice_revision_id_revisiones_id_fk",
+          "tableFrom": "conocimiento_indice",
+          "tableTo": "revisiones",
+          "columnsFrom": [
+            "revision_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.conocimiento_marco": {
+      "name": "conocimiento_marco",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organizacion_id": {
+          "name": "organizacion_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "codigo": {
+          "name": "codigo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descripcion": {
+          "name": "descripcion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "nivel": {
+          "name": "nivel",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "orden": {
+          "name": "orden",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "creado_en": {
+          "name": "creado_en",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "conocimiento_marco_organizacion_id_organizaciones_id_fk": {
+          "name": "conocimiento_marco_organizacion_id_organizaciones_id_fk",
+          "tableFrom": "conocimiento_marco",
+          "tableTo": "organizaciones",
+          "columnsFrom": [
+            "organizacion_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "conocimiento_marco_org_codigo_uq": {
+          "name": "conocimiento_marco_org_codigo_uq",
+          "nullsNotDistinct": false,
+          "columns": [
+            "organizacion_id",
+            "codigo"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

@@ -9,6 +9,8 @@ export default defineConfig({
   workers: process.env.CI ? 2 : 4,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   outputDir: 'resultados/playwright',
+  // Sin restos de la ejecución anterior en resultados/<caso>/
+  globalSetup: './src/limpiar-resultados.mjs',
   use: { ...devices['Desktop Chrome'] },
   webServer: [
     {

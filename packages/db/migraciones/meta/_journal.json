@@ -40,8 +40,15 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1790633161691,
-      "tag": "0005_conocimiento_busqueda",
+      "when": 1790632992515,
+      "tag": "0005_auditoria_organizacion",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790645370688,
+      "tag": "0006_conocimiento_busqueda",
       "breakpoints": true
     }
   ]
