@@ -2,6 +2,7 @@
 // Lo usa el worker de la API (fase 2.3); el editor sigue interpretando la
 // especificación con buildProcessFromAiSpec, igual que en el MVP.
 import { z } from 'zod';
+import type { ClaseErrorIa } from './cliente.js';
 
 const Clave = z.union([z.string(), z.number()]);
 
@@ -41,8 +42,13 @@ export const MAX_CHARS_REPARACION = 200_000;
  * ¿Merece la pena reintentar? Cortes de red, 429, sobrecarga (5xx/529) e
  * inactividad son pasajeros; clave inválida, rechazo o respuesta demasiado
  * larga no cambian al repetir.
+ *
+ * Manda la clase que marcó quien lanzó el error (`marcarErrorIa`, en
+ * llamarClaude y en el worker). Solo si no la trae se decide por el texto.
  */
-export function clasificarErrorIa(error: unknown): 'cancelado' | 'transitorio' | 'definitivo' {
+export function clasificarErrorIa(error: unknown): ClaseErrorIa {
+  const marcada = typeof error === 'object' && error !== null ? (error as { claseIa?: unknown }).claseIa : undefined;
+  if (marcada === 'cancelado' || marcada === 'transitorio' || marcada === 'definitivo') return marcada;
   const mensaje = error instanceof Error ? error.message : String(error);
   if (mensaje === 'CANCELLED') return 'cancelado';
   if (/^Error (5\d\d|529)|overloaded|Límite de uso alcanzado \(429\)|No se pudo conectar|Se cortó la conexión|dejó de responder|tardó más de/i.test(mensaje)) {

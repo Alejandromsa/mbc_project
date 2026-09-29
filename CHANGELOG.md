@@ -23,6 +23,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
   - al terminar una ejecución de IA se borran también los nombres de los participantes;
   - un límite no numérico en la auditoría ya no da error 500;
   - el worker purga cada hora las sesiones caducadas.
+- **IA:** el consumo de las llamadas cortadas a mitad (cancelación, inactividad, corte de red o parada del worker) se suma al coste de la ejecución y llega a Pulse; el worker vuelve a comprobar el presupuesto mensual y el límite por persona antes de cada llamada, reintentos incluidos; si el modelo elegido no está permitido, el servidor usa otro y el editor lo avisa; un aviso de la cola despierta a todos los bucles del worker; los reintentos se deciden por la clase marcada en el error, no por su texto.
 - **portafolio:** tablero por cliente en «Portafolio»: avance de los procesos hacia la aprobación e indicadores de su última revisión (actividades, roles, pains, tipo de ejecución, KPIs con valor y hallazgos del Playbook), solo con los proyectos que cada uno puede ver.
 - **conocimiento:** buscador en «Conocimiento» sobre la última revisión de los procesos de mis proyectos (actividades, sistemas, roles y ficha; sin tildes ni mayúsculas y con tolerancia a erratas), procesos parecidos de otros proyectos y comparativo con el marco APQC PCF, que importa un administrador desde un CSV con vista previa. Sin IA: `pg_trgm` y `unaccent` (ADR 19).
 

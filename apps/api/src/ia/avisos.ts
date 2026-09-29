@@ -65,14 +65,19 @@ export class Escucha {
   }
 }
 
-/** Espera hasta `ms` o hasta que alguien llame a despertar(). */
+/**
+ * Espera hasta `ms` o hasta que alguien llame a despertar(). Un despertar
+ * despierta a TODOS los que esperan en ese momento (en el worker, cada bucle
+ * vuelve a mirar la cola; los que no encuentren trabajo esperan otra vez).
+ */
 export function despertador() {
-  let despertar: () => void = () => {};
+  const esperando = new Set<() => void>();
   return {
     esperar: (ms: number) => new Promise<void>((r) => {
-      const t = setTimeout(r, ms);
-      despertar = () => { clearTimeout(t); r(); };
+      const fin = () => { clearTimeout(t); esperando.delete(fin); r(); };
+      const t = setTimeout(fin, ms);
+      esperando.add(fin);
     }),
-    despertar: () => despertar()
+    despertar: () => { for (const fin of [...esperando]) fin(); }
   };
 }
