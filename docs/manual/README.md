@@ -2,7 +2,7 @@
 
 Guía para consultores, managers y administradores: cómo entrar, organizar proyectos, dibujar y aprobar procesos, usar la IA y exportar entregables.
 
-Actualizado: 28-sep-2026.
+Actualizado: 29-sep-2026.
 
 Los términos del producto se explican en el [glosario](../glosario.md).
 
@@ -108,7 +108,23 @@ Pulsa «Salir», a la derecha de la cabecera. La página se recarga y no queda e
 | «Administración ▾» | Solo administradores: despliega «Usuarios», «Catálogos», «Auditoría», «IA» y «Sistema» (ver [9](#9-administración)). Un punto rojo avisa de que «Sistema» tiene algo que revisar |
 | «Editor libre» | Abre el editor sin proyecto; el trabajo queda en este navegador |
 | Tu nombre y tu rol | Rol en la organización: Administrador, Consultor o Lector |
+| «ES / EN» | Idioma de la plataforma (ver [2.7](#27-idioma-español-o-inglés)) |
 | «Cambiar contraseña» · «Salir» | Ver arriba |
+
+### 2.7 Idioma: español o inglés
+
+La plataforma de proyectos está en **español** y en **inglés**, para trabajar con clientes o equipos que no hablan español.
+
+- **Para cambiarlo**, pulsa «ES» o «EN» en la cabecera, junto a tu nombre, o en la pantalla «Entrar». El cambio es inmediato: no hace falta recargar.
+- **Se recuerda en este navegador.** La próxima vez que entres desde él, la plataforma sale en el idioma que elegiste; en otro navegador u otro equipo, vuelve a elegirlo. Si tienes otra pestaña abierta, cambia también.
+- **Por defecto, español**, aunque tu navegador esté en inglés: es el idioma del equipo y de los procesos.
+- **Qué se traduce:** menús, botones, títulos, avisos, estados («Draft», «In review», «Approved»), roles, fechas y números, y los mensajes de error más habituales.
+- **Qué no se traduce:**
+  - **el editor**, que sigue en español (en inglés, los enlaces que llevan a él lo avisan al pasar el ratón); tampoco la vista del cliente de un enlace de revisión;
+  - lo que escribe el equipo: nombres de proyectos y procesos, mensajes de revisión, la ficha, los KPIs y los verbos del catálogo;
+  - algunos textos que genera el servidor, como el detalle de un error de validación.
+
+Donde la versión inglesa menciona un botón o menú del editor, lo cita tal como aparece, en español, con la traducción entre paréntesis: “Exportar → JSON” (Export → JSON).
 
 ---
 

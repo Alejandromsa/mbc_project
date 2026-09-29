@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Router, Switch } from 'wouter';
 import { ErrorApi } from './api';
+import { aplicarIdioma, useT } from './i18n';
 import { capturarErrores, reportarError } from './observabilidad';
 import { Auditoria, NoEncontrada, Usuarios } from './paginas/Admin';
 import { ConsumoIa } from './paginas/Ia';
@@ -24,6 +25,9 @@ import { RutasConocimiento } from '../modulos/conocimiento';
 // /proyectos -> /proyectos/ (el router trabaja con rutas relativas a la base)
 if (location.pathname === '/proyectos') history.replaceState(null, '', '/proyectos/' + location.search);
 
+// <html lang> según el idioma elegido (español si no se eligió ninguno)
+aplicarIdioma();
+
 // Errores no controlados: a /api/errores (pantalla «Sistema» del administrador)
 capturarErrores('web');
 
@@ -33,17 +37,21 @@ class LimiteDeErrores extends Component<{ children: ReactNode }, { error: Error 
   static getDerivedStateFromError(error: Error) { return { error }; }
   override componentDidCatch(error: Error, info: ErrorInfo) { reportarError('web', error, { componentes: info.componentStack?.slice(0, 1500) }); }
   override render() {
-    if (!this.state.error) return this.props.children;
-    return (
-      <main className="acceso">
-        <div className="tarjeta acceso-tarjeta">
-          <h1>Algo salió mal</h1>
-          <p className="sutil">La pantalla falló al mostrarse. Ya quedó registrado para que lo revisemos.</p>
-          <button type="button" className="boton boton-primario" onClick={() => location.reload()}>Recargar</button>
-        </div>
-      </main>
-    );
+    return this.state.error ? <PantallaDeError /> : this.props.children;
   }
+}
+
+function PantallaDeError() {
+  const t = useT();
+  return (
+    <main className="acceso">
+      <div className="tarjeta acceso-tarjeta">
+        <h1>{t('fallo.titulo')}</h1>
+        <p className="sutil">{t('fallo.texto')}</p>
+        <button type="button" className="boton boton-primario" onClick={() => location.reload()}>{t('fallo.recargar')}</button>
+      </div>
+    </main>
+  );
 }
 
 // Sesión caducada o contraseña temporal: se vuelve a consultar la sesión y la

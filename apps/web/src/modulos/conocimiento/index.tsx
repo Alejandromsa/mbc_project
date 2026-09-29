@@ -10,6 +10,7 @@ import { Vacio, useTitulo } from '../../shell/ui';
 import { Buscar } from './paginas/Buscar';
 import { Marco } from './paginas/Marco';
 import { Proceso } from './paginas/Proceso';
+import { useT } from './textos';
 import './estilos.css';
 
 export function RutasConocimiento() {
@@ -26,6 +27,7 @@ export function RutasConocimiento() {
 }
 
 function NoEncontrada() {
-  useTitulo('No encontrada');
-  return <Vacio>Esta página no existe. <Link href="/">Volver al buscador</Link>.</Vacio>;
+  const t = useT();
+  useTitulo(t('noEncontrada'));
+  return <Vacio>{t.rico('noEncontradaTexto', {}, { enlace: (texto) => <Link href="/">{texto}</Link> })}</Vacio>;
 }

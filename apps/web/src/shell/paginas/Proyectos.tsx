@@ -3,13 +3,14 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'wouter';
 import { api } from '../api';
-import { ROLES_PROYECTO, fecha } from '../formato';
+import { useT } from '../i18n';
 import { useUsuario } from '../sesion';
 import { descartarOferta, ofrecerImportacion, procesoDelEditorLibre } from '../importacion';
 import { AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Etiqueta, Vacio, useTitulo } from '../ui';
 
 export function Proyectos() {
-  useTitulo('Proyectos');
+  const t = useT();
+  useTitulo(t('proyectos.titulo'));
   const usuario = useUsuario();
   const [verArchivados, setVerArchivados] = useState(false);
   const [creando, setCreando] = useState(false);
@@ -26,20 +27,20 @@ export function Proyectos() {
     <>
       <div className="encabezado">
         <div>
-          <h1>Proyectos</h1>
-          <p className="sutil">{usuario.rol === 'admin' ? 'Todos los proyectos de la organización.' : 'Los proyectos en los que participas.'}</p>
+          <h1>{t('proyectos.titulo')}</h1>
+          <p className="sutil">{usuario.rol === 'admin' ? t('proyectos.introAdmin') : t('proyectos.introMiembro')}</p>
         </div>
         <div className="acciones">
-          <Link href="/importar" className="boton boton-secundario">Importar procesos</Link>
-          {usuario.rol !== 'lector' && <Boton variante="primario" onClick={() => setCreando(true)}>Nuevo proyecto</Boton>}
+          <Link href="/importar" className="boton boton-secundario">{t('proyectos.importar')}</Link>
+          {usuario.rol !== 'lector' && <Boton variante="primario" onClick={() => setCreando(true)}>{t('proyectos.nuevo')}</Boton>}
         </div>
       </div>
 
       {local && ofrecer && (
         <Aviso tipo="info">
-          En el editor libre de este navegador tienes «{local.nombre || 'un proceso sin nombre'}» ({local.nodos} elementos).{' '}
-          <Link href="/importar">Llevarlo a un proyecto</Link>{' · '}
-          <button type="button" className="enlace" onClick={() => { descartarOferta(local); setOfrecer(false); }}>No, gracias</button>
+          {t('proyectos.oferta', { nombre: local.nombre || t('proyectos.sinNombre'), n: local.nodos })}{' '}
+          <Link href="/importar">{t('proyectos.llevar')}</Link>{' · '}
+          <button type="button" className="enlace" onClick={() => { descartarOferta(local); setOfrecer(false); }}>{t('proyectos.noGracias')}</button>
         </Aviso>
       )}
 
@@ -47,9 +48,9 @@ export function Proyectos() {
         <Vacio>
           {todos.length === 0
             ? usuario.rol === 'lector'
-              ? 'Todavía no participas en ningún proyecto. Pide a su propietario que te añada.'
-              : 'Todavía no hay proyectos. Crea el primero con «Nuevo proyecto».'
-            : 'Todos tus proyectos están archivados.'}
+              ? t('proyectos.vacioLector')
+              : t('proyectos.vacio')
+            : t('proyectos.todosArchivados')}
         </Vacio>
       ) : (
         <ul className="rejilla-tarjetas">
@@ -60,9 +61,9 @@ export function Proyectos() {
                 {p.cliente && <p className="cliente">{p.cliente}</p>}
                 {p.descripcion && <p className="sutil recorte">{p.descripcion}</p>}
                 <p className="meta">
-                  <Etiqueta>{ROLES_PROYECTO[p.rol]}</Etiqueta>
-                  {p.archivado && <Etiqueta tono="aviso">Archivado</Etiqueta>}
-                  <span className="sutil">Creado el {fecha(p.creadoEn)}</span>
+                  <Etiqueta>{t.rolProyecto(p.rol)}</Etiqueta>
+                  {p.archivado && <Etiqueta tono="aviso">{t('comun.archivado')}</Etiqueta>}
+                  <span className="sutil">{t('proyectos.creadoEl', { fecha: t.fecha(p.creadoEn) })}</span>
                 </p>
               </Link>
             </li>
@@ -73,11 +74,11 @@ export function Proyectos() {
       {archivados > 0 && (
         <label className="casilla">
           <input type="checkbox" checked={verArchivados} onChange={(e) => setVerArchivados(e.target.checked)} />
-          Mostrar archivados ({archivados})
+          {t('proyectos.mostrarArchivados', { n: archivados })}
         </label>
       )}
 
-      <Dialogo abierto={creando} titulo="Nuevo proyecto" onCerrar={() => setCreando(false)}>
+      <Dialogo abierto={creando} titulo={t('proyectos.nuevo')} onCerrar={() => setCreando(false)}>
         <NuevoProyecto onCerrar={() => setCreando(false)} />
       </Dialogo>
     </>
@@ -85,6 +86,7 @@ export function Proyectos() {
 }
 
 function NuevoProyecto({ onCerrar }: { onCerrar: () => void }) {
+  const t = useT();
   const [, navegar] = useLocation();
   const cliente = useQueryClient();
   const [nombre, setNombre] = useState('');
@@ -101,14 +103,14 @@ function NuevoProyecto({ onCerrar }: { onCerrar: () => void }) {
   const enviar = (e: FormEvent) => { e.preventDefault(); crear.mutate(); };
   return (
     <form onSubmit={enviar}>
-      <Campo etiqueta="Nombre" required maxLength={160} autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} />
-      <Campo etiqueta="Cliente" maxLength={160} value={clienteProyecto} onChange={(e) => setClienteProyecto(e.target.value)} />
-      <AreaTexto etiqueta="Descripción" maxLength={2000} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
-      <p className="sutil">Serás su propietario: podrás añadir miembros y aprobar revisiones.</p>
+      <Campo etiqueta={t('comun.nombre')} required maxLength={160} autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <Campo etiqueta={t('comun.cliente')} maxLength={160} value={clienteProyecto} onChange={(e) => setClienteProyecto(e.target.value)} />
+      <AreaTexto etiqueta={t('comun.descripcion')} maxLength={2000} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
+      <p className="sutil">{t('proyectos.seraPropietario')}</p>
       <ErrorDe error={crear.error} />
       <div className="acciones">
-        <Boton onClick={onCerrar}>Cancelar</Boton>
-        <Boton type="submit" variante="primario" cargando={crear.isPending}>Crear proyecto</Boton>
+        <Boton onClick={onCerrar}>{t('comun.cancelar')}</Boton>
+        <Boton type="submit" variante="primario" cargando={crear.isPending}>{t('proyectos.crear')}</Boton>
       </div>
     </form>
   );

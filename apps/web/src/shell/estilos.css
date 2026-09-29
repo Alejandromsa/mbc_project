@@ -62,6 +62,18 @@ code { font-family: var(--font-mono); font-size: var(--font-sm); }
 .usuario a { color: var(--gray-700); }
 .usuario-nombre { display: flex; flex-direction: column; text-align: right; font-weight: 600; color: var(--gray-900); }
 .usuario-nombre small { font-weight: 400; color: var(--gray-600); }
+/* «ES / EN»: idioma del shell (i18n.ts) */
+.idioma { display: inline-flex; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0; }
+.idioma button {
+  border: 0; background: var(--white); color: var(--gray-600); cursor: pointer;
+  font: inherit; font-size: var(--font-xs); font-weight: 600; letter-spacing: 0.04em; line-height: 1;
+  padding: var(--space-1) var(--space-2);
+}
+.idioma button + button { border-left: 1px solid var(--gray-300); }
+.idioma button:hover:not([aria-pressed="true"]) { background: var(--gray-100); color: var(--mbc-azul); }
+.idioma button[aria-pressed="true"] { background: var(--trace-tint); color: var(--trace-dk); cursor: default; }
+.acceso-tarjeta { position: relative; }
+.acceso-tarjeta .idioma { position: absolute; top: var(--space-4); right: var(--space-4); }
 .shell-contenido { width: 100%; max-width: 1180px; margin: 0 auto; padding: var(--space-6); flex: 1; }
 
 .encabezado { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-6); margin-bottom: var(--space-4); }
@@ -226,6 +238,13 @@ button.enlace { background: none; border: 0; padding: 0; font: inherit; color: v
 .acceso-tarjeta h1 { margin-top: var(--space-4); }
 .acceso-tarjeta .boton-primario { width: 100%; padding: var(--space-3); font-size: var(--font-md); }
 .acceso-tarjeta .pie { font-size: var(--font-xs); margin: var(--space-5) 0 0; }
+
+/* Cabecera algo más compacta en pantallas medianas: con el selector de idioma, a 1100 px ya no cabía */
+@media (max-width: 1200px) {
+  .shell-cabecera { gap: var(--space-3); }
+  .shell-cabecera nav a, .menu-admin > summary { padding: var(--space-2); }
+  .usuario { gap: var(--space-3); }
+}
 
 @media (max-width: 720px) {
   .shell-cabecera { flex-wrap: wrap; height: auto; padding: var(--space-3) var(--space-4); gap: var(--space-3); }

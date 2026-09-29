@@ -2,11 +2,11 @@
 // lo ve cualquiera; lo importa un administrador desde un CSV, con vista previa.
 import { useRef, useState, type ChangeEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fecha } from '../../../shell/formato';
 import { useUsuario } from '../../../shell/sesion';
 import { Aviso, Boton, Cargando, ErrorDe, Vacio, useTitulo } from '../../../shell/ui';
 import { apiConocimiento, type VistaPrevia } from '../api';
 import { PestanasConocimiento } from '../componentes';
+import { useT, type TraductorConocimiento } from '../textos';
 
 /** El límite de la API es 8 MB por petición; el APQC completo ronda 1 MB. */
 const MAX_BYTES = 7 * 1024 * 1024;
@@ -21,10 +21,17 @@ async function leerArchivo(archivo: File): Promise<string> {
   }
 }
 
-const NIVELES: Record<string, string> = { 1: 'categorías', 2: 'grupos de procesos', 3: 'procesos', 4: 'actividades', 5: 'tareas' };
+const NIVELES = { 1: 'nivel1', 2: 'nivel2', 3: 'nivel3', 4: 'nivel4', 5: 'nivel5' } as const;
+
+/** «4 categorías», «11 grupos de procesos»…; un nivel sin nombre, «3 de nivel 6». */
+function cuantosDeNivel(nivel: string, n: number, t: TraductorConocimiento): string {
+  const clave = NIVELES[Number(nivel) as keyof typeof NIVELES];
+  return clave ? t(clave, { n }) : t('nivelN', { n, nivel });
+}
 
 export function Marco() {
-  useTitulo('Marco de referencia');
+  const t = useT();
+  useTitulo(t('pestanaMarco'));
   const esAdmin = useUsuario().rol === 'admin';
   const marco = useQuery({ queryKey: ['conocimiento', 'marco'], queryFn: apiConocimiento.marco });
 
@@ -32,27 +39,23 @@ export function Marco() {
     <>
       <div className="encabezado">
         <div>
-          <h1>Conocimiento</h1>
-          <p className="sutil">Reutiliza lo que ya se levantó: busca entre los procesos de tus proyectos y compáralos con el marco de referencia.</p>
+          <h1>{t('titulo')}</h1>
+          <p className="sutil">{t('intro')}</p>
         </div>
       </div>
       <PestanasConocimiento />
 
-      <Aviso tipo="info">
-        El comparativo usa el marco de procesos de la organización, normalmente el <strong>APQC Process Classification
-        Framework (PCF)</strong>. El PCF tiene licencia de APQC y ProcessIQ no lo incluye: lo aporta el administrador,
-        que lo descarga con la licencia de la organización y lo importa aquí. Solo lo ven las personas de la organización.
-      </Aviso>
+      <Aviso tipo="info">{t.rico('marcoAviso')}</Aviso>
 
       <section aria-labelledby="conocimiento-t-actual">
-        <h2 id="conocimiento-t-actual">Marco actual</h2>
+        <h2 id="conocimiento-t-actual">{t('marcoActual')}</h2>
         {marco.isPending ? <Cargando /> : marco.isError ? <ErrorDe error={marco.error} /> : marco.data.elementos === 0 ? (
-          <Vacio>Todavía no hay un marco importado.{esAdmin ? ' Impórtalo abajo desde un CSV.' : ' Pídeselo a un administrador.'}</Vacio>
+          <Vacio>{esAdmin ? t('sinMarcoAdmin') : t('sinMarco')}</Vacio>
         ) : (
           <>
             <p className="conocimiento-cifras">
-              <strong>{marco.data.elementos}</strong> elementos en <strong>{marco.data.categorias.length}</strong> categorías
-              {' · '}<span className="sutil">importado el {fecha(marco.data.importadoEn)}</span>
+              {t.rico('resumenMarco', { elementos: marco.data.elementos, categorias: marco.data.categorias.length })}
+              {' · '}<span className="sutil">{t('importadoEl', { fecha: t.fecha(marco.data.importadoEn) })}</span>
             </p>
             <Categorias categorias={marco.data.categorias} />
           </>
@@ -61,15 +64,16 @@ export function Marco() {
 
       {esAdmin
         ? <Importar actuales={marco.data?.elementos ?? 0} />
-        : <p className="sutil conocimiento-nota">Solo un administrador puede importar o reemplazar el marco.</p>}
+        : <p className="sutil conocimiento-nota">{t('soloAdmin')}</p>}
     </>
   );
 }
 
 function Categorias({ categorias }: { categorias: { codigo: string; nombre: string; elementos: number }[] }) {
+  const t = useT();
   return (
     <table className="tabla tabla-compacta conocimiento-tabla">
-      <thead><tr><th>Código</th><th>Categoría (nivel 1)</th><th className="conocimiento-num">Elementos</th></tr></thead>
+      <thead><tr><th>{t('codigo')}</th><th>{t('categoriaNivel1')}</th><th className="conocimiento-num">{t('elementos')}</th></tr></thead>
       <tbody>
         {categorias.map((k) => (
           <tr key={k.codigo}><td><code>{k.codigo}</code></td><td>{k.nombre}</td><td className="conocimiento-num">{k.elementos}</td></tr>
@@ -80,10 +84,11 @@ function Categorias({ categorias }: { categorias: { codigo: string; nombre: stri
 }
 
 function Importar({ actuales }: { actuales: number }) {
+  const t = useT();
   const cliente = useQueryClient();
   const entrada = useRef<HTMLInputElement>(null);
   const [archivo, setArchivo] = useState<{ nombre: string; csv: string } | null>(null);
-  const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
+  const [archivoGrande, setArchivoGrande] = useState(false);
   const [importado, setImportado] = useState<number | null>(null);
 
   const vistaPrevia = useMutation({ mutationFn: (csv: string) => apiConocimiento.vistaPrevia(csv) });
@@ -100,9 +105,9 @@ function Importar({ actuales }: { actuales: number }) {
 
   const elegir = async (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    setImportado(null); setErrorArchivo(null); setArchivo(null); vistaPrevia.reset(); importar.reset();
+    setImportado(null); setArchivoGrande(false); setArchivo(null); vistaPrevia.reset(); importar.reset();
     if (!f) return;
-    if (f.size > MAX_BYTES) { setErrorArchivo('El archivo pasa de 7 MB. Guarda solo las columnas de código, nombre y descripción.'); return; }
+    if (f.size > MAX_BYTES) { setArchivoGrande(true); return; }
     const csv = await leerArchivo(f);
     setArchivo({ nombre: f.name, csv });
     vistaPrevia.mutate(csv);
@@ -110,19 +115,15 @@ function Importar({ actuales }: { actuales: number }) {
 
   return (
     <section aria-labelledby="conocimiento-t-importar">
-      <h2 id="conocimiento-t-importar">Importar desde un CSV</h2>
+      <h2 id="conocimiento-t-importar">{t('importarCsv')}</h2>
       <div className="tarjeta conocimiento-importar">
-        <p>
-          Una fila por elemento con las columnas <strong>Código</strong> (o <em>Hierarchy ID</em>), <strong>Nombre</strong>
-          {' '}(o <em>Name</em>) y, si quieres, <strong>Descripción</strong>. Separado por comas o por punto y coma, como lo
-          guarda Excel. El nivel sale del código: 1.0 es una categoría, 1.1 un grupo, 1.1.1 un proceso…
-        </p>
+        <p>{t.rico('importarAyuda')}</p>
         <div className="campo">
-          <label htmlFor="conocimiento-csv">Archivo CSV</label>
+          <label htmlFor="conocimiento-csv">{t('archivoCsv')}</label>
           <input id="conocimiento-csv" ref={entrada} type="file" accept=".csv,text/csv" onChange={elegir} />
         </div>
-        {errorArchivo && <Aviso tipo="error">{errorArchivo}</Aviso>}
-        {importado !== null && <Aviso tipo="ok">Marco importado: {importado} elementos. El comparativo ya lo usa.</Aviso>}
+        {archivoGrande && <Aviso tipo="error">{t('archivoGrande')}</Aviso>}
+        {importado !== null && <Aviso tipo="ok">{t('marcoImportado', { n: importado })}</Aviso>}
         {vistaPrevia.isPending && <Cargando />}
         <ErrorDe error={vistaPrevia.error} />
         {archivo && vistaPrevia.data && (
@@ -138,26 +139,27 @@ function Importar({ actuales }: { actuales: number }) {
 function Previa({ nombre, previa, actuales, importando, error, onImportar }: {
   nombre: string; previa: VistaPrevia; actuales: number; importando: boolean; error: unknown; onImportar: () => void;
 }) {
+  const t = useT();
   const niveles = Object.entries(previa.porNivel).sort(([a], [b]) => Number(a) - Number(b));
   return (
     <div className="conocimiento-previa" aria-live="polite">
-      <h3 className="conocimiento-subtitulo">Vista previa de «{nombre}»</h3>
+      <h3 className="conocimiento-subtitulo">{t('vistaPrevia', { nombre })}</h3>
       {previa.valido ? (
         <p className="conocimiento-cifras">
-          <strong>{previa.elementos}</strong> elementos:{' '}
-          {niveles.map(([n, c], i) => <span key={n}>{i > 0 && ', '}{c} {NIVELES[n] ?? `de nivel ${n}`}</span>)}.
+          {t.rico('previaElementos', { n: previa.elementos })}{' '}
+          {niveles.map(([n, c], i) => <span key={n}>{i > 0 && ', '}{cuantosDeNivel(n, c, t)}</span>)}.
         </p>
       ) : (
         <Aviso tipo="error">
-          El archivo tiene errores y no se puede importar:
+          {t('conErrores')}
           <ul className="detalles">{previa.errores.map((e) => <li key={e}>{e}</li>)}</ul>
         </Aviso>
       )}
       {previa.avisos.map((a) => <Aviso key={a} tipo="atencion">{a}</Aviso>)}
       {previa.muestra.length > 0 && (
         <table className="tabla tabla-compacta conocimiento-tabla">
-          <caption className="sutil">Primeras filas</caption>
-          <thead><tr><th>Código</th><th>Nombre</th><th className="conocimiento-num">Nivel</th></tr></thead>
+          <caption className="sutil">{t('primerasFilas')}</caption>
+          <thead><tr><th>{t('codigo')}</th><th>{t('nombre')}</th><th className="conocimiento-num">{t('nivel')}</th></tr></thead>
           <tbody>
             {previa.muestra.map((m) => (
               <tr key={m.codigo}><td><code>{m.codigo}</code></td><td>{m.nombre}</td><td className="conocimiento-num">{m.nivel}</td></tr>
@@ -168,9 +170,9 @@ function Previa({ nombre, previa, actuales, importando, error, onImportar }: {
       <ErrorDe error={error} />
       {previa.valido && (
         <div className="acciones">
-          {actuales > 0 && <span className="sutil">Reemplaza el marco actual ({actuales} elementos).</span>}
+          {actuales > 0 && <span className="sutil">{t('reemplaza', { n: actuales })}</span>}
           <Boton variante="primario" cargando={importando} onClick={onImportar}>
-            {actuales > 0 ? `Reemplazar con estos ${previa.elementos} elementos` : `Importar ${previa.elementos} elementos`}
+            {actuales > 0 ? t('reemplazar', { n: previa.elementos }) : t('importar', { n: previa.elementos })}
           </Boton>
         </div>
       )}

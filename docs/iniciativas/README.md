@@ -64,6 +64,7 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 | `piq_sesion` | Cookie | `nucleo` |
 | `processiq.v1`, `processiq.ui`, `processiq.ai`, `processiq.ia.costes`, `processiq.proceso.<id>`, `processiq.abriendo`, `processiq.importacion.descartado` | `localStorage` | `nucleo` |
 | `processiq.invitados.vista` | `localStorage` (efímera: se borra al salir) | `invitados` |
+| `processiq.idioma` | `localStorage`: idioma del shell (`es` o `en`) | `nucleo` |
 
 ### Variables de entorno
 
