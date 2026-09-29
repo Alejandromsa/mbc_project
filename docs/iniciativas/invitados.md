@@ -57,7 +57,7 @@ Módulo dentro de la plataforma. Es el primero con **rutas públicas**, y eso ne
 
 | # | Qué entrega | Rama | PR | Estado |
 |---|---|---|---|---|
-| 1 | Enlaces, vista del invitado, comentarios y su gestión; ADR 20; E2E | `invitados/enlaces` | | ⏳ |
+| 1 | Enlaces, vista del invitado, comentarios y su gestión; ADR 20; E2E | `invitados/enlaces` | #13 | en revisión |
 
 ## Pruebas
 
