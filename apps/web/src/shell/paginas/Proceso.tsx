@@ -7,6 +7,7 @@ import { ROLES_PROYECTO, enEditor, fecha } from '../formato';
 import { puede } from '../permisos';
 import { useUsuario } from '../sesion';
 import { AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Insignia, Vacio, useTitulo } from '../ui';
+import { InvitadosDelProceso } from '../../modulos/invitados';
 
 export function Proceso({ id }: { id: string }) {
   const cliente = useQueryClient();
@@ -80,6 +81,7 @@ export function Proceso({ id }: { id: string }) {
           </table>
         )}
       </section>
+      <InvitadosDelProceso procesoId={proceso.id} revisiones={revisiones} rol={rol} archivado={archivado} />
 
       <Dialogo abierto={!!plantillaDe} titulo={plantillaDe ? `Guardar v${plantillaDe.numero} como plantilla` : ''} onCerrar={() => setPlantillaDe(null)}>
         {plantillaDe && <ComoPlantilla revision={plantillaDe} nombreProceso={proceso.nombre}
