@@ -36,7 +36,8 @@ Son los únicos archivos de fuera de la iniciativa que se tocan. En ellos:
 |---|---|
 | `apps/api/src/app.ts` | El import `import { rutasPortafolio } from './modulos/portafolio/index.js';` y, al final de las rutas (antes de `return app`), `app.route('/api/portafolio', rutasPortafolio());` |
 | `apps/web/src/shell/main.tsx` | `<Route path="/portafolio/*?"><ConSesion><RutasPortafolio /></ConSesion></Route>`, **sin `nest`** y **antes** de la última `<Route>` (la de «no encontrada»). El router anidado se abre dentro del módulo (abajo) |
-| `apps/web/src/shell/sesion.tsx` | La entrada del menú, `<EnlaceMenu href="/portafolio">Portafolio</EnlaceMenu>`, después de las de otras iniciativas y antes de las de administración |
+| `apps/web/src/shell/sesion.tsx` | La entrada del menú, `<EnlaceMenu href="/portafolio">{t('menu.portafolio')}</EnlaceMenu>`, después de las de otras iniciativas y antes de «Administración» |
+| `apps/web/src/shell/textos/es.ts` y `en.ts` | La clave del menú: `'menu.portafolio': 'Portafolio'` y su traducción. Si falta en inglés, no compila |
 | `packages/db/src/esquema.ts` | La sección `// ===== portafolio =====`, al final |
 | `apps/api/src/semilla.ts` | Solo si las E2E necesitan datos: una llamada a `sembrarPortafolio()`, que vive en el módulo |
 | `docker-compose.yml`, `.env.example`, `.env.staging.example` | Solo si hay variables de entorno: las `PORTAFOLIO_*` en el `environment:` de `api` (y de `worker` si las usa), con un valor por defecto |
@@ -141,6 +142,7 @@ function NoEncontrada() {
 - **Cliente de la API:** `api.ts` propio, que usa `pedir()` de `apps/web/src/shell/api.ts` (maneja errores, sesión y red igual para todos). El `api` del núcleo no se amplía con endpoints de la iniciativa.
 - **Datos:** TanStack Query, con claves que empiezan por la clave de la iniciativa (`['portafolio', …]`).
 - **Componentes:** `ui.tsx` (Boton, Campo, Selector, Aviso, Dialogo, Cargando, Vacio…), `useUsuario()` y `useTitulo()`; `permisos.ts` para mostrar u ocultar botones (la API decide de verdad); `formato.ts` para fechas y roles; los colores y espacios de `src/tokens.css`.
+- **Textos en dos idiomas:** la plataforma está en español e inglés ([web.md §5.10](../tecnica/web.md)). Cada módulo tiene su `textos.ts` con `definirTextos(es, en)` de `shell/i18n.ts`: el español es la fuente de verdad y el tipo `Traduccion<typeof es>` obliga a que el inglés tenga todas las claves, variables y etiquetas. En las pantallas, `useT()` y nada de texto escrito a mano en el JSX. Fechas y números con `t.fecha` y `t.numero`.
 - **Estilos:** en su `estilos.css`, siempre con prefijo `.portafolio-`. No se toca `shell/estilos.css`. Ojo: `.tabla td` del shell pisa reglas sueltas como la alineación; usa un selector más específico (`.tabla td.portafolio-numero`).
 - **Editor** (`apps/web/src/app/`): es código portado del MVP y está cubierto byte a byte por la fidelidad. Una iniciativa no lo toca. Si necesita un enganche en el editor, es un PR de plataforma con `pnpm fidelidad` en verde.
 

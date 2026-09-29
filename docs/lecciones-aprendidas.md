@@ -128,6 +128,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22i. **La guía de módulos decía montar el módulo con `<Route nest>` en `main.tsx`, y eso rompe el menú.** La escribí sin probarla. El primer agente que la siguió (portafolio) vio en su E2E que «Proyectos» llevaba a `/proyectos/portafolio/`: con `nest`, la cabecera del shell queda dentro del router del módulo.
     → **Regla:** un ejemplo de código de una guía se prueba antes de publicarlo, como cualquier código. Los módulos se montan sin `nest` (`<Route path="/clave/*?">`) y abren su `<Router base>` dentro; su E2E comprueba los enlaces del menú.
 
+22s. **La prueba de humo pasó contra la versión anterior de staging.** Lancé el sondeo a mano justo cuando la tarea programada ya estaba desplegando: el mío respondió «otro sondeo en curso» y la prueba de humo corrió enseguida contra lo que aún había, no contra la versión nueva.
+    → **Regla:** antes de la prueba de humo, comprobar la versión de staging (`infra/sondear-main.sh --estado`) y esperar a que no haya cerrojo. La prueba vale para la versión que se va a promover, no para «lo que haya».
+
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 
