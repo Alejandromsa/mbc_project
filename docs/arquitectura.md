@@ -243,7 +243,7 @@ processiq/
 - Las apps dependen de los paquetes, nunca al revés.
 - Ningún paquete toca el DOM, salvo `motor` (render) y `web`.
 
-**Repositorio:** privado y nuevo, `processiq`. El repo actual sigue publicando el MVP hasta el corte y queda como referencia histórica. Los prompts, la lógica de servidor y los fixtures de evaluación no deben estar en un repositorio público.
+**Repositorio:** nuevo, `Alejandromsa/mbc_project`. El repositorio del MVP sigue publicando la versión actual hasta el corte y queda como referencia histórica. Nació privado; desde el 28-sep-2026 es **público** (ADR 18): los prompts y la lógica del servidor están a la vista, y los secretos, los fixtures reales y los datos del servidor siguen fuera.
 
 ---
 
@@ -446,14 +446,14 @@ El MVP actual sigue en producción, sin cambios, hasta el corte.
 - Hecho:
   - los 8 paquetes (los seis previstos más `ia` y el esquema v1 en `dominio`), con 105 pruebas unitarias;
   - la comprobación de fronteras;
-  - 32 escenarios de fidelidad frente al MVP (los 14 ejemplos idénticos).
+  - 32 escenarios de fidelidad frente al MVP (los 14 ejemplos idénticos);
+  - tipados los cuatro archivos portados con `@ts-nocheck` (28-sep-2026), sin cambios de comportamiento: el JS construido es idéntico.
 - Diferencias con el MVP: `docs/fase1-divergencias.md` (un fallo del MVP corregido y las librerías servidas desde la app).
 - Trabajo en equipo (28-sep-2026): guías en `docs/equipo/` (convenciones, puntos de registro, módulo o app, Claude Code) y registro de iniciativas y reservas en `docs/iniciativas/`. La estructura de módulo (`apps/*/src/modulos/<clave>/`) la estrena la primera iniciativa.
 - Pendiente:
   - entornos de vista previa;
   - equipos reales en `CODEOWNERS`;
-  - banco con los BPMN reales de cliente (no están en el servidor);
-  - tipar los cuatro archivos portados con `@ts-nocheck`.
+  - banco con los BPMN reales de cliente (no están en el servidor).
 
 ### Fase 2 — Plataforma
 

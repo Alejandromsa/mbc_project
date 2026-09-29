@@ -11,6 +11,8 @@
 | Clave | Nombre | Responsable | Tipo | Estado | Ficha |
 |---|---|---|---|---|---|
 | `nucleo` | ProcessIQ: editor, proyectos, revisiones, IA en el servidor, catálogos, observabilidad, importación | Plataforma (@Alejandromsa) | Núcleo | en producción | [arquitectura](../arquitectura.md) |
+| `portafolio` | Portafolio de procesos por cliente e indicadores | @Alejandromsa (agente) | Módulo | en desarrollo | [portafolio.md](portafolio.md) |
+| `conocimiento` | Búsqueda sobre entregables y comparativo APQC | @Alejandromsa (agente) | Módulo | en desarrollo | [conocimiento.md](conocimiento.md) |
 
 ## Propuestas sin reservar
 
@@ -19,9 +21,7 @@ Salen de la fase 4 de `docs/arquitectura.md` §13. Para tomar una, se reserva co
 | Propuesta | Tipo previsto | Nota |
 |---|---|---|
 | Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo | Toca la sesión: las rutas públicas son del núcleo |
-| Portafolio de procesos por cliente y panel de indicadores | Módulo | |
 | Colaboración en tiempo real | Núcleo | Toca el editor y el guardado de revisiones |
-| Búsqueda sobre entregables anteriores y comparativo con APQC PCF | Módulo | El marco APQC tiene licencia: hay que conseguir el archivo |
 | Interfaz en inglés | Núcleo | Toca todas las pantallas; el editor está cubierto por la fidelidad |
 
 ## Reservas
@@ -36,6 +36,8 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 | `/proyectos/` y, dentro, `/entrar`, `/clave`, `/importar`, `/p/…`, `/proceso/…`, `/admin/…` | `nucleo` |
 | `/ia/*` (intermediario de IA) | `nucleo` |
 | `/api/salud`, `/api/sesion`, `/api/usuarios`, `/api/directorio`, `/api/proyectos`, `/api/procesos`, `/api/revisiones`, `/api/auditoria`, `/api/ia`, `/api/catalogos`, `/api/sistema`, `/api/errores` | `nucleo` |
+| `/api/portafolio/…`, `/proyectos/portafolio/…` | `portafolio` |
+| `/api/conocimiento/…`, `/proyectos/conocimiento/…` | `conocimiento` |
 
 ### Base de datos
 
@@ -44,6 +46,9 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 | `organizaciones`, `usuarios`, `sesiones`, `proyectos`, `miembros_proyecto`, `procesos`, `revisiones`, `auditoria`, `ejecuciones_ia`, `kpis`, `verbos_playbook`, `temas_pptx`, `plantillas_proceso`, `errores`, `latidos` | Tablas | `nucleo` |
 | `rol_organizacion`, `rol_proyecto`, `estado_revision`, `tipo_ejecucion_ia`, `estado_ejecucion_ia`, `tipo_verbo`, `origen_error` | Tipos enumerados | `nucleo` |
 | `ia_cola`, `ia_ejecucion` | Canales `LISTEN/NOTIFY` | `nucleo` |
+| `portafolio_…` | Tablas y tipos | `portafolio` |
+| `conocimiento_…` | Tablas y tipos | `conocimiento` |
+| `pg_trgm`, `unaccent` | Extensiones de Postgres | `conocimiento` (las puede usar cualquiera) |
 
 ### Navegador
 
@@ -82,7 +87,8 @@ Todas las de `.env.example`, `.env.dev.example`, `.env.staging.example` y las de
 
 | Número | Dueño |
 |---|---|
-| 1 a 17 | `nucleo` (ver `docs/adr/README.md`) |
-| **Siguiente libre: 18** | — |
+| 1 a 18 | `nucleo` (ver `docs/adr/README.md`) |
+| 19 | `conocimiento` (extensiones de Postgres para la búsqueda) |
+| **Siguiente libre: 20** | — |
 
 Al reservar un número, se añade su fila y se sube el «siguiente libre».

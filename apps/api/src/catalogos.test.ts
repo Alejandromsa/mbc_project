@@ -57,6 +57,9 @@ describe('catálogos administrables', () => {
     expect(await enEditor()).toMatchObject({ name: 'Tiempo de liquidación', industry: 'Seguros', macroprocess: 'Siniestros', unit: 'días' });
 
     expect((await c.admin.patch(`/api/catalogos/kpis/${r.json.kpi.id}`, { activo: false })).status).toBe(200);
+    // Un cambio parcial no toca lo que no envía (antes se vaciaban unidad, benchmark…)
+    expect((await c.admin.get('/api/catalogos/kpis')).json.kpis.find((k: any) => k.codigo === codigo))
+      .toMatchObject({ activo: false, macroproceso: 'Siniestros', unidad: 'días', benchmark: '< 10', descripcion: 'Del aviso al pago.' });
     expect(await enEditor()).toBeUndefined();
     expect((await c.admin.get('/api/catalogos/kpis')).json.kpis.some((k: any) => k.codigo === codigo && !k.activo)).toBe(true);
     expect((await c.admin.post('/api/catalogos/kpis', { nombre: 'Sin industria' })).status).toBe(400);

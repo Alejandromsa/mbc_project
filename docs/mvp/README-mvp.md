@@ -35,7 +35,7 @@ Abre el **[link en vivo](https://nelson2206.github.io/process-iq/)** en una lapt
 
 > 🗂️ **Galería de ejemplos accesible + limpieza de emojis (v1.6.0)**: el selector de los **12 ejemplos demo** ahora se abre también desde **Ingestar → "Ver ejemplos"** (antes solo desde la pantalla inicial vacía) — útil para explorar varios procesos en el demo público sin pasar por "Nuevo". Se reemplazaron los últimos emojis del modal de ingesta (✨/📄) y el título de la galería por iconos SVG / texto. Verificado headless: la galería abre con 13 entradas, 0 emojis en el toolbar, 0 errores.
 
-> 🔬 **v1.0** añade las 4 funcionalidades del benchmark 2026 ([`BENCHMARK_NUEVAS_FUNCIONALIDADES.md`](BENCHMARK_NUEVAS_FUNCIONALIDADES.md)):
+> 🔬 **v1.0** añade las 4 funcionalidades del benchmark 2026 ([`BENCHMARK_NUEVAS_FUNCIONALIDADES.md`](https://github.com/nelson2206/process-iq/blob/main/BENCHMARK_NUEVAS_FUNCIONALIDADES.md)):
 > - **Comparador What-If** — compara escenarios To-Be (FTE/lead time/costo/ahorro) eligiendo palancas.
 > - **Scoring de automatización** — rankea tareas por potencial RPA/IDP/IA con ahorro anual y payback.
 > - **Cuello de botella + ruta crítica** — identifica el constraint (carga = tiempo×volumen) y lo resalta en el diagrama.
@@ -159,7 +159,7 @@ ProcessIQ cubre el ciclo completo del consultor: **levantar → diagramar → di
 
 ## 🔷 v0.8 — Nomenclatura BPMN 2.0 (alineado a MBC Process Disruptor)
 
-Benchmark de herramientas de IA → [`BENCHMARK_AI_TOOLS.md`](BENCHMARK_AI_TOOLS.md).
+Benchmark de herramientas de IA → [`BENCHMARK_AI_TOOLS.md`](https://github.com/nelson2206/process-iq/blob/main/BENCHMARK_AI_TOOLS.md).
 
 - **Marcadores de tipo de tarea BPMN** en esquina superior-izquierda (estándar BPMN 2.0): User Task (persona), Manual Task (mano), Service Task (engranajes), Script/IA Task, Send/Receive Task (sobre), Documental, RPA/Bot.
 - **Códigos de actividad** auto-numerados estilo MBC: `[USR-01]`, `[RCV-18]`, `[SRV-03]`, `[MAN-05]`, `[DOC-02]`, `[IA-01]`, `[BOT-01]`, `[TEL-01]`. Prefijo por tipo + correlativo izquierda→derecha.

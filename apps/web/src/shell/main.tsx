@@ -18,6 +18,7 @@ import { Proyecto } from './paginas/Proyecto';
 import { Proyectos } from './paginas/Proyectos';
 import { CLAVE_SESION, ConSesion } from './sesion';
 import './estilos.css';
+import { RutasPortafolio } from '../modulos/portafolio';
 import { RutasConocimiento } from '../modulos/conocimiento';
 
 // /proyectos -> /proyectos/ (el router trabaja con rutas relativas a la base)
@@ -82,6 +83,7 @@ createRoot(document.getElementById('raiz')!).render(
           <Route path="/admin/ia"><ConSesion soloAdmin><ConsumoIa /></ConSesion></Route>
           <Route path="/admin/catalogos"><ConSesion soloAdmin><Catalogos /></ConSesion></Route>
           <Route path="/admin/sistema"><ConSesion soloAdmin><Sistema /></ConSesion></Route>
+          <Route path="/portafolio/*?"><ConSesion><RutasPortafolio /></ConSesion></Route>
           <Route path="/conocimiento/*?"><ConSesion><RutasConocimiento /></ConSesion></Route>
           <Route><ConSesion><NoEncontrada /></ConSesion></Route>
         </Switch>

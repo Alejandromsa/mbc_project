@@ -1,5 +1,7 @@
-// @ts-nocheck — portado tal cual del MVP 3.8.9 (cuerpo, estilos y documento de la Ficha de Proceso).
+// Portado tal cual del MVP 3.8.9 (cuerpo, estilos y documento de la Ficha de Proceso).
 import { KPI_LIBRARY } from '@processiq/dominio';
+import type { ValorKpi } from '@processiq/dominio';
+import type { EstadoExportable } from './tipos.js';
 import { derivarFicha } from './word.js';
 
 // ============================================================
@@ -9,20 +11,25 @@ import { derivarFicha } from './word.js';
 // responsabilidades, procedimiento (diagrama), detalle de actividades,
 // sistemas, términos clave, anexos y control de cambios.
 // ============================================================
+export interface OpcionesFicha {
+  embedDiagram?: boolean;
+  svgDiagrama?: () => string;
+}
+
 /**
  * Cuerpo HTML de la Ficha de Proceso.
  * @param opts { embedDiagram?: boolean (por defecto true), svgDiagrama?: () => string }
  *   svgDiagrama devuelve el SVG del lienzo; solo se llama si hay que incrustarlo.
  */
-export function cuerpoFicha(state, opts) {
+export function cuerpoFicha(state: EstadoExportable, opts?: OpcionesFicha) {
   opts = opts || {};
   const embedDiagram = opts.embedDiagram !== false;
   const meta = state.meta;
   const d = derivarFicha(state);
   const f = d.f;
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const esc = (s: unknown) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' } as Record<string, string>)[c]!);
   // Convierte texto con saltos (notas del nodo) en <li> por línea o en párrafos
-  const richText = (s) => {
+  const richText = (s: unknown) => {
     if (!s) return '';
     const lines = String(s).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     if (lines.length <= 1) return `<span>${esc(lines[0] || '')}</span>`;
@@ -39,7 +46,7 @@ export function cuerpoFicha(state, opts) {
 
   // ── Indicadores (valores capturados o librería KPI) ──
   let indicadoresRows = '';
-  const kv = state._kpiValues || {};
+  const kv: Record<string, ValorKpi> = state._kpiValues || {};
   if (Object.keys(kv).length) {
     indicadoresRows = Object.values(kv).map(k => `<tr>
         <td>${esc(k.name)}</td><td style="text-align:center">${esc(k.unit || '')}</td>
@@ -56,9 +63,9 @@ export function cuerpoFicha(state, opts) {
   let respBody;
   if (state._raci && Object.keys(state._raci).length) {
     const roles = [...new Set(Object.values(state._raci).flatMap(r => Object.keys(r)))];
-    const rtasks = state.nodes.filter(n => state._raci[n.id]);
+    const rtasks = state.nodes.filter(n => state._raci![n.id]);
     respBody = `<table><tr><th>Actividad</th>${roles.map(r => `<th style="text-align:center">${esc(r)}</th>`).join('')}</tr>
-        ${rtasks.map(t => `<tr><td>${esc(t.label)}</td>${roles.map(r => `<td style="text-align:center"><b>${esc(state._raci[t.id][r] || '')}</b></td>`).join('')}</tr>`).join('')}</table>
+        ${rtasks.map(t => `<tr><td>${esc(t.label)}</td>${roles.map(r => `<td style="text-align:center"><b>${esc(state._raci![t.id]![r] || '')}</b></td>`).join('')}</tr>`).join('')}</table>
         <p class="muted">R = Responsable · A = Accountable · C = Consultado · I = Informado</p>`;
   } else if (d.responsables.length) {
     respBody = '<ul class="tight">' + d.responsables.map(r => `<li><b>${esc(r)}</b></li>`).join('') + '</ul>';
@@ -69,8 +76,9 @@ export function cuerpoFicha(state, opts) {
   // ── Procedimiento: diagrama ──
   let diagrama = '<p class="muted">Ver diagrama en la herramienta ProcessIQ.</p>';
   if (embedDiagram && state.nodes.length) {
+    // Sin svgDiagrama la llamada lanza y queda el texto por defecto (como en el MVP).
     try {
-      const svg = opts.svgDiagrama();
+      const svg = opts.svgDiagrama!();
       diagrama = `<div class="diagram">${svg}</div>`;
     } catch (_) {}
   }
@@ -169,7 +177,7 @@ export function cuerpoFicha(state, opts) {
 }
 
 /** Estilos de la ficha: para Word (tipografía y medidas de impresión) o para la vista previa. */
-export function estilosFicha(forWord) {
+export function estilosFicha(forWord: boolean) {
   const MAGENTA = '#147AFF', DARK = '#003478', GRAY = '#7A93B5';   // paleta MBC (catalogo): acento, azul marino, secundario
   return `
   ${forWord ? '@page { size: A4; margin: 1.8cm; }' : ''}
@@ -199,9 +207,9 @@ export function estilosFicha(forWord) {
 }
 
 /** Documento completo de la ficha (HTML compatible con Word). */
-export function documentoFicha(state, svgDiagrama) {
+export function documentoFicha(state: EstadoExportable, svgDiagrama: () => string) {
   const meta = state.meta;
-  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const esc = (s: unknown) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' } as Record<string, string>)[c]!);
   const body = cuerpoFicha(state, { embedDiagram: true, svgDiagrama });
   const html = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8"><title>${esc((meta.name || 'Ficha') + ' — Ficha de Proceso')}</title>
