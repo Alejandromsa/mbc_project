@@ -13,16 +13,23 @@
  *   GET  /health        { ok, configurado, formatoClave }  (sin codigo)
  * Caddy lo publica bajo {DOMINIO}/ia/* (mismo origen que la web).
  *
- * Temporal: en la fase 2 lo sustituyen los endpoints de IA de negocio de la
- * API (docs/arquitectura.md §8).
+ * Sirve al editor libre (/, sin proyecto) en el modo "Clave del equipo". Los
+ * procesos de proyectos no lo usan: su IA pasa por la API, con sesion,
+ * permisos y presupuesto (docs/arquitectura.md §8). Se podra retirar cuando el
+ * editor libre deje de ofrecer ese modo.
  *
  * Variables de entorno:
  *   ANTHROPIC_API_KEY  clave de console.anthropic.com
  *   ACCESS_CODE        codigo que se reparte al equipo
- *   ALLOWED_ORIGINS    origenes permitidos, separados por coma
+ *   ALLOWED_ORIGINS    origenes permitidos, separados por coma. Sin ninguno
+ *                      rechaza todo. En Docker, por defecto https://$DOMINIO;
+ *                      en desarrollo, http://localhost:5173 (la web de Vite)
  *   PULSE_URL          (opcional) endpoint donde reportar el gasto de IA
  *   PULSE_TOKEN        (opcional) credencial para PULSE_URL (Bearer)
  *   PORT               (opcional) por defecto 8787
+ *
+ * Desarrollo: pnpm --filter @processiq/intermediario dev (scripts/dev.mjs) lee
+ * .env.dev, o .env si no existe.
  * ============================================================ */
 
 import { serve } from '@hono/node-server';
