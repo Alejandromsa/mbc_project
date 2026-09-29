@@ -1,5 +1,5 @@
 // Sesión del usuario en el shell: consulta, guardia de rutas y cabecera.
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, Redirect, useLocation, useSearch } from 'wouter';
 import { api, ErrorApi, type Usuario } from './api';
@@ -56,6 +56,40 @@ export function ConSesion({ children, soloAdmin = false, permitirClaveTemporal =
   );
 }
 
+/**
+ * Pantallas de administración en un desplegable: así la cabecera no crece con
+ * cada módulo de iniciativa (con Portafolio y Conocimiento ya no cabía a 1280 px).
+ * Se cierra al elegir una pantalla, al pulsar fuera o con Escape.
+ */
+function MenuAdministracion({ aviso }: { aviso: boolean }) {
+  const [ubicacion] = useLocation();
+  const menu = useRef<HTMLDetailsElement>(null);
+  useEffect(() => { if (menu.current) menu.current.open = false; }, [ubicacion]);
+  useEffect(() => {
+    const cerrar = (e: Event) => {
+      const d = menu.current;
+      if (!d?.open) return;
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !d.contains(e.target as Node)) d.open = false;
+    };
+    document.addEventListener('click', cerrar);
+    document.addEventListener('keydown', cerrar);
+    return () => { document.removeEventListener('click', cerrar); document.removeEventListener('keydown', cerrar); };
+  }, []);
+  const activo = ubicacion.startsWith('/admin/');
+  return (
+    <details ref={menu} className={`menu-admin${activo ? ' activo' : ''}`}>
+      <summary>Administración{aviso && <span className="punto-aviso" title="Hay problemas: revisa «Sistema»" />}</summary>
+      <div className="menu-admin-lista">
+        <EnlaceMenu href="/admin/usuarios">Usuarios</EnlaceMenu>
+        <EnlaceMenu href="/admin/catalogos">Catálogos</EnlaceMenu>
+        <EnlaceMenu href="/admin/auditoria">Auditoría</EnlaceMenu>
+        <EnlaceMenu href="/admin/ia">IA</EnlaceMenu>
+        <EnlaceMenu href="/admin/sistema" aviso={aviso}>Sistema</EnlaceMenu>
+      </div>
+    </details>
+  );
+}
+
 function EnlaceMenu({ href, children, aviso = false }: { href: string; children: ReactNode; aviso?: boolean }) {
   const [ubicacion] = useLocation();
   // «Proyectos» sigue resaltado dentro de un proyecto o de un proceso
@@ -94,11 +128,7 @@ function Marco({ usuario, children }: { usuario: Usuario; children: ReactNode })
             <EnlaceMenu href="/">Proyectos</EnlaceMenu>
             <EnlaceMenu href="/portafolio">Portafolio</EnlaceMenu>
             <EnlaceMenu href="/conocimiento">Conocimiento</EnlaceMenu>
-            {usuario.rol === 'admin' && <EnlaceMenu href="/admin/usuarios">Usuarios</EnlaceMenu>}
-            {usuario.rol === 'admin' && <EnlaceMenu href="/admin/catalogos">Catálogos</EnlaceMenu>}
-            {usuario.rol === 'admin' && <EnlaceMenu href="/admin/auditoria">Auditoría</EnlaceMenu>}
-            {usuario.rol === 'admin' && <EnlaceMenu href="/admin/ia">IA</EnlaceMenu>}
-            {usuario.rol === 'admin' && <EnlaceMenu href="/admin/sistema" aviso={hayProblemas}>Sistema</EnlaceMenu>}
+            {usuario.rol === 'admin' && <MenuAdministracion aviso={hayProblemas} />}
             <a href="/" title="El editor, sin proyecto (trabajo guardado en este navegador)">Editor libre</a>
           </nav>
         )}

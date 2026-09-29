@@ -26,6 +26,8 @@ test('una revisión se guarda como plantilla y de ella nace un proceso con el cl
   await dialogo.getByRole('button', { name: 'Guardar plantilla' }).click();
   await expect(page.getByText('Plantilla «Siniestros base» creada')).toBeVisible();
 
+  await page.getByRole('navigation', { name: 'Secciones' }).getByText('Administración').click();
+
   await page.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'Catálogos' }).click();
   await page.getByRole('tab', { name: 'Plantillas de proceso' }).click();
   const fila = page.getByRole('row', { name: /Siniestros base/ });

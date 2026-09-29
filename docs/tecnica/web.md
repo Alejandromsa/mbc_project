@@ -467,7 +467,7 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 | Archivo | Qué hace |
 |---|---|
 | [main.tsx](../../apps/web/src/shell/main.tsx) | Monta React: `LimiteDeErrores`, `QueryClientProvider`, `Router` con base `/proyectos` y las rutas |
-| [sesion.tsx](../../apps/web/src/shell/sesion.tsx) | `useSesion`, `useUsuario`, la guardia `ConSesion` y el marco (cabecera y menú) |
+| [sesion.tsx](../../apps/web/src/shell/sesion.tsx) | `useSesion`, `useUsuario`, la guardia `ConSesion` y el marco: cabecera y menú, con los módulos de iniciativa y el desplegable «Administración» (`MenuAdministracion`, un `<details>` que se cierra al elegir, al pulsar fuera o con Escape) |
 | [api.ts](../../apps/web/src/shell/api.ts) | Cliente tipado de la API, `pedir()` y `ErrorApi` |
 | [ui.tsx](../../apps/web/src/shell/ui.tsx) | Componentes de interfaz |
 | [permisos.ts](../../apps/web/src/shell/permisos.ts) | Capacidades por rol de proyecto, solo para mostrar u ocultar botones |
