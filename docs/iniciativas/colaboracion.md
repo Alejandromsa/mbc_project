@@ -1,6 +1,6 @@
 # Colaboración en tiempo real (`colaboracion`, núcleo)
 
-> **Estado:** reservada · **Responsable:** plataforma (agente de colaboración) · **Desde:** 28-sep-2026
+> **Estado:** en desarrollo · **Responsable:** plataforma (agente de colaboración) · **Desde:** 28-sep-2026
 
 ## Objetivo
 
@@ -33,22 +33,29 @@ Núcleo. Toca la integración del editor con la plataforma, la API de procesos y
 
 | Qué | Valor |
 |---|---|
-| Carpetas y archivos | `apps/api/src/colaboracion/` (nuevo), las rutas de presencia y eventos en `apps/api/src/rutas/procesos.ts`, `apps/web/src/app/plataforma/colaboracion.js` (nuevo) y su enganche en `proyecto.js`, y `apps/web/src/shell/paginas/Proceso.tsx` |
+| Carpetas y archivos | `apps/api/src/colaboracion/` (nuevo; sus rutas se montan con una línea en `app.ts`), el `NOTIFY` al guardar en `apps/api/src/rutas/procesos.ts`, el canal en la `Escucha` de `servidor.ts`, `apps/web/src/shell/colaboracion.ts` (nuevo: latido y SSE, lo comparten editor y shell), `apps/web/src/app/plataforma/colaboracion.js` (nuevo) y su enganche en `proyecto.js` y `barra.css`, y `apps/web/src/shell/paginas/Proceso.tsx` |
 | Rutas de la API | `/api/procesos/:id/presencia`, `/api/procesos/:id/eventos` |
-| Tablas | `presencias` (proceso, usuario, estado, último latido) |
+| Tablas | `presencias` (proceso, usuario, pestaña, lugar, estado, desde, último latido) |
 | Canales `LISTEN/NOTIFY` | `procesos_evento` |
 | Otros | `pruebas/e2e/colaboracion.spec.mjs` |
 
 ## Datos y privacidad
 
-- La presencia guarda el usuario, el proceso, el estado y la hora del último latido. Se borra sola al caducar; no hay histórico.
-- Solo la ven quienes tienen acceso al proceso.
+- La presencia guarda el usuario, el proceso, la pestaña (un identificador aleatorio), el lugar (editor o shell), el estado y la hora del último latido. Se borra al cerrar la pestaña o al caducar (60 s sin latido); no hay histórico ni auditoría.
+- Solo la ven quienes tienen acceso `leer` al proceso, y solo el nombre de cada persona (no el correo).
+- La vista del invitado (`?invitado=`) no da latidos ni abre el SSE.
 
 ## Incrementos
 
 | # | Qué entrega | Rama | PR | Estado |
 |---|---|---|---|---|
-| 1 | Presencia, «editando» y aviso de revisión nueva en el editor y en el shell; ADR 21; E2E con dos navegadores | `plataforma/colaboracion` | | 🔜 (después de `invitados`: tocan la misma integración del editor) |
+| 1 | Presencia, «editando» y aviso de revisión nueva en el editor y en el shell; ADR 21; E2E con dos navegadores | `plataforma/colaboracion` | (pendiente) | en revisión |
+
+## Decisiones
+
+- 28-sep-2026 — SSE y no WebSocket; presencia por pestaña con caducidad a los 60 s; el SSE renueva el latido de su pestaña; «editando» solo para quien puede guardar: [ADR 21](../adr/0021-presencia-y-eventos-por-sse.md).
+- 28-sep-2026 — «Cargar la nueva versión» recarga el editor con `/?revision=<nueva>` (el camino de apertura de siempre) en lugar de cambiar el contenido en sitio: así no quedan paneles con datos de la versión anterior. Con cambios sin guardar pregunta antes y, si se aceptan perder, borra el borrador local para que no se ofrezca recuperarlo.
+- 28-sep-2026 — El shell no importa nada del editor, así que el latido y el SSE viven en `shell/colaboracion.ts` y el editor los importa de ahí, como ya hace con `api.ts`.
 
 ## Pruebas
 

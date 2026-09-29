@@ -344,6 +344,7 @@ Detalle en la sección 4.
 | [plataforma/catalogos.js](../../apps/web/src/app/plataforma/catalogos.js) | Catálogos de la organización reemplazados en sitio |
 | [plataforma/ia.js](../../apps/web/src/app/plataforma/ia.js) | IA del servidor: `crearIaRemota()` |
 | [plataforma/barra.css](../../apps/web/src/app/plataforma/barra.css) | Estilos de la barra, los avisos y los diálogos (clases `piq-`) |
+| [plataforma/colaboracion.js](../../apps/web/src/app/plataforma/colaboracion.js) | Colaboración en tiempo real (sección 4.9): latido de presencia, avatares de quién más está y aviso de revisión nueva |
 | [plataforma/invitado.js](../../apps/web/src/app/plataforma/invitado.js) | Vista del invitado (`/?invitado=<token>`, iniciativa `invitados`): la revisión del enlace en modo lectura, la ficha y los comentarios. Estilos en [modulos/invitados/vista.css](../../apps/web/src/modulos/invitados/vista.css), todos bajo `html.invitados-modo` |
 
 ---
@@ -426,8 +427,9 @@ La API asigna el número con `select … for update` sobre el proceso y marca el
   - enlace «←» al proceso en el shell;
   - «Proyecto › Proceso»;
   - detalle: «vN · Estado», «la última es la vM» si no es la misma, y tu rol o «solo lectura»;
+  - quién más tiene abierto el proceso y quién edita (sección 4.9);
   - etiqueta «Cambios sin guardar» y botón «Guardar revisión», destacado cuando hay cambios.
-- **Avisos:** `ok`, `info`, `atencion` y `error`, con detalles y enlace opcionales. Los `ok` se ocultan solos.
+- **Avisos:** `ok`, `info`, `atencion` y `error`, con detalles, enlace y botones opcionales. Los `ok` se ocultan solos.
 - **Diálogos:** `<dialog>` nativo.
 - Estilos en [barra.css](../../apps/web/src/app/plataforma/barra.css), con clases `piq-` para no tocar el CSS del editor. La barra usa `z-index` 60: por debajo de la cabecera (120) y de los modales.
 
@@ -460,6 +462,20 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 
 ---
 
+### 4.9 Colaboración en tiempo real
+
+[plataforma/colaboracion.js](../../apps/web/src/app/plataforma/colaboracion.js), sobre [shell/colaboracion.ts](../../apps/web/src/shell/colaboracion.ts) ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md), [ficha](../iniciativas/colaboracion.md)).
+
+- **Cuándo:** `abrir()` la activa al terminar de abrir el proceso (`activarPresencia()`). Sin proyecto no existe, y con `?invitado=` no hace nada: la vista del invitado no da latidos ni abre el SSE.
+- **Latido:** `conectarColaboracion` genera un identificador de pestaña y hace `PUT /api/procesos/:id/presencia` al abrir, cada 20 s, al volver a la pestaña y cada vez que `pintarBarra()` ve que cambió el estado: `editando` mientras hay cambios sin guardar (`ctx.sucio`), `viendo` si no. Al cerrar la pestaña (`pagehide`), `DELETE …/presencia` con `keepalive`. Un 401, 403 o 404 en el latido lo detiene todo.
+- **Eventos:** `EventSource` sobre `/api/procesos/:id/eventos?pestana=…`. Si el SSE se cierra del todo (p. ej. un 502 mientras reinicia la API), se vuelve a abrir a los 10 s.
+- **Barra:** entre el nombre y «Cambios sin guardar», los avatares (iniciales, un color por persona) de quien más tiene el proceso abierto, hasta 4 y «+N». Quien edita lleva un anillo ámbar y, al lado, «Ana está editando» o, si también tienes cambios, «Ana también está editando». Es un aviso suave: no bloquea nada.
+- **Revisión nueva:** si llega una revisión con número mayor que la última conocida (`ctx.ultima`), la barra pasa a decir «la última es la vN» y sale un aviso («Ana guardó la v4: «mensaje».») con dos botones:
+  - **«Cargar la nueva versión»:** recarga el editor con `/?revision=<nueva>`, el mismo camino de apertura (sección 4.2). Con cambios sin guardar, antes pregunta; si se aceptan perder, borra el borrador local (`processiq.proceso.<id>` y `….base`) para que no se ofrezca recuperarlo, y no pide confirmar al salir.
+  - **«Seguir con la mía»:** cierra el aviso. Al guardar, el diálogo recuerda que la última es otra y la API marca el conflicto (sección 4.4).
+  - El aviso de la revisión que guarda esta misma pestaña puede llegar antes que la respuesta de la API: mientras `ctx.guardando`, no se decide nada, y al terminar ya es la última conocida. Si la guardaste desde otra pestaña, dice «Guardaste la vN desde otra pestaña».
+- **Avisos con botones:** `avisar(tipo, texto, detalles, enlace, acciones)` acepta `acciones: [{ texto, alPulsar, principal }]` y devuelve una función que cierra el aviso solo si sigue siendo el que está a la vista.
+
 ## 5. El shell de proyectos (`/proyectos/`)
 
 ### 5.1 Piezas
@@ -475,6 +491,7 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 | [navegacion.ts](../../apps/web/src/shell/navegacion.ts) | `useIrA()` y `useVolver()` |
 | [observabilidad.ts](../../apps/web/src/shell/observabilidad.ts) | `reportarError()` y `capturarErrores()` |
 | [importacion.ts](../../apps/web/src/shell/importacion.ts) | Lectura del editor libre y de JSON exportados |
+| [colaboracion.ts](../../apps/web/src/shell/colaboracion.ts) | Latido de presencia y SSE de un proceso (`conectarColaboracion`), iniciales y textos; lo usan la página del proceso y el editor ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)) |
 | [estilos.css](../../apps/web/src/shell/estilos.css) | Estilos del shell (importa `tokens.css`) |
 | [paginas/](../../apps/web/src/shell/paginas/) | Una pantalla por archivo |
 
@@ -489,7 +506,7 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 | `/proyectos/` | `Proyectos` ([Proyectos.tsx](../../apps/web/src/shell/paginas/Proyectos.tsx)) | Con sesión. El administrador ve todos los de la organización; el resto, los suyos. «Nuevo proyecto»: todos menos el rol de organización `lector` |
 | `/proyectos/importar` | `Importar` ([Importar.tsx](../../apps/web/src/shell/paginas/Importar.tsx)) | Con sesión. Solo ofrece proyectos donde puedes escribir y no archivados |
 | `/proyectos/p/:id` | `Proyecto` ([Proyecto.tsx](../../apps/web/src/shell/paginas/Proyecto.tsx)) | Miembros del proyecto y administradores (si no, la API responde 404). «Nuevo proceso» (vacío, desde una plantilla o desde un JSON): `escribir`; ajustes y miembros: `administrar` |
-| `/proyectos/proceso/:id` | `Proceso` ([Proceso.tsx](../../apps/web/src/shell/paginas/Proceso.tsx)) | Igual. Renombrar y «Enviar a revisión»: `escribir`; «Aprobar» y «Devolver»: `aprobar`; «Guardar como plantilla»: administradores |
+| `/proyectos/proceso/:id` | `Proceso` ([Proceso.tsx](../../apps/web/src/shell/paginas/Proceso.tsx)) | Igual. Renombrar y «Enviar a revisión»: `escribir`; «Aprobar» y «Devolver»: `aprobar`; «Guardar como plantilla»: administradores. Muestra quién más lo tiene abierto («Ahora lo tiene abierto: AT · Ana Torres, editando») y la lista de revisiones se actualiza sola (sección 5.5) |
 | `/proyectos/admin/usuarios` | `Usuarios` ([Admin.tsx](../../apps/web/src/shell/paginas/Admin.tsx)) | Administradores |
 | `/proyectos/admin/catalogos` | `Catalogos` ([Catalogos.tsx](../../apps/web/src/shell/paginas/Catalogos.tsx)): KPIs, verbos, temas PPTX y plantillas de proceso | Administradores |
 | `/proyectos/admin/auditoria` | `Auditoria` ([Admin.tsx](../../apps/web/src/shell/paginas/Admin.tsx)) | Administradores |
@@ -547,6 +564,8 @@ Un solo `QueryClient` en [main.tsx](../../apps/web/src/shell/main.tsx):
 - `QueryCache` y `MutationCache` con `onError` que revisa la sesión (sección 5.3).
 
 Refrescos periódicos: «Sistema» cada 15 s (y cada 60 s para el punto rojo del menú), «Consumo de IA» cada 15 s.
+
+En vivo: la página del proceso da su latido de presencia (como `viendo`, lugar `shell`) y escucha el SSE del proceso (`usePresencia`). Cuando la última revisión que llega no es la que muestra la tabla (otra versión o su estado), invalida `['proceso', id]` y la lista se actualiza sola. Al salir de la página, la presencia se borra.
 
 ### 5.6 Componentes (`ui.tsx`)
 

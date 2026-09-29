@@ -143,6 +143,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22l. **Una casilla controlada por datos del servidor no cambia al hacer clic.** «Resuelto» usaba `checked={!!c.resueltoEn}` y solo cambiaba al volver la consulta; `check()` de Playwright falló con «Clicking the checkbox did not change its state», y la persona veía la casilla inmóvil un momento.
     → **Regla:** una casilla o un conmutador que guarda en la API lleva estado local (cambia al clic y vuelve atrás si la API falla) y, al responder, se actualiza la caché con `setQueryData` en lugar de esperar a que se vuelva a consultar.
 
+22m. **Un símbolo Unicode como icono se vio como una mancha.** El «✎» delante de «Ana está editando» (barra del editor, colaboración) no está en Montserrat: el navegador lo pintó con una fuente de reserva, borroso y sin forma de lápiz. Las pruebas pasaban; se vio al ampliar la captura. En la misma tarea, un `\\|` dentro de un script pasado por heredoc llegó como `\|` y dejó una tabla Markdown con una columna de más (reincidencia de la 1).
+    → **Regla:** los iconos pequeños de la interfaz se dibujan (SVG en línea o una máscara CSS con `currentColor`), no con caracteres de símbolo. Una captura con un icono nuevo se revisa ampliada. Y la 1 sigue valiendo: nada de heredoc si el contenido lleva `\`.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.
