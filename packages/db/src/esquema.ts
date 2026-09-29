@@ -254,3 +254,48 @@ export const latidos = pgTable('latidos', {
   detalle: jsonb('detalle').notNull().default(sql`'{}'::jsonb`),
   en: timestamp('en', { withTimezone: true }).notNull().defaultNow()
 });
+
+// ===== conocimiento =====
+// Búsqueda sobre los procesos de la organización y comparativo con el marco
+// APQC PCF (docs/iniciativas/conocimiento.md, ADR 19). Sin IA: pg_trgm y
+// unaccent. drizzle no genera extensiones ni funciones: la migración crea a
+// mano pg_trgm, unaccent y conocimiento_normalizar() antes de estas tablas.
+
+/**
+ * Texto de la última revisión de cada proceso, para buscar. Se rellena de forma
+ * perezosa al buscar (las revisiones que falten o hayan cambiado) y cae en
+ * cascada con su proceso y con su revisión.
+ */
+export const conocimientoIndice = pgTable('conocimiento_indice', {
+  procesoId: uuid('proceso_id').primaryKey().references(() => procesos.id, { onDelete: 'cascade' }),
+  revisionId: uuid('revision_id').notNull().references(() => revisiones.id, { onDelete: 'cascade' }),
+  /** Nombre del proceso al indexarlo: si se renombra, se vuelve a indexar. */
+  nombre: text('nombre').notNull(),
+  /** Todo lo buscable: nombre, actividades, sistemas, roles y ficha. */
+  texto: text('texto').notNull(),
+  /** Nombre, actividades, sistemas y roles (sin la ficha): con él se comparan procesos entre sí. */
+  textoParecido: text('texto_parecido').notNull(),
+  /** Trozos con su campo ({ campo, texto, etiqueta? }): de aquí sale el extracto de cada resultado. */
+  fragmentos: jsonb('fragmentos').notNull(),
+  indexadoEn: timestamp('indexado_en', { withTimezone: true }).notNull().defaultNow()
+}, (t) => [
+  // Trigramas sobre el texto sin mayúsculas ni tildes (la función debe ser IMMUTABLE)
+  index('conocimiento_indice_texto_idx').using('gin', sql`conocimiento_normalizar(${t.texto}) gin_trgm_ops`)
+]);
+
+/**
+ * Marco de referencia de la organización (APQC PCF u otro con la misma forma).
+ * Lo importa un administrador desde un CSV y cada importación reemplaza el
+ * anterior. El nivel sale del código jerárquico (1.0 -> 1, 1.2 -> 2, 1.2.3 -> 3).
+ */
+export const conocimientoMarco = pgTable('conocimiento_marco', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizacionId: uuid('organizacion_id').notNull().references(() => organizaciones.id, { onDelete: 'cascade' }),
+  codigo: text('codigo').notNull(),
+  nombre: text('nombre').notNull(),
+  descripcion: text('descripcion').notNull().default(''),
+  nivel: integer('nivel').notNull(),
+  /** Posición en el archivo importado. */
+  orden: integer('orden').notNull(),
+  creadoEn: creado()
+}, (t) => [unique('conocimiento_marco_org_codigo_uq').on(t.organizacionId, t.codigo)]);

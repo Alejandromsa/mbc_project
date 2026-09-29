@@ -18,6 +18,7 @@ import { rutasCatalogos } from './rutas/catalogos.js';
 import { rutasSistema } from './rutas/sistema.js';
 import { registrarError } from './observabilidad.js';
 import type { Escucha } from './ia/avisos.js';
+import { rutasConocimiento } from './modulos/conocimiento/index.js';
 
 /** Rutas que no exigen sesión. */
 const PUBLICAS = new Set(['GET /api/salud', 'POST /api/sesion', 'POST /api/errores']);
@@ -116,5 +117,6 @@ export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp 
   app.route('/api/ia', rutasIa({ sondeoMs: opciones.sondeoMs }));
   app.route('/api/catalogos', rutasCatalogos());
   app.route('/api', rutasSistema());
+  app.route('/api/conocimiento', rutasConocimiento());
   return app;
 }
