@@ -6,9 +6,11 @@
   <meta name="robots" content="noindex" />
   <title>Proyectos · ProcessIQ</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Montserrat desde la propia web (public/fonts/): la CSP no admite otros orígenes -->
+  <link rel="preload" href="/fonts/montserrat-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/fonts/montserrat.css" />
+  <!-- Antes que cualquier módulo: zod sin sondear eval, que la CSP prohíbe (ver el archivo) -->
+  <script src="/zod-sin-eval.js"></script>
 </head>
 <body>
   <div id="raiz"></div>

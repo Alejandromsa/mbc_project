@@ -2,7 +2,7 @@
 
 Cómo se protegen hoy las cuentas, las sesiones, los datos y los secretos de la plataforma, qué queda fuera y cómo informar de una vulnerabilidad.
 
-Actualizado: 28-sep-2026.
+Actualizado: 29-sep-2026.
 
 Este documento describe el código tal como está. La seguridad objetivo está en [arquitectura.md §9](../arquitectura.md#9-seguridad). Si algo cambia en el código, cambia aquí.
 
@@ -39,6 +39,7 @@ Este documento describe el código tal como está. La seguridad objetivo está e
 | Gasto de IA descontrolado | Presupuesto mensual y límite por persona | [config.ts](../../apps/api/src/config.ts) |
 | Secretos en el repositorio | `.gitignore`, `.dockerignore` y escaneo de secretos de GitHub | [.gitignore](../../.gitignore), [ADR 18](../adr/0018-repositorio-publico.md) |
 | Dependencias vulnerables | `pnpm audit` en la CI, con excepciones justificadas | [ci.yml](../../.github/workflows/ci.yml), [ADR 17](../adr/0017-excepciones-auditoria-dependencias.md) |
+| Scripts inyectados (XSS) y envío de datos a otros dominios | `Content-Security-Policy` obligatoria: solo scripts del propio sitio, sin `eval`, conexiones solo al propio sitio (y a Anthropic con clave propia) | [Caddyfile](../../infra/Caddyfile), [§9](#content-security-policy) |
 
 ## 2. Superficie expuesta
 
@@ -236,8 +237,38 @@ Caddy añade estas cabeceras a todas las respuestas, también a las páginas 404
 | `Strict-Transport-Security` | `max-age=31536000` | El navegador solo usa HTTPS durante un año |
 | `X-Content-Type-Options` | `nosniff` | Sin adivinar tipos de contenido |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | No filtra rutas ni parámetros a otros sitios |
-| `X-Frame-Options` | `DENY` | La web no se puede incrustar en otra página |
+| `X-Frame-Options` | `DENY` | La web no se puede incrustar en otra página (lo repite `frame-ancestors` de la CSP, para navegadores antiguos) |
+| `Content-Security-Policy` | Ver abajo | Solo se cargan y se ejecutan recursos del propio sitio: un script inyectado no corre y no puede enviar datos a otro dominio |
+| `Permissions-Policy` | `camera=(), geolocation=(), microphone=(self)` | Nadie usa la cámara ni la ubicación. El micrófono, solo la propia web: lo usa la grabación de voz de la ingesta («🔴 Grabar», Web Speech API) |
 | `Server` | (se quita) | No anuncia el servidor |
+
+### Content-Security-Policy
+
+Obligatoria (no de solo informe) en todo el sitio, también en `/api/*` y en la página 404:
+
+```text
+default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;
+font-src 'self'; connect-src 'self' https://api.anthropic.com; worker-src 'self'; object-src 'none';
+base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+```
+
+Qué necesita cada directiva. Se averiguó sirviendo la web con una política más estricta en modo de solo informe y recorriendo el editor y el shell (`csp.spec.mjs`, abajo):
+
+| Directiva | Por qué ese valor |
+|---|---|
+| `default-src 'self'` | Todo lo demás (`media-src`, `frame-src`, `manifest-src`…), solo del propio sitio |
+| `script-src 'self'` | Módulos de Vite, `/vendor/` (pptxgenjs, JSZip, mammoth, pdf.js) y `/zod-sin-eval.js`. **Sin `'unsafe-inline'` ni `'unsafe-eval'`**: ningún HTML lleva scripts en línea ni atributos `on…`. zod probaba `new Function` al crear cada esquema y el navegador lo registraba como violación en cada carga: [zod-sin-eval.js](../../apps/web/public/zod-sin-eval.js) lo pone en modo `jitless` antes de cualquier módulo |
+| `style-src 'self' 'unsafe-inline'` | El editor portado del MVP pone atributos `style=` (en el HTML y desde JavaScript), mete un `<style>` en la vista previa de la Ficha y copia variables CSS a los SVG; `404.html` lleva su `<style>`. El shell (React) no lo necesita: sus estilos en línea van por CSSOM |
+| `img-src 'self' data: blob:` | `data:`: iconos SVG en el CSS, imágenes de pptxgenjs y logotipos de los temas PPTX (data URI). `blob:`: el export PNG dibuja el SVG en un `<canvas>` a través de una URL `blob:` |
+| `font-src 'self'` | Montserrat se sirve desde `/fonts/` ([web.md §2.2](web.md#22-librerías-de-navegador-vendor)) |
+| `connect-src 'self' https://api.anthropic.com` | `'self'`: API, SSE de la IA e intermediario (`/ia`). `api.anthropic.com`: el modo «clave propia» del editor libre llama directamente a Anthropic desde el navegador ([§10](#clave-propia-en-el-editor-libre)). Una «dirección del intermediario» de otro dominio queda bloqueada |
+| `worker-src 'self'` | pdf.js arranca su worker desde `/vendor/pdf.worker.min.mjs` (mismo origen). No hace falta `blob:` |
+| `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`, `frame-ancestors 'none'` | Sin plugins, sin `<base>` ajeno, formularios solo al propio sitio y la web no se incrusta en otras |
+
+- **Dónde está:** bloque `cabeceras-seguridad` del [Caddyfile](../../infra/Caddyfile). La E2E lee ese bloque ([csp.mjs](../../pruebas/e2e/src/csp.mjs)) y sirve la web con las mismas cabeceras, así que toda la E2E corre con la CSP de producción.
+- **Cómo se prueba:** [csp.spec.mjs](../../pruebas/e2e/csp.spec.mjs) recorre el editor (ejemplos, exportaciones JSON, SVG, PNG, BPMN, PPTX, Word y Ficha, paneles, copiloto, minería, ingesta de Word, PDF y PowerPoint, IA por `/ia` y con clave propia, grabación de voz) y el shell, y falla con cualquier violación. Un control comprueba que la política bloquea de verdad (otro origen, un script en línea y `eval`). Además, al final de cada `pnpm e2e` se revisan las violaciones de **todas** las pruebas ([comprobar-csp.mjs](../../pruebas/e2e/src/comprobar-csp.mjs)).
+- **Cambiarla:** una función nueva que cargue algo de otro origen, use `eval` o un worker `blob:` fallará en la E2E. Se añade la directiva mínima en el Caddyfile, se explica en esta tabla y se pasa `pnpm e2e`.
+- En producción no hay `report-uri`: las violaciones solo se ven en la consola del navegador. En las pruebas, el servidor de la E2E sí las recoge.
 
 TLS:
 
@@ -245,8 +276,6 @@ TLS:
 - Por eso **no hay redirección de HTTP a HTTPS**. La cubre HSTS para quien ya visitó el sitio.
 - HTTP/1.1 y HTTP/2. HTTP/3 está desactivado (necesitaría UDP 443).
 - Dentro del servidor, el tráfico entre contenedores va por la red de Docker sin TLS.
-
-No hay `Content-Security-Policy` (ver [§16](#16-qué-no-está-cubierto-todavía)).
 
 ## 10. Secretos
 
@@ -298,7 +327,7 @@ El procedimiento está en [rotacion-secretos.md](../runbooks/rotacion-secretos.m
 ### Documentos del cliente
 
 - Word, PDF, PowerPoint, texto, BPMN y CSV se leen **en el navegador** con mammoth, pdf.js y JSZip ([packages/documentos](../../packages/documentos)). El archivo original nunca se sube.
-- Esas librerías se sirven desde la propia web (`/vendor/`), no desde un CDN. La prueba de fidelidad `D5` comprueba que la app no hace peticiones a terceros, salvo Google Fonts ([divergencias.spec.mjs](../../pruebas/fidelidad/divergencias.spec.mjs)).
+- Esas librerías se sirven desde la propia web (`/vendor/`), no desde un CDN, y la fuente Montserrat también (`/fonts/`). La CSP ([§9](#content-security-policy)) impide pedir nada a otros orígenes, salvo la clave propia hacia Anthropic, y la E2E lo comprueba ([csp.spec.mjs](../../pruebas/e2e/csp.spec.mjs)).
 
 ### Editor libre y modo proyecto
 
@@ -339,7 +368,7 @@ Cuidado: si un código mete datos del proceso en el mensaje de un `Error`, esos 
 
 - **Registro de acceso y auditoría:** correo del usuario e IP.
 - **Copias de seguridad:** `pg_dump` diario, se conservan 14, en una carpeta del mismo PC y **sin cifrar**. Hay que copiarlas fuera del equipo ([servidor-local.md](../runbooks/servidor-local.md#copias-de-seguridad)).
-- **Google Fonts:** el navegador descarga la fuente Montserrat de Google, que ve la IP de quien usa la web.
+- **Fuentes:** Montserrat se sirve desde la propia web; Google ya no ve la IP de quien la usa.
 - **Datos de prueba:** las cuentas de la semilla usan el dominio reservado `processiq.test` (RFC 2606) y un cliente ficticio.
 
 ## 12. Cadena de suministro
@@ -350,7 +379,7 @@ Cuidado: si un código mete datos del proceso en el mensaje de un `Error`, esos 
 | Excepciones | [ADR 17](../adr/0017-excepciones-auditoria-dependencias.md): `canvas` eliminado con `pnpm.overrides`; tres avisos aceptados (`image-size` por pptxgenjs y `mammoth`) en `pnpm.auditConfig.ignoreGhsas` de [package.json](../../package.json). Solo valen mientras esas librerías corran en el navegador |
 | Un solo lockfile | `pnpm-lock.yaml`. La CI instala con `--frozen-lockfile`; las imágenes con `pnpm fetch` y `pnpm install --offline --frozen-lockfile` |
 | Versión de pnpm | Fijada en `packageManager` (`pnpm@10.33.0`); Node 22 en la CI y en las imágenes |
-| Librerías del navegador | Versión exacta (pptxgenjs 3.12.0, JSZip 3.10.1, mammoth 1.13.0, pdf.js 4.7.76; también React y las demás dependencias de ejecución de la web) y servidas desde la propia web. Regla: nada desde un CDN |
+| Librerías del navegador | Versión exacta (pptxgenjs 3.12.0, JSZip 3.10.1, mammoth 1.13.0, pdf.js 4.7.76, Montserrat de `@fontsource-variable/montserrat` 5.3.0; también React y las demás dependencias de ejecución de la web) y servidas desde la propia web. Regla: nada desde un CDN (la CSP lo impide) |
 | Resto de dependencias | Rangos `^` en `package.json`, resueltos siempre por el lockfile |
 | GitHub | Avisos de Dependabot y escaneo de secretos ([ADR 18](../adr/0018-repositorio-publico.md)) |
 | Runners | Solo los de GitHub. No hay runners propios: un PR desde un fork podría ejecutar código en el servidor. El despliegue a staging lo inicia el propio servidor, que consulta `main` cada 10 minutos ([despliegue.md](../runbooks/despliegue.md#despliegue-automático-a-staging-sondeo)) |
@@ -399,6 +428,7 @@ Límites conocidos:
 | [index.test.ts](../../apps/intermediario/src/index.test.ts) (intermediario) | `/health` sin secretos; orígenes; código; modelos; JSON inválido; topes; 401 → 502 |
 | [invitados.test.ts](../../apps/api/src/modulos/invitados/invitados.test.ts) | Permisos para crear, listar y revocar enlaces; token válido, caducado, revocado, inventado y de un proyecto archivado (el mismo 404); el invitado no llega a otra revisión; las rutas públicas no ven la sesión y exigen `Origin`; límites de uso; auditoría |
 | E2E ([plataforma.spec.mjs](../../pruebas/e2e/plataforma.spec.mjs), [ia.spec.mjs](../../pruebas/e2e/ia.spec.mjs)) | Entrar y contraseña temporal en el navegador; permisos por rol; quien solo lee no usa la IA |
+| E2E ([csp.spec.mjs](../../pruebas/e2e/csp.spec.mjs)) | Cabeceras iguales a las del Caddyfile; editor y shell sin violaciones de la CSP; la CSP bloquea otros orígenes, scripts en línea y `eval`; Permissions-Policy (micrófono sí, cámara y ubicación no); Montserrat desde `/fonts/`. Toda la E2E corre con la CSP y falla si alguna prueba la viola |
 
 Más detalle en [pruebas.md](pruebas.md).
 
@@ -408,8 +438,9 @@ Más detalle en [pruebas.md](pruebas.md).
 |---|---|---|
 | Entra ID (OIDC) y MFA | Solo cuentas locales, sin segundo factor | Entra ID cuando TI registre la aplicación ([ADR 12](../adr/0012-cuentas-locales.md)); la sesión no cambia |
 | Recuperar la contraseña sin ayuda | No hay servidor de correo | Lo hace un administrador |
-| `Content-Security-Policy` | No existe | CSP estricta ([arquitectura.md §9](../arquitectura.md#9-seguridad)). Antes hay que servir Montserrat desde la propia web |
-| `Permissions-Policy`, HSTS con `includeSubDomains`/`preload` | No se envían | — |
+| `Content-Security-Policy` | Obligatoria ([§9](#content-security-policy)), pero con `style-src 'unsafe-inline'`: el editor portado del MVP pone estilos en línea. Un atacante que inyectara HTML podría cambiar estilos, no ejecutar scripts. Sin `report-uri`: en producción nadie ve las violaciones | Quitar `'unsafe-inline'` exige cambiar el editor (clases en lugar de `style=`), con la fidelidad en verde. Informes de violaciones a la API, si hicieran falta |
+| Clave propia en el editor libre | La CSP deja salir peticiones a `https://api.anthropic.com` para ese modo | Desaparece si se retira el modo «clave propia» |
+| HSTS con `includeSubDomains`/`preload` | No se envían | — |
 | Redirección de HTTP a HTTPS | No hay: el puerto 80 es de IIS | Ver [servidor-local.md](../runbooks/servidor-local.md#problemas-conocidos) si se libera |
 | Antivirus de archivos | No aplica hoy: los documentos no se suben. Solo se suben imágenes de temas PPTX (PNG o JPEG en data URI, máx. ~1,5 MB, solo administradores) | ClamAV en el worker cuando se guarden originales |
 | Límite de uso por persona y por endpoint | Solo en «Entrar», `/api/errores` y `/api/publico/`, y en memoria | Contadores en Postgres |

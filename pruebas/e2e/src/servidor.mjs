@@ -2,10 +2,16 @@
 // - /api/*         -> la API (PUERTO_API)
 // - /proyectos/... -> proyectos/index.html si no es un archivo (rutas del shell)
 // - el resto       -> archivos de apps/web/dist
+// Todas las respuestas llevan las cabeceras de seguridad del Caddyfile, CSP
+// incluida, y las violaciones se registran en /__informes-csp (src/csp.mjs).
 import { createServer, request } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { PUERTO_API, PUERTO_WEB, RAIZ } from './entorno.mjs';
+import { RUTA_INFORMES_CSP, atenderInformes, cabecerasDePrueba } from './csp.mjs';
+
+const CABECERAS = cabecerasDePrueba();
+const informesCsp = [];
 
 const DIST = join(RAIZ, 'apps', 'web', 'dist');
 const TIPOS = {
@@ -24,7 +30,9 @@ function aLaApi(req, res) {
 }
 
 createServer(async (req, res) => {
+  for (const [nombre, valor] of Object.entries(CABECERAS)) res.setHeader(nombre, valor);
   const ruta = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
+  if (ruta === RUTA_INFORMES_CSP) return atenderInformes(req, res, informesCsp);
   if (ruta.startsWith('/api/')) return aLaApi(req, res);
   try {
     let archivo = normalize(join(DIST, ruta));

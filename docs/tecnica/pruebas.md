@@ -2,7 +2,7 @@
 
 Qué prueba cada nivel, cómo ejecutarlo entero o de a una prueba, qué hace la CI paso a paso y cómo depurar cada tipo de fallo.
 
-Actualizado: 28-sep-2026.
+Actualizado: 29-sep-2026.
 
 Recuentos medidos en esa fecha con `vitest list` y `playwright test --list` sobre `main`, y comprobados ejecutando las unitarias de los paquetes. Si añades pruebas, actualiza las tablas.
 
@@ -25,26 +25,26 @@ Recuentos medidos en esa fecha con `vitest list` y `playwright test --list` sobr
 
 ```text
                  manual: bench/ con procesos reales, capturas de pantalla
-              E2E (21)            web construida + API + worker + Postgres
+              E2E (38)            web construida + API + worker + Postgres, con la CSP de producción
          Fidelidad (36)           app nueva frente al MVP 3.8.9 congelado
-     Integración API (44)         rutas y permisos contra Postgres real
-  Unitarias (107 + 7)             paquetes e intermediario, sin red
+     Integración API (117)        rutas y permisos contra Postgres real
+  Unitarias (116 + 7)             paquetes e intermediario, sin red
 Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 ```
 
 | Nivel | Herramienta | Dónde | Pruebas | Necesita | Duración aprox. |
 |---|---|---|---|---|---|
-| Fronteras | Node | [herramientas/fronteras.mjs](../../herramientas/fronteras.mjs) | 1 comprobación (9 paquetes) | Nada | Segundos |
+| Fronteras | Node | [herramientas/fronteras.mjs](../../herramientas/fronteras.mjs) | 1 comprobación (9 paquetes), con 10 casos de ejemplo del extractor de imports | Nada | Segundos |
 | Tipos | `tsc --noEmit` | Cada paquete y app | — | Nada | — |
-| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 107 | Nada | Segundos |
+| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 116 | Nada | Segundos |
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
-| Integración de la API | Vitest | `apps/api/src/*.test.ts` | 44 | Postgres de desarrollo | — |
+| Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 117 | Postgres de desarrollo | — |
 | Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 36 | Web construida, Chromium, internet | ~2,5 min |
-| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 21 | Web construida, Chromium, Postgres de desarrollo | ~1 min |
+| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 38 | Web construida, Chromium, Postgres de desarrollo | ~5 min |
 | Imágenes | `docker compose build` | [infra/](../../infra) | — | Docker | — |
 | Banco de calidad | Consola del navegador | [bench/](../../bench/README.md) | Manual | Procesos reales fuera del repositorio | — |
 
-**Total automatizado: 215 pruebas** (107 + 7 + 44 + 36 + 21).
+**Total automatizado: 314 pruebas** (116 + 7 + 117 + 36 + 38).
 
 Lo que las pruebas no ven: el diseño. Toda pantalla nueva o cambiada se revisa con una captura (`page.screenshot`) antes de darla por buena ([lección 19](../lecciones-aprendidas.md)).
 
@@ -77,6 +77,8 @@ Todos desde la raíz del repositorio.
 
 Un paquete nuevo sin regla en `PERMITIDOS` también falla. Sale con código 1 y la lista de violaciones.
 
+Qué cuenta como import: `import … from '…'`, `import '…'` (solo por sus efectos), `export … from '…'` (también `export * from` y `export * as`), `import type` e `import('…')`. Hasta el 29-sep-2026 no veía `import '…'`. Antes de revisar nada, el script pasa el extractor por 10 casos de ejemplo (`CASOS`, incluido uno que **no** es un import: `export const x = '…'`); si alguno falla, sale con código 1. Un caso nuevo se añade ahí.
+
 Que `dominio` solo use ECMAScript estándar (sin DOM ni Node) no lo comprueba este script: lo detecta el typecheck, porque los paquetes compilan con `lib: ES2022` ([lección 5c](../lecciones-aprendidas.md)).
 
 ## 4. Tipos
@@ -101,8 +103,8 @@ Vitest sin configuración propia: `vitest run` en cada paquete. No usan red ni b
 | [documentos/src/documentos.test.ts](../../packages/documentos/src/documentos.test.ts) | 7 | Intérprete de texto, proceso básico, participantes |
 | [mining/src/mining.test.ts](../../packages/mining/src/mining.test.ts) | 8 | Lectura de CSV y descubrimiento del proceso con la muestra |
 | [analitica/src/analitica.test.ts](../../packages/analitica/src/analitica.test.ts) | 11 | Simulación, diagnóstico, backlog y What-If |
-| [ia/src/ia.test.ts](../../packages/ia/src/ia.test.ts) | 22 | `llamarClaude` (streaming), `extraerJson`, costes, prompts, modo servidor, especificación de la generación |
-| **Total** | **102** | |
+| [ia/src/ia.test.ts](../../packages/ia/src/ia.test.ts) | 31 | `llamarClaude` (streaming), `extraerJson`, costes, prompts, modo servidor, especificación de la generación |
+| **Total** | **116** | |
 
 Datos de prueba: los ejemplos del MVP en [packages/dominio/src/\_\_fixtures\_\_](../../packages/dominio/src/__fixtures__), que ya eran públicos. Nunca procesos de cliente.
 
@@ -144,11 +146,15 @@ Contra un **Postgres real**, sin red: la app de Hono se llama en proceso (`app.r
 |---|---|---|
 | [sesion.test.ts](../../apps/api/src/sesion.test.ts) | 11 | scrypt y reglas de contraseña; cookie; 401; salir; CSRF; bloqueo tras 10 fallos; contraseña temporal; alta, permisos y desactivación de usuarios |
 | [proyectos.test.ts](../../apps/api/src/proyectos.test.ts) | 12 | Proyectos (propietario, visibilidad, 404, administración, lectores); procesos y revisiones (export del MVP, validación, numeración y conflicto, permisos, ciclo de aprobación, archivados, auditoría, directorio) |
-| [ia.test.ts](../../apps/api/src/ia.test.ts) | 10 | Cola, worker, reintentos, reparación del JSON, errores definitivos, cancelación, permisos y presupuesto, análisis, SSE, consumo, ejecuciones huérfanas |
-| [catalogos.test.ts](../../apps/api/src/catalogos.test.ts) | 4 | KPIs, verbos del Playbook y temas PPTX; siembra sin duplicados |
-| [sistema.test.ts](../../apps/api/src/sistema.test.ts) | 5 | Huella de errores, 500 registrado con referencia, informes de la web con límite, avisos de «Sistema», purga a 30 días |
+| [ia.test.ts](../../apps/api/src/ia.test.ts) | 17 | Cola, worker, reintentos, reparación del JSON, errores definitivos, cancelación, permisos y presupuesto, análisis, SSE, consumo, ejecuciones huérfanas |
+| [catalogos.test.ts](../../apps/api/src/catalogos.test.ts) | 7 | KPIs, verbos del Playbook y temas PPTX; siembra sin duplicados; plantillas de proceso |
+| [sistema.test.ts](../../apps/api/src/sistema.test.ts) | 6 | Huella de errores, 500 registrado con referencia, informes de la web con límite, avisos de «Sistema», purga a 30 días |
 | [semilla.test.ts](../../apps/api/src/semilla.test.ts) | 2 | La semilla se puede repetir y cada cuenta se comporta según su caso |
-| **Total** | **44** | |
+| [auditoria.test.ts](../../apps/api/src/auditoria.test.ts) | 4 | Auditoría por organización, eventos de la línea de comandos y migración que rellena la organización |
+| [config.test.ts](../../apps/api/src/config.test.ts) | 4 | `leerConfig`: valores por defecto, variables fuera de rango, IA configurada |
+| [colaboracion/colaboracion.test.ts](../../apps/api/src/colaboracion/colaboracion.test.ts) | 13 | Presencia por latido y eventos en vivo (SSE) de un proceso |
+| Módulos de iniciativas (`modulos/*/`) | 41 | `portafolio` 13, `conocimiento` 15 e `invitados` 13; el detalle, en su ficha ([docs/iniciativas/](../iniciativas/README.md)) |
+| **Total** | **117** | |
 
 La IA se prueba sin red ni gasto: `ia.test.ts` usa un `fetch` falso que imita el SSE de Anthropic.
 
@@ -200,7 +206,7 @@ No son tolerancias: son cambios intencionales ([fase1-divergencias.md](../fase1-
 | | `IA simulada: tareas del copiloto y pains` | Peticiones y respuestas de cada tarea de IA |
 | | `ingesta de archivos: Word, PDF, PowerPoint y transcripción` | Texto extraído de cada fuente y proceso en modo básico. Los archivos se generan al vuelo ([archivos.mjs](../../pruebas/fidelidad/src/archivos.mjs)) |
 | | `paneles y vistas: <ejemplo>` × 2 (`loadComplex4`, `loadFichaVentaLotes`) | Validaciones, KPIs, simulador, propiedades, pains, ficha, As-Is/To-Be con su PPTX, recarga e importación de JSON ([paneles.mjs](../../pruebas/fidelidad/src/paneles.mjs)) |
-| [divergencias.spec.mjs](../../pruebas/fidelidad/divergencias.spec.mjs) | `D5` | La app nueva no pide nada a CDNs ni a analítica de terceros (solo Google Fonts), ni al exportar PPTX ni al leer archivos |
+| [divergencias.spec.mjs](../../pruebas/fidelidad/divergencias.spec.mjs) | `D5` | La app nueva no pide nada a otros servidores (tampoco a Google Fonts: Montserrat llega de `/fonts/`), ni al exportar PPTX ni al leer archivos |
 | | `F1` | El PPTX con To-Be se genera (en el MVP fallaba con `M_PRUNO is not defined`) |
 | | `D6` | mammoth 1.13.0 lee los Word revisados que 1.8.0 leía mal; las casillas marcada y sin marcar conservan su símbolo en las dos apps |
 | | `D7` | «Exportar → JSON» lleva las dos vistas y los análisis; se importa entero en otro navegador, y el MVP también lo abre |
@@ -213,7 +219,8 @@ La IA simulada intercepta en el navegador las llamadas a un intermediario fictic
 
 - **La web construida.** `pnpm fidelidad` construye y luego prueba. Si lanzas Playwright a mano, construye antes y comprueba que el build terminó bien: si no, pruebas la versión anterior y el verde es falso ([lección 6](../lecciones-aprendidas.md)).
 - **Chromium de Playwright** (`pnpm --filter @processiq/pruebas-fidelidad exec playwright install chromium`).
-- **Internet:** el MVP de referencia carga pptxgenjs, mammoth, pdf.js y JSZip desde jsDelivr, y las dos apps cargan Montserrat de Google Fonts.
+- **Internet:** el MVP de referencia carga pptxgenjs, mammoth, pdf.js y JSZip desde jsDelivr, y Montserrat de Google Fonts. La app nueva no pide nada fuera: sirve Montserrat desde `/fonts/`.
+- **La misma Montserrat en las dos apps.** Los textos se miden con la fuente, y de esa medida salen cajas y etiquetas de los SVG y del PPTX. La app nueva usa los mismos archivos que Google servía (Montserrat v31, `@fontsource-variable/montserrat` 5.3.0) con las mismas reglas `@font-face` ([web.md §2.2](web.md#22-librerías-de-navegador-vendor)). Si un día falla la fidelidad solo en artefactos que miden texto, en las dos apps a la vez, mira primero si Google publicó otra versión de Montserrat (la URL de `fonts.gstatic.com` lleva `/v31/`): el MVP la tomaría y la app nueva no. No se relaja la tolerancia: se actualiza el paquete a la versión de Google o se hace que el arnés sirva al MVP los mismos archivos.
 - **Los puertos 4401 y 4402 libres.** Fuera de la CI, Playwright **reutiliza** un servidor que ya esté escuchando ahí, aunque sea de otra copia del repositorio.
 
 ### Reglas
@@ -235,7 +242,13 @@ Flujos completos con la web construida, la API real, el worker real, Postgres y 
 |---|---|---|
 | API | 8792 | Antes, la semilla `--desde-cero` sobre la base `processiq_e2e`. Después, la API desde la fuente (`tsx`), con `ORIGEN_PUBLICO` = la web de prueba |
 | [anthropic-falso.mjs](../../pruebas/e2e/src/anthropic-falso.mjs) | 8793 | Responde `/v1/messages` en SSE, en trozos y con pausas. Además arranca el **worker real** apuntando a él (`ANTHROPIC_BASE_URL`, latido cada 3 s) |
-| [servidor.mjs](../../pruebas/e2e/src/servidor.mjs) | 4480 | Hace de Caddy: `/api/*` a la API, `/proyectos/...` al shell y el resto a `apps/web/dist` |
+| [servidor.mjs](../../pruebas/e2e/src/servidor.mjs) | 4480 | Hace de Caddy: `/api/*` a la API, `/proyectos/...` al shell y el resto a `apps/web/dist`, con las cabeceras de seguridad del Caddyfile (CSP incluida) |
+
+**La E2E corre con la CSP de producción.** [csp.mjs](../../pruebas/e2e/src/csp.mjs) lee el bloque `cabeceras-seguridad` del [Caddyfile](../../infra/Caddyfile) y `servidor.mjs` lo envía en todas las respuestas. Solo en las pruebas, la CSP lleva además `report-uri /__informes-csp`: el navegador informa de cada violación (también las del worker de pdf.js) y el servidor la escribe en la consola (`CSP (enforce): …`) y la guarda.
+
+- [csp.spec.mjs](../../pruebas/e2e/csp.spec.mjs) exige cero violaciones en sus recorridos.
+- Al terminar la corrida, `globalTeardown` ([comprobar-csp.mjs](../../pruebas/e2e/src/comprobar-csp.mjs)) falla si **cualquier** prueba violó la CSP, aunque la prueba pasara. Solo descuenta la de control, que viola la CSP a propósito en `/?control-csp`.
+- `csp.spec.mjs` reutiliza los recorridos del editor de la fidelidad (`pruebas/fidelidad/src/`): ejemplos, exportaciones, paneles, copiloto, minería, BPMN y archivos de ingesta generados al vuelo.
 
 - Cada prueba parte del mismo estado: `beforeEach` ejecuta `reiniciarDatos()`, que vuelve a correr la semilla desde cero ([entorno.mjs](../../pruebas/e2e/src/entorno.mjs)).
 - Todas comparten base: un solo trabajador, sin paralelismo.
@@ -245,7 +258,9 @@ Flujos completos con la web construida, la API real, el worker real, Postgres y 
 
 El Anthropic falso decide la respuesta por la petición: una generación (`max_tokens` ≥ 16 000) recibe un proceso de 3 elementos; una tarea del copiloto, un texto en markdown; los pains, un JSON de dolores. Rechaza cualquier clave que no sea la de prueba.
 
-### Specs (18)
+### Specs (38)
+
+La tabla describe las del núcleo; las de cada iniciativa están en su ficha ([docs/iniciativas/](../iniciativas/README.md)).
 
 | Spec | Prueba | Flujo |
 |---|---|---|
@@ -267,6 +282,12 @@ El Anthropic falso decide la respuesta por la petición: una generación (`max_t
 | [importacion.spec.mjs](../../pruebas/e2e/importacion.spec.mjs) | Del editor libre a un proyecto | Lo dibujado en el navegador se lleva a un proyecto y se abre igual |
 | | Varios JSON | Varios JSON exportados se importan de una vez |
 | [sistema.spec.mjs](../../pruebas/e2e/sistema.spec.mjs) | «Sistema» | Un error del navegador aparece en «Sistema» y el worker da señales |
+| [csp.spec.mjs](../../pruebas/e2e/csp.spec.mjs) | Cabeceras y fuentes | Las cabeceras son las del Caddyfile; las 20 caras de Montserrat cargan desde `/fonts/`; Permissions-Policy: micrófono sí, cámara y ubicación no |
+| | Editor libre | Ejemplos con todas sus exportaciones (JSON, SVG, PNG, BPMN, Word, Ficha, PPTX mbc y bbva, niveles), paneles, To-Be, copiloto, comandos, minería, BPMN, presentación, ingesta de Word, PDF y PowerPoint, y grabación de voz, sin violaciones ni peticiones a otros orígenes |
+| | IA del editor libre | Generación por el intermediario del mismo origen (`/ia`) y tarea del copiloto con clave propia (`api.anthropic.com`): la CSP deja salir las dos |
+| | Shell | Todas las pantallas del administrador y el editor en modo proyecto (guardar revisión), sin violaciones |
+| | Página 404 | Sus estilos en línea se aplican |
+| | Control | La CSP bloquea e informa una petición a otro origen, un script en línea y `eval` (si esto falla, que las demás no vean violaciones no demuestra nada) |
 | [editor.spec.mjs](../../pruebas/e2e/editor.spec.mjs) | Borradores locales | Al abrir un proceso se purgan los borradores de otros procesos con más de 30 días; guardar una revisión que contiene el borrador lo borra; `processiq.v1` no se toca |
 | | JSON completo en un proyecto | El JSON del editor libre llega entero (dos vistas, KPIs, RACI, SIPOC, simulación, carriles, sin cachés) por «Nuevo proceso → JSON» y por la importación asistida, y se abre en To-Be |
 | | JSON completo en el editor libre | «Importar» lo restaura; capturas del panel «Validaciones» (D8) y de la ingesta (D9) |
@@ -377,6 +398,13 @@ El mensaje dice qué archivo importa qué. Si la dependencia es legítima, cambi
 3. No arranca: puerto 4480, 8792 u 8793 ocupado, o el Postgres de desarrollo apagado.
 4. Un selector que encuentra dos elementos: `getByLabel` busca por subcadena; usa `{ exact: true }` ([lección 20](../lecciones-aprendidas.md)). Antes de escribir una prueba sobre el editor, mira su marcado en `index.html`.
 5. Tras una acción asíncrona, espera a una condición visible, no a un tiempo fijo ([lección 8](../lecciones-aprendidas.md)).
+
+### Violaciones de la CSP
+
+- La salida de la E2E dice qué directiva bloqueó qué recurso y en qué archivo y línea: `CSP (enforce): connect-src bloquea «https://…» en http://127.0.0.1:4480/ (…/assets/editor-….js:4)`.
+- Si falla `comprobar-csp.mjs` al final de la corrida, alguna prueba violó la CSP aunque pasara: busca `CSP (` en la salida para ver cuál.
+- Para descubrir qué necesita algo nuevo sin romper nada, cambia en tu copia `Content-Security-Policy` por `Content-Security-Policy-Report-Only` en el Caddyfile y corre la spec: todo funciona y las violaciones salen igual en la consola. Después, la directiva mínima en el Caddyfile, su motivo en [seguridad.md §9](seguridad.md#content-security-policy), y otra vez obligatoria.
+- `eval` no se puede probar desde `page.evaluate`: DevTools lo permite aunque la CSP lo prohíba. La prueba de control usa un temporizador con texto (`setTimeout('…')`), que corre como código de la página.
 
 ### Auditoría de dependencias
 

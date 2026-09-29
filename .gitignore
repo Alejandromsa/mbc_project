@@ -13,6 +13,9 @@ dist/
 
 # Librerías de navegador copiadas desde node_modules en cada build
 apps/web/public/vendor/
+# Montserrat, igual (montserrat.css sí se versiona)
+apps/web/public/fonts/*
+!apps/web/public/fonts/montserrat.css
 
 # Resultados de pruebas
 pruebas/*/resultados/

@@ -26,10 +26,13 @@ async function conToBe(page) {
 test('D5: la app nueva no depende de CDNs ni de analítica de terceros', async ({ browser }) => {
   const nueva = await abrir(browser, PUERTO_NUEVA);
   const externas = new Set();
+  let fuentesPropias = 0;
   nueva.page.on('request', (r) => {
-    const host = new URL(r.url()).hostname;
-    // Permitidos: la propia app y Google Fonts (pendiente M1: servir Montserrat desde la app)
-    if (!['127.0.0.1', 'localhost', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(host)) externas.add(host);
+    const url = new URL(r.url());
+    if (!/^https?:$/.test(url.protocol)) return;
+    // Solo la propia app: desde el PR #16 también Montserrat (/fonts/), antes de Google Fonts
+    if (!['127.0.0.1', 'localhost'].includes(url.hostname)) externas.add(url.hostname);
+    else if (url.pathname.startsWith('/fonts/')) fuentesPropias++;
   });
   await nueva.page.reload();
   await nueva.page.waitForFunction(() => !!window.ProcessIQ);
@@ -38,6 +41,7 @@ test('D5: la app nueva no depende de CDNs ni de analítica de terceros', async (
   await nueva.page.setInputFiles('#docFileInput', await archivosDeIngesta());       // mammoth + pdf.js
   await nueva.page.waitForFunction(() => window.ProcessIQ.sources().length >= 4, null, { timeout: 60_000 });
   expect([...externas]).toEqual([]);
+  expect(fuentesPropias, 'Montserrat llega de /fonts/ de la propia app').toBeGreaterThan(0);
   expect(nueva.errores).toEqual([]);
   await nueva.ctx.close();
 });
