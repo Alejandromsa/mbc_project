@@ -5,20 +5,22 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'wouter';
 import { enEditor } from '../../../shell/formato';
 import { useUsuario } from '../../../shell/sesion';
-import { Aviso, Cargando, ErrorDe, Etiqueta, Selector, Vacio, useTitulo } from '../../../shell/ui';
+import { Aviso, Cargando, EnlaceEditor, ErrorDe, Etiqueta, Selector, Vacio, useTitulo } from '../../../shell/ui';
 import { apiConocimiento, type CoberturaCategoria, type ProcesoParecido } from '../api';
 import { Barra, PestanasConocimiento, fuera, pct } from '../componentes';
+import { useT, type TraductorConocimiento } from '../textos';
 
-const UMBRALES = [
-  { valor: '0.25', texto: 'Amplio (25%)' },
-  { valor: '0.35', texto: 'Normal (35%)' },
-  { valor: '0.5', texto: 'Estricto (50%)' },
-  { valor: '0.65', texto: 'Muy estricto (65%)' }
+const umbrales = (t: TraductorConocimiento) => [
+  { valor: '0.25', texto: t('umbralAmplio') },
+  { valor: '0.35', texto: t('umbralNormal') },
+  { valor: '0.5', texto: t('umbralEstricto') },
+  { valor: '0.65', texto: t('umbralMuyEstricto') }
 ];
 
 export function Proceso({ id }: { id: string }) {
+  const t = useT();
   const parecidos = useQuery({ queryKey: ['conocimiento', 'parecidos', id], queryFn: () => apiConocimiento.parecidos(id) });
-  useTitulo(parecidos.data?.nombre ?? 'Proceso');
+  useTitulo(parecidos.data?.nombre ?? t('proceso'));
 
   if (parecidos.isPending) return <Cargando />;
   if (parecidos.isError) return <><PestanasConocimiento /><ErrorDe error={parecidos.error} /></>;
@@ -26,8 +28,8 @@ export function Proceso({ id }: { id: string }) {
 
   return (
     <>
-      <nav className="migas" aria-label="Ruta">
-        <Link href="/">Conocimiento</Link> <span aria-hidden="true">›</span> <span>{nombre}</span>
+      <nav className="migas" aria-label={t('ruta')}>
+        <Link href="/">{t('titulo')}</Link> <span aria-hidden="true">›</span> <span>{nombre}</span>
       </nav>
       <div className="encabezado">
         <div>
@@ -35,30 +37,28 @@ export function Proceso({ id }: { id: string }) {
           {proceso && (
             <p className="sutil">
               <Link href={fuera.proyecto(proceso.proyecto.id)}>{proceso.proyecto.nombre}</Link>
-              {proceso.proyecto.cliente && ` · ${proceso.proyecto.cliente}`} · última revisión: v{proceso.revision.numero}
+              {proceso.proyecto.cliente && ` · ${proceso.proyecto.cliente}`} · {t('ultimaRevision', { n: proceso.revision.numero })}
             </p>
           )}
         </div>
         <div className="acciones">
-          <Link href={fuera.proceso(id)} className="boton boton-secundario">Ver revisiones</Link>
-          <a className="boton boton-primario" href={enEditor.proceso(id)}>Abrir en el editor</a>
+          <Link href={fuera.proceso(id)} className="boton boton-secundario">{t('verRevisiones')}</Link>
+          <EnlaceEditor className="boton boton-primario" href={enEditor.proceso(id)}>{t('abrirEnEditor')}</EnlaceEditor>
         </div>
       </div>
       <PestanasConocimiento />
 
       {!proceso ? (
-        <Vacio>Este proceso todavía no tiene revisiones: dibújalo y guarda una revisión para compararlo.</Vacio>
+        <Vacio>{t('sinRevisiones')}</Vacio>
       ) : (
         <div className="conocimiento-detalle">
           <section aria-labelledby="conocimiento-t-parecidos">
-            <h2 id="conocimiento-t-parecidos">Procesos parecidos</h2>
-            <p className="sutil">
-              Entre los proyectos a los que tienes acceso, por lo que describe cada proceso: actividades, sistemas y roles.
-            </p>
+            <h2 id="conocimiento-t-parecidos">{t('parecidos')}</h2>
+            <p className="sutil">{t('parecidosIntro')}</p>
             <ListaParecidos lista={parecidos.data.parecidos} />
           </section>
           <section aria-labelledby="conocimiento-t-comparativo">
-            <h2 id="conocimiento-t-comparativo">Comparativo con el marco de referencia</h2>
+            <h2 id="conocimiento-t-comparativo">{t('comparativo')}</h2>
             <Comparativo id={id} />
           </section>
         </div>
@@ -67,10 +67,11 @@ export function Proceso({ id }: { id: string }) {
   );
 }
 
-const grado = (p: number) => (p >= 0.6 ? 'Muy parecido' : p >= 0.35 ? 'Parecido' : 'Algo en común');
+const grado = (p: number, t: TraductorConocimiento) => (p >= 0.6 ? t('muyParecido') : p >= 0.35 ? t('parecido') : t('algoEnComun'));
 
 function ListaParecidos({ lista }: { lista: ProcesoParecido[] }) {
-  if (!lista.length) return <Vacio>No hay otros procesos parecidos entre los proyectos a los que tienes acceso.</Vacio>;
+  const t = useT();
+  if (!lista.length) return <Vacio>{t('sinParecidos')}</Vacio>;
   return (
     <ol className="conocimiento-parecidos">
       {lista.map((p) => {
@@ -83,22 +84,22 @@ function ListaParecidos({ lista }: { lista: ProcesoParecido[] }) {
                 <h3><Link href={`/proceso/${p.procesoId}`}>{p.nombre}</Link></h3>
                 <span className="conocimiento-meta">
                   {p.proyecto.nombre}{p.proyecto.cliente && ` · ${p.proyecto.cliente}`}
-                  {p.proyecto.archivado && <> <Etiqueta tono="aviso">Archivado</Etiqueta></>}
+                  {p.proyecto.archivado && <> <Etiqueta tono="aviso">{t('archivado')}</Etiqueta></>}
                 </span>
               </div>
               <div className="conocimiento-parecido-valor">
-                <strong>{pct(p.parecido)}</strong>
-                <small>{grado(p.parecido)}</small>
-                <Barra valor={p.parecido} etiqueta={`Parecido: ${pct(p.parecido)}`} />
+                <strong>{pct(p.parecido, t)}</strong>
+                <small>{grado(p.parecido, t)}</small>
+                <Barra valor={p.parecido} etiqueta={t('parecidoEtiqueta', { p: pct(p.parecido, t) })} />
               </div>
             </div>
             {nada ? (
-              <p className="sutil conocimiento-comun">Sin actividades, sistemas ni roles iguales: el parecido viene de palabras sueltas.</p>
+              <p className="sutil conocimiento-comun">{t('nadaEnComun')}</p>
             ) : (
               <dl className="conocimiento-comun">
-                <EnComun titulo="Actividades" valores={actividades} />
-                <EnComun titulo="Sistemas" valores={sistemas} />
-                <EnComun titulo="Roles" valores={roles} />
+                <EnComun titulo={t('actividadesEnComun')} valores={actividades} />
+                <EnComun titulo={t('sistemasEnComun')} valores={sistemas} />
+                <EnComun titulo={t('rolesEnComun')} valores={roles} />
               </dl>
             )}
           </li>
@@ -109,15 +110,16 @@ function ListaParecidos({ lista }: { lista: ProcesoParecido[] }) {
 }
 
 function EnComun({ titulo, valores }: { titulo: string; valores: string[] }) {
+  const t = useT();
   if (!valores.length) return null;
   const MAX = 6;
   return (
     <>
-      <dt>{titulo} en común</dt>
+      <dt>{titulo}</dt>
       <dd>
         <ul className="conocimiento-chips">
           {valores.slice(0, MAX).map((v) => <li key={v}>{v}</li>)}
-          {valores.length > MAX && <li className="conocimiento-chip-mas">y {valores.length - MAX} más</li>}
+          {valores.length > MAX && <li className="conocimiento-chip-mas">{t('yMas', { n: valores.length - MAX })}</li>}
         </ul>
       </dd>
     </>
@@ -125,6 +127,7 @@ function EnComun({ titulo, valores }: { titulo: string; valores: string[] }) {
 }
 
 function Comparativo({ id }: { id: string }) {
+  const t = useT();
   const [umbral, setUmbral] = useState('0.35');
   const esAdmin = useUsuario().rol === 'admin';
   const consulta = useQuery({
@@ -139,15 +142,15 @@ function Comparativo({ id }: { id: string }) {
   if (!d.marco.elementos) {
     return (
       <Aviso tipo="info">
-        La organización todavía no tiene un marco de referencia.{' '}
+        {t('sinMarcoOrganizacion')}{' '}
         {esAdmin
-          ? <>Impórtalo en <Link href="/marco">Marco de referencia</Link>.</>
-          : 'Lo importa un administrador en «Marco de referencia».'}{' '}
-        El APQC Process Classification Framework tiene licencia y lo aporta el administrador: ProcessIQ no lo incluye.
+          ? t.rico('importaloEn', {}, { enlace: (texto) => <Link href="/marco">{texto}</Link> })
+          : t('loImportaAdmin')}{' '}
+        {t('licenciaApqc')}
       </Aviso>
     );
   }
-  if (!d.actividades.length) return <Vacio>La última revisión no tiene actividades que comparar.</Vacio>;
+  if (!d.actividades.length) return <Vacio>{t('sinActividades')}</Vacio>;
 
   const asignadas = d.actividades.filter((a) => a.elemento).length;
   const conActividades = d.categorias.filter((k) => k.actividades > 0);
@@ -155,34 +158,31 @@ function Comparativo({ id }: { id: string }) {
   return (
     <div className={consulta.isFetching ? 'conocimiento-comparativo conocimiento-actualizando' : 'conocimiento-comparativo'}>
       <div className="conocimiento-comparativo-resumen">
-        <p>
-          <strong>{asignadas} de {d.actividades.length}</strong> actividades tienen un equivalente en el marco
-          ({d.marco.elementos} elementos). Cada actividad se asigna al elemento más parecido si supera el umbral.
-        </p>
-        <Selector etiqueta="Umbral de parecido" opciones={UMBRALES} value={umbral} onChange={(e) => setUmbral(e.target.value)} />
+        <p>{t.rico('asignadas', { a: asignadas, b: d.actividades.length, elementos: d.marco.elementos })}</p>
+        <Selector etiqueta={t('umbral')} opciones={umbrales(t)} value={umbral} onChange={(e) => setUmbral(e.target.value)} />
       </div>
 
-      <h3 className="conocimiento-subtitulo">Cobertura por categoría</h3>
+      <h3 className="conocimiento-subtitulo">{t('cobertura')}</h3>
       {conActividades.length === 0
-        ? <Vacio>Ninguna actividad supera el umbral: prueba con uno más amplio.</Vacio>
+        ? <Vacio>{t('ningunaSupera')}</Vacio>
         : <ul className="conocimiento-categorias">{conActividades.map((k) => <Categoria key={k.codigo} k={k} />)}</ul>}
       {sinActividades.length > 0 && (
         <details className="conocimiento-sin-actividades">
-          <summary>Categorías sin actividades de este proceso ({sinActividades.length})</summary>
+          <summary>{t('categoriasSinActividades', { n: sinActividades.length })}</summary>
           <ul>{sinActividades.map((k) => <li key={k.codigo}><code>{k.codigo}</code> {k.nombre}</li>)}</ul>
         </details>
       )}
 
-      <h3 className="conocimiento-subtitulo">Actividad por actividad</h3>
+      <h3 className="conocimiento-subtitulo">{t('actividadPorActividad')}</h3>
       <table className="tabla tabla-compacta conocimiento-tabla">
-        <thead><tr><th>Actividad</th><th>Rol</th><th>Elemento del marco</th><th className="conocimiento-num">Parecido</th></tr></thead>
+        <thead><tr><th>{t('actividad')}</th><th>{t('rol')}</th><th>{t('elementoMarco')}</th><th className="conocimiento-num">{t('parecidoColumna')}</th></tr></thead>
         <tbody>
           {d.actividades.map((a) => (
             <tr key={a.id} className={a.elemento ? '' : 'conocimiento-sin-equivalente'}>
               <td>{a.texto}</td>
               <td className="sutil">{a.rol || '—'}</td>
-              <td>{a.elemento ? <><code>{a.elemento.codigo}</code> {a.elemento.nombre}</> : <span className="sutil">Sin equivalente en el marco</span>}</td>
-              <td className="conocimiento-num">{a.parecido === null ? '—' : pct(a.parecido)}</td>
+              <td>{a.elemento ? <><code>{a.elemento.codigo}</code> {a.elemento.nombre}</> : <span className="sutil">{t('sinEquivalente')}</span>}</td>
+              <td className="conocimiento-num">{a.parecido === null ? '—' : pct(a.parecido, t)}</td>
             </tr>
           ))}
         </tbody>
@@ -192,26 +192,27 @@ function Comparativo({ id }: { id: string }) {
 }
 
 function Categoria({ k }: { k: CoberturaCategoria }) {
+  const t = useT();
   return (
     <li className="tarjeta conocimiento-categoria">
       <div className="conocimiento-categoria-cabeza">
         <h4><code>{k.codigo}</code> {k.nombre}</h4>
-        <span className="sutil">{k.actividades === 1 ? 'Una actividad' : `${k.actividades} actividades`}</span>
+        <span className="sutil">{t('nActividades', { n: k.actividades })}</span>
       </div>
       {k.cobertura === null ? (
-        <p className="sutil">La categoría no tiene grupos de nivel 2 en el marco.</p>
+        <p className="sutil">{t('sinGrupos')}</p>
       ) : (
         <>
           <div className="conocimiento-cobertura">
-            <Barra valor={k.cobertura} etiqueta={`Cobertura: ${pct(k.cobertura)}`} />
-            <span><strong>{k.gruposCubiertos.length} de {k.grupos}</strong> grupos cubiertos ({pct(k.cobertura)})</span>
+            <Barra valor={k.cobertura} etiqueta={t('coberturaEtiqueta', { p: pct(k.cobertura, t) })} />
+            <span>{t.rico('gruposCubiertos', { a: k.gruposCubiertos.length, b: k.grupos, p: pct(k.cobertura, t) })}</span>
           </div>
           <ul className="conocimiento-grupos">
             {k.gruposCubiertos.map((g) => (
               <li key={g.codigo} className="cubierto"><span aria-hidden="true">✓</span> <code>{g.codigo}</code> {g.nombre} <small>({g.actividades})</small></li>
             ))}
             {k.gruposFaltantes.map((g) => (
-              <li key={g.codigo} className="falta"><span aria-hidden="true">○</span> <code>{g.codigo}</code> {g.nombre} <small>falta</small></li>
+              <li key={g.codigo} className="falta"><span aria-hidden="true">○</span> <code>{g.codigo}</code> {g.nombre} <small>{t('falta')}</small></li>
             ))}
           </ul>
         </>

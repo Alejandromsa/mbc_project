@@ -3,19 +3,21 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'wouter';
 import { api, type Miembro, type Proyecto as TProyecto, type RolProyecto } from '../api';
-import { ROLES_PROYECTO, enEditor, fecha } from '../formato';
+import { enEditor } from '../formato';
+import { useT, type TraductorShell } from '../i18n';
 import { puede } from '../permisos';
 import { useUsuario } from '../sesion';
 import {
-  AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, ErrorDe, Etiqueta, Insignia, Selector, Vacio, useTitulo
+  AreaTexto, Aviso, Boton, Campo, Cargando, Dialogo, EnlaceEditor, ErrorDe, Etiqueta, Insignia, Selector, Vacio, useTitulo
 } from '../ui';
 
-const OPCIONES_ROL = (['propietario', 'editor', 'revisor', 'lector'] as RolProyecto[])
-  .map((r) => ({ valor: r, texto: ROLES_PROYECTO[r] }));
+const opcionesRol = (t: TraductorShell) => (['propietario', 'editor', 'revisor', 'lector'] as RolProyecto[])
+  .map((r) => ({ valor: r, texto: t.rolProyecto(r) }));
 
 export function Proyecto({ id }: { id: string }) {
+  const t = useT();
   const consulta = useQuery({ queryKey: ['proyecto', id], queryFn: () => api.proyecto(id) });
-  useTitulo(consulta.data?.proyecto.nombre ?? 'Proyecto');
+  useTitulo(consulta.data?.proyecto.nombre ?? t('comun.proyecto'));
   const [dialogo, setDialogo] = useState<null | 'proceso' | 'editar' | 'miembro'>(null);
 
   if (consulta.isPending) return <Cargando />;
@@ -30,33 +32,38 @@ export function Proyecto({ id }: { id: string }) {
       <Migas nombre={proyecto.nombre} />
       <div className="encabezado">
         <div>
-          <h1>{proyecto.nombre} {proyecto.archivado && <Etiqueta tono="aviso">Archivado</Etiqueta>}</h1>
+          <h1>{proyecto.nombre} {proyecto.archivado && <Etiqueta tono="aviso">{t('comun.archivado')}</Etiqueta>}</h1>
           {proyecto.cliente && <p className="cliente">{proyecto.cliente}</p>}
           {proyecto.descripcion && <p className="sutil descripcion">{proyecto.descripcion}</p>}
-          <p className="sutil">Tu rol: <strong>{ROLES_PROYECTO[proyecto.rol]}</strong></p>
+          <p className="sutil">{t.rico('proyecto.tuRol', { rol: t.rolProyecto(proyecto.rol) })}</p>
         </div>
         <div className="acciones">
-          {administra && <Boton onClick={() => setDialogo('editar')}>Ajustes</Boton>}
-          {escribe && <Boton variante="primario" onClick={() => setDialogo('proceso')}>Nuevo proceso</Boton>}
+          {administra && <Boton onClick={() => setDialogo('editar')}>{t('proyecto.ajustes')}</Boton>}
+          {escribe && <Boton variante="primario" onClick={() => setDialogo('proceso')}>{t('proyecto.nuevoProceso')}</Boton>}
         </div>
       </div>
-      {proyecto.archivado && <Aviso tipo="atencion">Proyecto archivado: se puede consultar, pero no admite cambios.</Aviso>}
+      {proyecto.archivado && <Aviso tipo="atencion">{t('proyecto.archivadoAviso')}</Aviso>}
 
       <section aria-labelledby="t-procesos">
-        <h2 id="t-procesos">Procesos</h2>
+        <h2 id="t-procesos">{t('proyecto.procesos')}</h2>
         {procesos.length === 0 ? (
-          <Vacio>{escribe ? 'Sin procesos todavía. Crea uno vacío o importa el JSON exportado desde el editor.' : 'Sin procesos todavía.'}</Vacio>
+          <Vacio>{escribe ? t('proyecto.sinProcesosEscribe') : t('proyecto.sinProcesos')}</Vacio>
         ) : (
           <table className="tabla">
-            <thead><tr><th>Proceso</th><th>Última revisión</th><th>Actualizado</th><th><span className="solo-lector">Acciones</span></th></tr></thead>
+            <thead>
+              <tr>
+                <th>{t('comun.proceso')}</th><th>{t('proyecto.ultimaRevision')}</th><th>{t('proyecto.actualizado')}</th>
+                <th><span className="solo-lector">{t('comun.acciones')}</span></th>
+              </tr>
+            </thead>
             <tbody>
               {procesos.map((p) => (
                 <tr key={p.id}>
                   <td><Link href={`/proceso/${p.id}`}>{p.nombre}</Link></td>
-                  <td>{p.ultimaRevision ? <>v{p.ultimaRevision.numero} <Insignia estado={p.ultimaRevision.estado} /></> : <span className="sutil">Sin revisiones</span>}</td>
-                  <td className="fecha">{fecha(p.actualizadoEn)}</td>
+                  <td>{p.ultimaRevision ? <>v{p.ultimaRevision.numero} <Insignia estado={p.ultimaRevision.estado} /></> : <span className="sutil">{t('proyecto.sinRevisiones')}</span>}</td>
+                  <td className="fecha">{t.fecha(p.actualizadoEn)}</td>
                   <td className="celda-acciones">
-                    <a className="boton boton-sutil" href={enEditor.proceso(p.id)}>Abrir en el editor</a>
+                    <EnlaceEditor className="boton boton-sutil" href={enEditor.proceso(p.id)}>{t('comun.abrirEnEditor')}</EnlaceEditor>
                   </td>
                 </tr>
               ))}
@@ -67,19 +74,19 @@ export function Proyecto({ id }: { id: string }) {
 
       <section aria-labelledby="t-miembros">
         <div className="encabezado-seccion">
-          <h2 id="t-miembros">Miembros</h2>
-          {administra && !proyecto.archivado && <Boton variante="sutil" onClick={() => setDialogo('miembro')}>Añadir miembro</Boton>}
+          <h2 id="t-miembros">{t('proyecto.miembros')}</h2>
+          {administra && !proyecto.archivado && <Boton variante="sutil" onClick={() => setDialogo('miembro')}>{t('proyecto.anadirMiembro')}</Boton>}
         </div>
         <Miembros proyecto={proyecto} miembros={miembros} editable={administra && !proyecto.archivado} />
       </section>
 
-      <Dialogo abierto={dialogo === 'proceso'} titulo="Nuevo proceso" onCerrar={cerrar}>
+      <Dialogo abierto={dialogo === 'proceso'} titulo={t('proyecto.nuevoProceso')} onCerrar={cerrar}>
         <NuevoProceso proyectoId={proyecto.id} onCerrar={cerrar} />
       </Dialogo>
-      <Dialogo abierto={dialogo === 'editar'} titulo="Ajustes del proyecto" onCerrar={cerrar}>
+      <Dialogo abierto={dialogo === 'editar'} titulo={t('proyecto.ajustesTitulo')} onCerrar={cerrar}>
         <EditarProyecto proyecto={proyecto} onCerrar={cerrar} />
       </Dialogo>
-      <Dialogo abierto={dialogo === 'miembro'} titulo="Añadir miembro" onCerrar={cerrar}>
+      <Dialogo abierto={dialogo === 'miembro'} titulo={t('proyecto.anadirMiembro')} onCerrar={cerrar}>
         <AnadirMiembro proyectoId={proyecto.id} miembros={miembros} onCerrar={cerrar} />
       </Dialogo>
     </>
@@ -87,14 +94,16 @@ export function Proyecto({ id }: { id: string }) {
 }
 
 function Migas({ nombre }: { nombre?: string }) {
+  const t = useT();
   return (
-    <nav className="migas" aria-label="Ruta">
-      <Link href="/">Proyectos</Link>{nombre && <> <span aria-hidden="true">›</span> <span>{nombre}</span></>}
+    <nav className="migas" aria-label={t('comun.ruta')}>
+      <Link href="/">{t('comun.proyectos')}</Link>{nombre && <> <span aria-hidden="true">›</span> <span>{nombre}</span></>}
     </nav>
   );
 }
 
 function Miembros({ proyecto, miembros, editable }: { proyecto: TProyecto; miembros: Miembro[]; editable: boolean }) {
+  const t = useT();
   const usuario = useUsuario();
   const cliente = useQueryClient();
   const refrescar = () => cliente.invalidateQueries({ queryKey: ['proyecto', proyecto.id] });
@@ -110,21 +119,26 @@ function Miembros({ proyecto, miembros, editable }: { proyecto: TProyecto; miemb
     <>
       <ErrorDe error={cambiarRol.error ?? quitar.error} />
       <table className="tabla">
-        <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th>{editable && <th><span className="solo-lector">Acciones</span></th>}</tr></thead>
+        <thead>
+          <tr>
+            <th>{t('comun.nombre')}</th><th>{t('comun.correo')}</th><th>{t('comun.rol')}</th>
+            {editable && <th><span className="solo-lector">{t('comun.acciones')}</span></th>}
+          </tr>
+        </thead>
         <tbody>
           {miembros.map((m) => (
             <tr key={m.usuarioId}>
-              <td>{m.nombre}{m.usuarioId === usuario.id && <span className="sutil"> (tú)</span>}</td>
+              <td>{m.nombre}{m.usuarioId === usuario.id && <span className="sutil"> {t('comun.tu')}</span>}</td>
               <td>{m.email}</td>
               <td>
                 {editable ? (
-                  <Selector aria-label={`Rol de ${m.nombre}`} opciones={OPCIONES_ROL} value={m.rol}
+                  <Selector aria-label={t('comun.rolDe', { nombre: m.nombre })} opciones={opcionesRol(t)} value={m.rol}
                     onChange={(e) => cambiarRol.mutate({ usuarioId: m.usuarioId, rol: e.target.value as RolProyecto })} />
-                ) : ROLES_PROYECTO[m.rol]}
+                ) : t.rolProyecto(m.rol)}
               </td>
               {editable && (
                 <td className="celda-acciones">
-                  <Boton variante="sutil" onClick={() => { if (confirm(`¿Quitar a ${m.nombre} del proyecto?`)) quitar.mutate(m.usuarioId); }}>Quitar</Boton>
+                  <Boton variante="sutil" onClick={() => { if (confirm(t('proyecto.quitarConfirmar', { nombre: m.nombre }))) quitar.mutate(m.usuarioId); }}>{t('comun.quitar')}</Boton>
                 </td>
               )}
             </tr>
@@ -132,13 +146,14 @@ function Miembros({ proyecto, miembros, editable }: { proyecto: TProyecto; miemb
         </tbody>
       </table>
       {usuario.rol === 'admin' && !miembros.some((m) => m.usuarioId === usuario.id) && (
-        <p className="sutil">Como administrador ves y gestionas todos los proyectos aunque no seas miembro.</p>
+        <p className="sutil">{t('proyecto.adminNoMiembro')}</p>
       )}
     </>
   );
 }
 
 function AnadirMiembro({ proyectoId, miembros, onCerrar }: { proyectoId: string; miembros: Miembro[]; onCerrar: () => void }) {
+  const t = useT();
   const cliente = useQueryClient();
   const directorio = useQuery({ queryKey: ['directorio'], queryFn: api.directorio });
   const candidatos = (directorio.data?.usuarios ?? []).filter((u) => !miembros.some((m) => m.usuarioId === u.id));
@@ -151,20 +166,20 @@ function AnadirMiembro({ proyectoId, miembros, onCerrar }: { proyectoId: string;
   if (directorio.isPending) return <Cargando />;
   if (directorio.isError) return <ErrorDe error={directorio.error} />;
   if (candidatos.length === 0) {
-    return <><Vacio>Todas las cuentas activas ya son miembros. Un administrador puede crear cuentas nuevas.</Vacio>
-      <div className="acciones"><Boton onClick={onCerrar}>Cerrar</Boton></div></>;
+    return <><Vacio>{t('proyecto.todosMiembros')}</Vacio>
+      <div className="acciones"><Boton onClick={onCerrar}>{t('comun.cerrar')}</Boton></div></>;
   }
   const enviar = (e: FormEvent) => { e.preventDefault(); anadir.mutate(); };
   return (
     <form onSubmit={enviar}>
-      <Selector etiqueta="Persona" value={usuarioId || candidatos[0]!.id} onChange={(e) => setUsuarioId(e.target.value)}
+      <Selector etiqueta={t('proyecto.persona')} value={usuarioId || candidatos[0]!.id} onChange={(e) => setUsuarioId(e.target.value)}
         opciones={candidatos.map((u) => ({ valor: u.id, texto: `${u.nombre} (${u.email})` }))} />
-      <Selector etiqueta="Rol en el proyecto" value={rol} onChange={(e) => setRol(e.target.value as RolProyecto)} opciones={OPCIONES_ROL} />
-      <p className="sutil">Editor: guarda revisiones. Revisor: aprueba o devuelve. Lector: solo consulta. Propietario: todo, incluidos los miembros.</p>
+      <Selector etiqueta={t('proyecto.rolEnProyecto')} value={rol} onChange={(e) => setRol(e.target.value as RolProyecto)} opciones={opcionesRol(t)} />
+      <p className="sutil">{t('proyecto.explicacionRoles')}</p>
       <ErrorDe error={anadir.error} />
       <div className="acciones">
-        <Boton onClick={onCerrar}>Cancelar</Boton>
-        <Boton type="submit" variante="primario" cargando={anadir.isPending}>Añadir</Boton>
+        <Boton onClick={onCerrar}>{t('comun.cancelar')}</Boton>
+        <Boton type="submit" variante="primario" cargando={anadir.isPending}>{t('comun.anadir')}</Boton>
       </div>
     </form>
   );
@@ -173,19 +188,20 @@ function AnadirMiembro({ proyectoId, miembros, onCerrar }: { proyectoId: string;
 type Origen = 'vacio' | 'plantilla' | 'archivo';
 
 function NuevoProceso({ proyectoId, onCerrar }: { proyectoId: string; onCerrar: () => void }) {
+  const t = useT();
   const [, navegar] = useLocation();
   const cliente = useQueryClient();
   const [nombre, setNombre] = useState('');
   const [origen, setOrigen] = useState<Origen>('vacio');
   const [plantillaId, setPlantillaId] = useState('');
   const [archivo, setArchivo] = useState<{ nombre: string; contenido: unknown } | null>(null);
-  const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
+  const [errorArchivo, setErrorArchivo] = useState(false);
   const plantillas = useQuery({ queryKey: ['plantillas'], queryFn: api.plantillas });
   const activas = (plantillas.data?.plantillas ?? []).filter((p) => p.activo);
   const elegida = activas.find((p) => p.id === plantillaId) ?? activas[0];
 
   const leer = async (f: File | undefined) => {
-    setErrorArchivo(null);
+    setErrorArchivo(false);
     setArchivo(null);
     if (!f) return;
     try {
@@ -194,13 +210,13 @@ function NuevoProceso({ proyectoId, onCerrar }: { proyectoId: string; onCerrar: 
       const meta = (contenido as { meta?: { name?: unknown } })?.meta;
       if (!nombre && typeof meta?.name === 'string') setNombre(meta.name);
     } catch {
-      setErrorArchivo('El archivo no es un JSON válido. Usa «Exportar → JSON» del editor.');
+      setErrorArchivo(true);
     }
   };
 
   const crear = useMutation({
     mutationFn: () => api.crearProceso(proyectoId,
-      origen === 'archivo' && archivo ? { nombre, contenido: archivo.contenido, mensaje: `Importado de ${archivo.nombre}` }
+      origen === 'archivo' && archivo ? { nombre, contenido: archivo.contenido, mensaje: t('comun.importadoDe', { archivo: archivo.nombre }) }
         : origen === 'plantilla' && elegida ? { nombre, plantillaId: elegida.id }
           : { nombre }),
     onSuccess: ({ proceso }) => {
@@ -213,40 +229,41 @@ function NuevoProceso({ proyectoId, onCerrar }: { proyectoId: string; onCerrar: 
 
   return (
     <form onSubmit={enviar}>
-      <Selector etiqueta="Partir de" value={origen} onChange={(e) => { setOrigen(e.target.value as Origen); setErrorArchivo(null); }}
+      <Selector etiqueta={t('comun.partirDe')} value={origen} onChange={(e) => { setOrigen(e.target.value as Origen); setErrorArchivo(false); }}
         opciones={[
-          { valor: 'vacio', texto: 'Un proceso vacío' },
-          ...(activas.length ? [{ valor: 'plantilla', texto: 'Una plantilla de la organización' }] : []),
-          { valor: 'archivo', texto: 'Un JSON exportado del editor' }
+          { valor: 'vacio', texto: t('proyecto.origenVacio') },
+          ...(activas.length ? [{ valor: 'plantilla', texto: t('proyecto.origenPlantilla') }] : []),
+          { valor: 'archivo', texto: t('proyecto.origenArchivo') }
         ]} />
-      {origen === 'vacio' && <p className="sutil">El proceso nace vacío y lo dibujas en el editor.</p>}
+      {origen === 'vacio' && <p className="sutil">{t('proyecto.naceVacio')}</p>}
       {origen === 'plantilla' && elegida && (
         <>
-          <Selector etiqueta="Plantilla" value={elegida.id} onChange={(e) => setPlantillaId(e.target.value)}
-            opciones={activas.map((p) => ({ valor: p.id, texto: `${p.nombre}${p.industria ? ` · ${p.industria}` : ''} (${p.nodos} elementos)` }))} />
+          <Selector etiqueta={t('proyecto.plantilla')} value={elegida.id} onChange={(e) => setPlantillaId(e.target.value)}
+            opciones={activas.map((p) => ({ valor: p.id, texto: `${p.nombre}${p.industria ? ` · ${p.industria}` : ''} (${t('comun.elementos', { n: p.nodos })})` }))} />
           {elegida.descripcion && <p className="sutil">{elegida.descripcion}</p>}
-          <p className="sutil">Se crea con la versión 1 copiada de la plantilla y el cliente de este proyecto.</p>
+          <p className="sutil">{t('proyecto.copiaPlantilla')}</p>
         </>
       )}
       {origen === 'archivo' && (
         <div className="campo">
-          <label htmlFor="archivo-proceso">Archivo JSON («Exportar → JSON» del editor)</label>
+          <label htmlFor="archivo-proceso">{t('proyecto.archivoJson')}</label>
           <input id="archivo-proceso" type="file" accept=".json,application/json" onChange={(e) => leer(e.target.files?.[0])} />
         </div>
       )}
-      {errorArchivo && <Aviso tipo="error">{errorArchivo}</Aviso>}
-      <Campo etiqueta="Nombre del proceso" required maxLength={200} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      {errorArchivo && <Aviso tipo="error">{t('proyecto.jsonInvalido')}</Aviso>}
+      <Campo etiqueta={t('proyecto.nombreProceso')} required maxLength={200} value={nombre} onChange={(e) => setNombre(e.target.value)} />
       <ErrorDe error={crear.error} />
       <div className="acciones">
-        <Boton onClick={onCerrar}>Cancelar</Boton>
+        <Boton onClick={onCerrar}>{t('comun.cancelar')}</Boton>
         <Boton type="submit" variante="primario" cargando={crear.isPending}
-          disabled={!!errorArchivo || (origen === 'archivo' && !archivo)}>Crear proceso</Boton>
+          disabled={errorArchivo || (origen === 'archivo' && !archivo)}>{t('proyecto.crearProceso')}</Boton>
       </div>
     </form>
   );
 }
 
 function EditarProyecto({ proyecto, onCerrar }: { proyecto: TProyecto; onCerrar: () => void }) {
+  const t = useT();
   const cliente = useQueryClient();
   const [nombre, setNombre] = useState(proyecto.nombre);
   const [clienteProyecto, setClienteProyecto] = useState(proyecto.cliente);
@@ -266,18 +283,18 @@ function EditarProyecto({ proyecto, onCerrar }: { proyecto: TProyecto; onCerrar:
   const enviar = (e: FormEvent) => { e.preventDefault(); guardar.mutate(); };
   return (
     <form onSubmit={enviar}>
-      <Campo etiqueta="Nombre" required maxLength={160} value={nombre} onChange={(e) => setNombre(e.target.value)} disabled={proyecto.archivado} />
-      <Campo etiqueta="Cliente" maxLength={160} value={clienteProyecto} onChange={(e) => setClienteProyecto(e.target.value)} disabled={proyecto.archivado} />
-      <AreaTexto etiqueta="Descripción" maxLength={2000} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} disabled={proyecto.archivado} />
+      <Campo etiqueta={t('comun.nombre')} required maxLength={160} value={nombre} onChange={(e) => setNombre(e.target.value)} disabled={proyecto.archivado} />
+      <Campo etiqueta={t('comun.cliente')} maxLength={160} value={clienteProyecto} onChange={(e) => setClienteProyecto(e.target.value)} disabled={proyecto.archivado} />
+      <AreaTexto etiqueta={t('comun.descripcion')} maxLength={2000} value={descripcion} onChange={(e) => setDescripcion(e.target.value)} disabled={proyecto.archivado} />
       <ErrorDe error={guardar.error ?? archivar.error} />
       <div className="acciones acciones-separadas">
         <Boton variante={proyecto.archivado ? 'secundario' : 'peligro'} cargando={archivar.isPending}
-          onClick={() => { if (proyecto.archivado || confirm('Al archivarlo, el proyecto queda en solo lectura. ¿Continuar?')) archivar.mutate(); }}>
-          {proyecto.archivado ? 'Reactivar proyecto' : 'Archivar proyecto'}
+          onClick={() => { if (proyecto.archivado || confirm(t('proyecto.archivarConfirmar'))) archivar.mutate(); }}>
+          {proyecto.archivado ? t('proyecto.reactivar') : t('proyecto.archivar')}
         </Boton>
         <span>
-          <Boton onClick={onCerrar}>Cancelar</Boton>
-          {!proyecto.archivado && <Boton type="submit" variante="primario" cargando={guardar.isPending}>Guardar</Boton>}
+          <Boton onClick={onCerrar}>{t('comun.cancelar')}</Boton>
+          {!proyecto.archivado && <Boton type="submit" variante="primario" cargando={guardar.isPending}>{t('comun.guardar')}</Boton>}
         </span>
       </div>
     </form>

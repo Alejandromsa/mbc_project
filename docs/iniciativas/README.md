@@ -62,8 +62,9 @@ Todo lo que ya usa el núcleo está aquí, para que nadie lo reutilice. Al reser
 | Nombre | Tipo | Dueño |
 |---|---|---|
 | `piq_sesion` | Cookie | `nucleo` |
-| `processiq.v1`, `processiq.ui`, `processiq.ai`, `processiq.ia.costes`, `processiq.proceso.<id>`, `processiq.abriendo`, `processiq.importacion.descartado` | `localStorage` | `nucleo` |
+| `processiq.v1`, `processiq.ui`, `processiq.ai`, `processiq.ia.costes`, `processiq.proceso.<id>` (y su variante `processiq.proceso.<id>.base`), `processiq.abriendo`, `processiq.importacion.descartado` | `localStorage` | `nucleo` |
 | `processiq.invitados.vista` | `localStorage` (efímera: se borra al salir) | `invitados` |
+| `processiq.idioma` | `localStorage`: idioma del shell (`es` o `en`) | `nucleo` |
 
 ### Variables de entorno
 

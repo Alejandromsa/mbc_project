@@ -2,6 +2,7 @@
 import { Fragment } from 'react';
 import { Link, useLocation } from 'wouter';
 import type { Campo } from './api';
+import { useT, type TraductorConocimiento } from './textos';
 
 /** Fuera del módulo: «~» sale de la base /proyectos/conocimiento (wouter), así que se escribe la ruta entera. */
 export const fuera = {
@@ -9,27 +10,30 @@ export const fuera = {
   proyecto: (id: string) => `~/proyectos/p/${encodeURIComponent(id)}`
 };
 
-export const NOMBRE_CAMPO: Record<Campo, string> = {
-  nombre: 'Nombre',
-  actividad: 'Actividad',
-  sistema: 'Sistema',
-  rol: 'Rol',
-  elemento: 'En el diagrama',
-  ficha: 'Ficha'
-};
+const CLAVE_CAMPO = {
+  nombre: 'campoNombre',
+  actividad: 'campoActividad',
+  sistema: 'campoSistema',
+  rol: 'campoRol',
+  elemento: 'campoElemento',
+  ficha: 'campoFicha'
+} as const satisfies Record<Campo, string>;
 
-const porcentaje = new Intl.NumberFormat('es-PE', { style: 'percent', maximumFractionDigits: 0 });
-export const pct = (v: number) => porcentaje.format(v);
+export const nombreCampo = (campo: Campo, t: TraductorConocimiento) => t(CLAVE_CAMPO[campo]);
+
+/** Porcentaje sin decimales, con el formato del idioma. */
+export const pct = (v: number, t: TraductorConocimiento) => t.numero(v, { style: 'percent', maximumFractionDigits: 0 });
 
 /** Pestañas de la sección (enlaces: cada una tiene su dirección). */
 export function PestanasConocimiento() {
+  const t = useT();
   const [ubicacion] = useLocation();
   const pestanas = [
-    { href: '/', texto: 'Buscar procesos', activa: ubicacion === '/' || ubicacion.startsWith('/proceso/') },
-    { href: '/marco', texto: 'Marco de referencia', activa: ubicacion === '/marco' }
+    { href: '/', texto: t('pestanaBuscar'), activa: ubicacion === '/' || ubicacion.startsWith('/proceso/') },
+    { href: '/marco', texto: t('pestanaMarco'), activa: ubicacion === '/marco' }
   ];
   return (
-    <nav className="conocimiento-pestanas" aria-label="Conocimiento">
+    <nav className="conocimiento-pestanas" aria-label={t('titulo')}>
       {pestanas.map((p) => (
         <Link key={p.href} href={p.href} className={p.activa ? 'activa' : ''} aria-current={p.activa ? 'page' : undefined}>{p.texto}</Link>
       ))}

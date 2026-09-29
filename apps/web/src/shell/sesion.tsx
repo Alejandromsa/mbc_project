@@ -3,8 +3,8 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, Redirect, useLocation, useSearch } from 'wouter';
 import { api, ErrorApi, type Usuario } from './api';
-import { ROLES_ORGANIZACION } from './formato';
-import { Aviso, Cargando, ErrorDe } from './ui';
+import { useT } from './i18n';
+import { Aviso, Cargando, ErrorDe, EnlaceEditor, SelectorIdioma } from './ui';
 
 export const CLAVE_SESION = ['sesion'] as const;
 
@@ -40,6 +40,7 @@ function useRutaActual(): string {
 
 export function ConSesion({ children, soloAdmin = false, permitirClaveTemporal = false }:
   { children: ReactNode; soloAdmin?: boolean; permitirClaveTemporal?: boolean }) {
+  const t = useT();
   const sesion = useSesion();
   const volver = encodeURIComponent(useRutaActual());
   if (sesion.isPending) return <Cargando />;
@@ -50,7 +51,7 @@ export function ConSesion({ children, soloAdmin = false, permitirClaveTemporal =
   return (
     <Marco usuario={usuario}>
       {soloAdmin && usuario.rol !== 'admin'
-        ? <Aviso tipo="error">Esta sección es solo para administradores.</Aviso>
+        ? <Aviso tipo="error">{t('sesion.soloAdmin')}</Aviso>
         : children}
     </Marco>
   );
@@ -62,6 +63,7 @@ export function ConSesion({ children, soloAdmin = false, permitirClaveTemporal =
  * Se cierra al elegir una pantalla, al pulsar fuera o con Escape.
  */
 function MenuAdministracion({ aviso }: { aviso: boolean }) {
+  const t = useT();
   const [ubicacion] = useLocation();
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => { if (menu.current) menu.current.open = false; }, [ubicacion]);
@@ -78,19 +80,20 @@ function MenuAdministracion({ aviso }: { aviso: boolean }) {
   const activo = ubicacion.startsWith('/admin/');
   return (
     <details ref={menu} className={`menu-admin${activo ? ' activo' : ''}`}>
-      <summary>Administración{aviso && <span className="punto-aviso" title="Hay problemas: revisa «Sistema»" />}</summary>
+      <summary>{t('menu.administracion')}{aviso && <span className="punto-aviso" title={t('menu.problemasSistema')} />}</summary>
       <div className="menu-admin-lista">
-        <EnlaceMenu href="/admin/usuarios">Usuarios</EnlaceMenu>
-        <EnlaceMenu href="/admin/catalogos">Catálogos</EnlaceMenu>
-        <EnlaceMenu href="/admin/auditoria">Auditoría</EnlaceMenu>
-        <EnlaceMenu href="/admin/ia">IA</EnlaceMenu>
-        <EnlaceMenu href="/admin/sistema" aviso={aviso}>Sistema</EnlaceMenu>
+        <EnlaceMenu href="/admin/usuarios">{t('menu.usuarios')}</EnlaceMenu>
+        <EnlaceMenu href="/admin/catalogos">{t('menu.catalogos')}</EnlaceMenu>
+        <EnlaceMenu href="/admin/auditoria">{t('menu.auditoria')}</EnlaceMenu>
+        <EnlaceMenu href="/admin/ia">{t('menu.ia')}</EnlaceMenu>
+        <EnlaceMenu href="/admin/sistema" aviso={aviso}>{t('menu.sistema')}</EnlaceMenu>
       </div>
     </details>
   );
 }
 
 function EnlaceMenu({ href, children, aviso = false }: { href: string; children: ReactNode; aviso?: boolean }) {
+  const t = useT();
   const [ubicacion] = useLocation();
   // «Proyectos» sigue resaltado dentro de un proyecto o de un proceso
   const activo = href === '/'
@@ -98,12 +101,13 @@ function EnlaceMenu({ href, children, aviso = false }: { href: string; children:
     : ubicacion === href || ubicacion.startsWith(href + '/');
   return (
     <Link href={href} className={activo ? 'activo' : ''} aria-current={activo ? 'page' : undefined}>
-      {children}{aviso && <span className="punto-aviso" title="Hay problemas: revisa la pantalla" />}
+      {children}{aviso && <span className="punto-aviso" title={t('menu.problemasPantalla')} />}
     </Link>
   );
 }
 
 function Marco({ usuario, children }: { usuario: Usuario; children: ReactNode }) {
+  const t = useT();
   // Administradores: punto rojo en «Sistema» si hay algún problema
   const sistema = useQuery({
     queryKey: ['sistema'], queryFn: api.sistema, refetchInterval: 60_000,
@@ -119,23 +123,24 @@ function Marco({ usuario, children }: { usuario: Usuario; children: ReactNode })
   return (
     <div className="shell">
       <header className="shell-cabecera">
-        <Link href="/" className="marca" aria-label="ProcessIQ · Proyectos">
+        <Link href="/" className="marca" aria-label={t('menu.marca')}>
           <img src="/logo-mbc.svg" alt="" width={56} height={14} />
           <span>ProcessIQ</span>
         </Link>
         {!usuario.debeCambiarClave && (
-          <nav aria-label="Secciones">
-            <EnlaceMenu href="/">Proyectos</EnlaceMenu>
-            <EnlaceMenu href="/portafolio">Portafolio</EnlaceMenu>
-            <EnlaceMenu href="/conocimiento">Conocimiento</EnlaceMenu>
+          <nav aria-label={t('menu.secciones')}>
+            <EnlaceMenu href="/">{t('menu.proyectos')}</EnlaceMenu>
+            <EnlaceMenu href="/portafolio">{t('menu.portafolio')}</EnlaceMenu>
+            <EnlaceMenu href="/conocimiento">{t('menu.conocimiento')}</EnlaceMenu>
             {usuario.rol === 'admin' && <MenuAdministracion aviso={hayProblemas} />}
-            <a href="/" title="El editor, sin proyecto (trabajo guardado en este navegador)">Editor libre</a>
+            <EnlaceEditor href="/" title={t('menu.editorLibreTitulo')}>{t('menu.editorLibre')}</EnlaceEditor>
           </nav>
         )}
         <div className="usuario">
-          <span className="usuario-nombre" title={usuario.email}>{usuario.nombre}<small>{ROLES_ORGANIZACION[usuario.rol]}</small></span>
-          {!usuario.debeCambiarClave && <Link href="/clave">Cambiar contraseña</Link>}
-          <button type="button" className="enlace" onClick={() => salir.mutate()} disabled={salir.isPending}>Salir</button>
+          <span className="usuario-nombre" title={usuario.email}>{usuario.nombre}<small>{t.rolOrganizacion(usuario.rol)}</small></span>
+          <SelectorIdioma />
+          {!usuario.debeCambiarClave && <Link href="/clave">{t('menu.cambiarClave')}</Link>}
+          <button type="button" className="enlace" onClick={() => salir.mutate()} disabled={salir.isPending}>{t('menu.salir')}</button>
         </div>
       </header>
       <main className="shell-contenido">{children}</main>

@@ -3,14 +3,16 @@ import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'wouter';
 import { api, type RolOrganizacion, type UsuarioAdmin } from '../api';
-import { ROLES_ORGANIZACION, fecha } from '../formato';
+import { useT, type TraductorShell } from '../i18n';
 import { useUsuario } from '../sesion';
 import { Boton, Campo, Cargando, ClaveTemporal, Dialogo, ErrorDe, Etiqueta, Selector, Vacio, useTitulo } from '../ui';
 
-const OPCIONES_ROL = (['admin', 'consultor', 'lector'] as RolOrganizacion[]).map((r) => ({ valor: r, texto: ROLES_ORGANIZACION[r] }));
+const opcionesRol = (t: TraductorShell) =>
+  (['admin', 'consultor', 'lector'] as RolOrganizacion[]).map((r) => ({ valor: r, texto: t.rolOrganizacion(r) }));
 
 export function Usuarios() {
-  useTitulo('Usuarios');
+  const t = useT();
+  useTitulo(t('usuarios.titulo'));
   const yo = useUsuario();
   const cliente = useQueryClient();
   const consulta = useQuery({ queryKey: ['usuarios'], queryFn: api.usuarios });
@@ -31,40 +33,45 @@ export function Usuarios() {
     <>
       <div className="encabezado">
         <div>
-          <h1>Usuarios</h1>
-          <p className="sutil">Cuentas locales de la organización. Al crear una cuenta o restablecer su contraseña se genera una contraseña temporal.</p>
+          <h1>{t('usuarios.titulo')}</h1>
+          <p className="sutil">{t('usuarios.intro')}</p>
         </div>
-        <Boton variante="primario" onClick={() => setCreando(true)}>Nuevo usuario</Boton>
+        <Boton variante="primario" onClick={() => setCreando(true)}>{t('usuarios.nuevo')}</Boton>
       </div>
       <ErrorDe error={cambiar.error ?? restablecer.error} />
       {consulta.isPending ? <Cargando /> : consulta.isError ? <ErrorDe error={consulta.error} /> : (
         <table className="tabla">
-          <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th><span className="solo-lector">Acciones</span></th></tr></thead>
+          <thead>
+            <tr>
+              <th>{t('comun.nombre')}</th><th>{t('comun.correo')}</th><th>{t('comun.rol')}</th><th>{t('comun.estado')}</th>
+              <th>{t('usuarios.ultimoAcceso')}</th><th><span className="solo-lector">{t('comun.acciones')}</span></th>
+            </tr>
+          </thead>
           <tbody>
             {consulta.data.usuarios.map((u) => {
               const soyYo = u.id === yo.id;
               return (
                 <tr key={u.id} className={u.activo ? '' : 'inactivo'}>
-                  <td>{u.nombre}{soyYo && <span className="sutil"> (tú)</span>}</td>
+                  <td>{u.nombre}{soyYo && <span className="sutil"> {t('comun.tu')}</span>}</td>
                   <td>{u.email}</td>
                   <td>
-                    <Selector aria-label={`Rol de ${u.nombre}`} opciones={OPCIONES_ROL} value={u.rol} disabled={soyYo}
+                    <Selector aria-label={t('comun.rolDe', { nombre: u.nombre })} opciones={opcionesRol(t)} value={u.rol} disabled={soyYo}
                       onChange={(e) => cambiar.mutate({ id: u.id, cambios: { rol: e.target.value as RolOrganizacion } })} />
                   </td>
                   <td>
-                    {!u.activo ? <Etiqueta tono="aviso">Desactivada</Etiqueta> : u.debeCambiarClave ? <Etiqueta>Contraseña temporal</Etiqueta> : 'Activa'}
+                    {!u.activo ? <Etiqueta tono="aviso">{t('usuarios.desactivada')}</Etiqueta> : u.debeCambiarClave ? <Etiqueta>{t('usuarios.claveTemporal')}</Etiqueta> : t('usuarios.activa')}
                   </td>
-                  <td className="fecha">{fecha(u.ultimoAcceso)}</td>
+                  <td className="fecha">{t.fecha(u.ultimoAcceso)}</td>
                   <td className="celda-acciones">
                     {!soyYo && (
                       <>
                         <Boton variante="sutil" disabled={restablecer.isPending}
-                          onClick={() => { if (confirm(`¿Restablecer la contraseña de ${u.nombre}? Se cerrarán sus sesiones.`)) restablecer.mutate(u); }}>
-                          Restablecer contraseña
+                          onClick={() => { if (confirm(t('usuarios.restablecerConfirmar', { nombre: u.nombre }))) restablecer.mutate(u); }}>
+                          {t('usuarios.restablecer')}
                         </Boton>
                         <Boton variante={u.activo ? 'peligro' : 'sutil'} disabled={cambiar.isPending}
                           onClick={() => cambiar.mutate({ id: u.id, cambios: { activo: !u.activo } })}>
-                          {u.activo ? 'Desactivar' : 'Reactivar'}
+                          {u.activo ? t('usuarios.desactivar') : t('usuarios.reactivar')}
                         </Boton>
                       </>
                     )}
@@ -76,18 +83,19 @@ export function Usuarios() {
         </table>
       )}
 
-      <Dialogo abierto={creando} titulo="Nuevo usuario" onCerrar={() => setCreando(false)}>
+      <Dialogo abierto={creando} titulo={t('usuarios.nuevo')} onCerrar={() => setCreando(false)}>
         <NuevoUsuario onCreado={(para, c) => { setCreando(false); setClave({ para, clave: c }); refrescar(); }} onCerrar={() => setCreando(false)} />
       </Dialogo>
-      <Dialogo abierto={!!clave} titulo="Contraseña temporal" onCerrar={() => setClave(null)}>
+      <Dialogo abierto={!!clave} titulo={t('usuarios.claveTemporal')} onCerrar={() => setClave(null)}>
         {clave && <ClaveTemporal clave={clave.clave} para={clave.para} />}
-        <div className="acciones"><Boton variante="primario" onClick={() => setClave(null)}>Hecho</Boton></div>
+        <div className="acciones"><Boton variante="primario" onClick={() => setClave(null)}>{t('comun.hecho')}</Boton></div>
       </Dialogo>
     </>
   );
 }
 
 function NuevoUsuario({ onCreado, onCerrar }: { onCreado: (email: string, clave: string) => void; onCerrar: () => void }) {
+  const t = useT();
   const [email, setEmail] = useState('');
   const [nombre, setNombre] = useState('');
   const [rol, setRol] = useState<RolOrganizacion>('consultor');
@@ -98,49 +106,54 @@ function NuevoUsuario({ onCreado, onCerrar }: { onCreado: (email: string, clave:
   const enviar = (e: FormEvent) => { e.preventDefault(); crear.mutate(); };
   return (
     <form onSubmit={enviar}>
-      <Campo etiqueta="Nombre y apellido" required maxLength={120} autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} />
-      <Campo etiqueta="Correo" type="email" required maxLength={200} value={email} onChange={(e) => setEmail(e.target.value)} />
-      <Selector etiqueta="Rol" value={rol} onChange={(e) => setRol(e.target.value as RolOrganizacion)} opciones={OPCIONES_ROL} />
-      <p className="sutil">Consultor: crea proyectos. Lector: solo participa donde lo invitan. Administrador: además gestiona usuarios y ve todos los proyectos.</p>
+      <Campo etiqueta={t('usuarios.nombreApellido')} required maxLength={120} autoFocus value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <Campo etiqueta={t('comun.correo')} type="email" required maxLength={200} value={email} onChange={(e) => setEmail(e.target.value)} />
+      <Selector etiqueta={t('comun.rol')} value={rol} onChange={(e) => setRol(e.target.value as RolOrganizacion)} opciones={opcionesRol(t)} />
+      <p className="sutil">{t('usuarios.explicacionRoles')}</p>
       <ErrorDe error={crear.error} />
       <div className="acciones">
-        <Boton onClick={onCerrar}>Cancelar</Boton>
-        <Boton type="submit" variante="primario" cargando={crear.isPending}>Crear cuenta</Boton>
+        <Boton onClick={onCerrar}>{t('comun.cancelar')}</Boton>
+        <Boton type="submit" variante="primario" cargando={crear.isPending}>{t('usuarios.crear')}</Boton>
       </div>
     </form>
   );
 }
 
-const ENTIDADES = [
-  { valor: '', texto: 'Todo' },
-  { valor: 'usuario', texto: 'Usuarios y sesiones' },
-  { valor: 'proyecto', texto: 'Proyectos' },
-  { valor: 'proceso', texto: 'Procesos' },
-  { valor: 'revision', texto: 'Revisiones' }
-];
-
 export function Auditoria() {
-  useTitulo('Auditoría');
+  const t = useT();
+  useTitulo(t('auditoria.titulo'));
   const [entidad, setEntidad] = useState('');
   const consulta = useQuery({ queryKey: ['auditoria', entidad], queryFn: () => api.auditoria({ entidad, limite: 200 }) });
+  const entidades = [
+    { valor: '', texto: t('auditoria.todo') },
+    { valor: 'usuario', texto: t('auditoria.usuarios') },
+    { valor: 'proyecto', texto: t('auditoria.proyectos') },
+    { valor: 'proceso', texto: t('auditoria.procesos') },
+    { valor: 'revision', texto: t('auditoria.revisiones') }
+  ];
   return (
     <>
       <div className="encabezado">
         <div>
-          <h1>Auditoría</h1>
-          <p className="sutil">Quién hizo qué y cuándo. Se muestran los 200 eventos más recientes.</p>
+          <h1>{t('auditoria.titulo')}</h1>
+          <p className="sutil">{t('auditoria.intro')}</p>
         </div>
-        <Selector etiqueta="Mostrar" value={entidad} onChange={(e) => setEntidad(e.target.value)} opciones={ENTIDADES} />
+        <Selector etiqueta={t('auditoria.mostrar')} value={entidad} onChange={(e) => setEntidad(e.target.value)} opciones={entidades} />
       </div>
       {consulta.isPending ? <Cargando /> : consulta.isError ? <ErrorDe error={consulta.error} /> : consulta.data.eventos.length === 0 ? (
-        <Vacio>Sin eventos.</Vacio>
+        <Vacio>{t('auditoria.sinEventos')}</Vacio>
       ) : (
         <table className="tabla tabla-compacta">
-          <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th><th>IP</th></tr></thead>
+          <thead>
+            <tr>
+              <th>{t('comun.fecha')}</th><th>{t('auditoria.usuario')}</th><th>{t('auditoria.accion')}</th>
+              <th>{t('auditoria.detalle')}</th><th>{t('auditoria.ip')}</th>
+            </tr>
+          </thead>
           <tbody>
             {consulta.data.eventos.map((e) => (
               <tr key={e.id}>
-                <td className="fecha">{fecha(e.creadoEn)}</td>
+                <td className="fecha">{t.fecha(e.creadoEn)}</td>
                 <td>{e.usuario ?? <span className="sutil">—</span>}</td>
                 <td><code>{e.accion}</code></td>
                 <td className="detalle-json">{e.detalle ? JSON.stringify(e.detalle) : ''}</td>
@@ -155,6 +168,7 @@ export function Auditoria() {
 }
 
 export function NoEncontrada() {
-  useTitulo('No encontrada');
-  return <Vacio>Esta página no existe. <Link href="/">Volver a los proyectos</Link>.</Vacio>;
+  const t = useT();
+  useTitulo(t('noEncontrada.titulo'));
+  return <Vacio>{t.rico('noEncontrada.texto', {}, { enlace: (texto) => <Link href="/">{texto}</Link> })}</Vacio>;
 }

@@ -36,12 +36,21 @@ export function procesoDelEditorLibre(): ProcesoLocal | null {
   }
 }
 
+/** Por qué un archivo no se puede importar; la pantalla pone el texto en el idioma elegido. */
+export class ErrorImportacion extends Error {
+  readonly codigo: 'JSON_INVALIDO' | 'NO_ES_PROCESO';
+  constructor(codigo: ErrorImportacion['codigo']) {
+    super(codigo === 'JSON_INVALIDO' ? 'No es un JSON válido.' : 'No parece un proceso exportado desde el editor (falta la lista de elementos).');
+    this.codigo = codigo;
+  }
+}
+
 /** Un archivo JSON exportado desde el editor («Exportar → JSON»). */
 export async function procesoDeArchivo(archivo: File): Promise<ProcesoLocal> {
   let contenido: unknown;
-  try { contenido = JSON.parse(await archivo.text()); } catch { throw new Error('No es un JSON válido.'); }
+  try { contenido = JSON.parse(await archivo.text()); } catch { throw new ErrorImportacion('JSON_INVALIDO'); }
   if (!contenido || typeof contenido !== 'object' || !Array.isArray((contenido as any).nodes)) {
-    throw new Error('No parece un proceso exportado desde el editor (falta la lista de elementos).');
+    throw new ErrorImportacion('NO_ES_PROCESO');
   }
   const p = resumen(contenido as Record<string, unknown>);
   if (!p.nombre) p.nombre = archivo.name.replace(/\.json$/i, '');

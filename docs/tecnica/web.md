@@ -18,7 +18,7 @@ Qué hay en `apps/web`: el editor de procesos y el shell de proyectos, cómo se 
 - **Sin parámetros**, el editor es el del MVP: guarda en el navegador y no habla con la API. Lo comprueban las pruebas de fidelidad y la última prueba E2E.
 - **Con `?proceso=` o `?revision=`**, el editor entra en **modo proyecto** (sección 4): abre y guarda revisiones en la API.
 - **Con `?invitado=<token>`**, el editor abre en **modo lectura** la revisión compartida con ese enlace, sin sesión ([invitado.js](../../apps/web/src/app/plataforma/invitado.js), [ADR 20](../adr/0020-rutas-publicas-con-token.md)): modo «Presentar», «Ficha del proceso» y un panel de comentarios; un clic en un elemento ancla el comentario. No lee ni escribe `processiq.v1`.
-- El editor reutiliza piezas del shell: el cliente de la API ([api.ts](../../apps/web/src/shell/api.ts)), los textos ([formato.ts](../../apps/web/src/shell/formato.ts)), los permisos ([permisos.ts](../../apps/web/src/shell/permisos.ts)) y el registro de errores ([observabilidad.ts](../../apps/web/src/shell/observabilidad.ts)). El shell no importa nada del editor.
+- El editor reutiliza piezas del shell: el cliente de la API ([api.ts](../../apps/web/src/shell/api.ts)), los textos de estados y roles y las fechas ([formato.ts](../../apps/web/src/shell/formato.ts), siempre en español), los permisos ([permisos.ts](../../apps/web/src/shell/permisos.ts)) y el registro de errores ([observabilidad.ts](../../apps/web/src/shell/observabilidad.ts)). El shell no importa nada del editor.
 
 ```mermaid
 flowchart LR
@@ -176,6 +176,7 @@ Claves del navegador (todas reservadas en [iniciativas/README.md](../iniciativas
 | `processiq.ai` | Editor | Modo de IA, código de equipo o clave propia, URL del intermediario, modelo |
 | `processiq.ia.costes` | Editor | Últimas 20 ejecuciones de IA, para calibrar la estimación de coste |
 | `processiq.importacion.descartado` | Shell | Fecha del guardado cuya importación se rechazó |
+| `processiq.idioma` | Shell | Idioma elegido: `es` o `en`. Sin ella, español (sección 5.10) |
 | `processiq.invitados.vista` | Vista del invitado (`?invitado=`) | Copia de la revisión compartida mientras está abierta; se borra al salir |
 
 ### 3.4 `window.ProcessIQ`: el gancho de pruebas
@@ -502,7 +503,10 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 | [api.ts](../../apps/web/src/shell/api.ts) | Cliente tipado de la API, `pedir()` y `ErrorApi` |
 | [ui.tsx](../../apps/web/src/shell/ui.tsx) | Componentes de interfaz |
 | [permisos.ts](../../apps/web/src/shell/permisos.ts) | Capacidades por rol de proyecto, solo para mostrar u ocultar botones |
-| [formato.ts](../../apps/web/src/shell/formato.ts) | Textos de estados y roles, fechas (`es-PE`), enlaces al editor y `destinoSeguro()` |
+| [formato.ts](../../apps/web/src/shell/formato.ts) | Estados, roles, fechas y números por idioma (`es-PE`, `en-US`); `ESTADOS`, `ROLES_*` y `fecha()` sin idioma, en español, para el editor; enlaces al editor y `destinoSeguro()`. No importa React ni i18n.ts |
+| [i18n.ts](../../apps/web/src/shell/i18n.ts) | Idioma elegido, `useT()`, `definirTextos()` y los tipos que obligan a traducir (sección 5.10) |
+| [textos/](../../apps/web/src/shell/textos/) | Diccionarios del shell: `es.ts` (fuente de verdad) y `en.ts` |
+| [mensajes.ts](../../apps/web/src/shell/mensajes.ts) | Mensajes de error de la API y avisos de «Sistema» en inglés |
 | [navegacion.ts](../../apps/web/src/shell/navegacion.ts) | `useIrA()` y `useVolver()` |
 | [observabilidad.ts](../../apps/web/src/shell/observabilidad.ts) | `reportarError()` y `capturarErrores()` |
 | [importacion.ts](../../apps/web/src/shell/importacion.ts) | Lectura del editor libre y de JSON exportados |
@@ -552,7 +556,7 @@ Un proyecto archivado es de solo lectura: el shell oculta las acciones de `escri
 - `destinoSeguro()` solo acepta rutas del mismo sitio (`/algo`), nunca `//otro-sitio` ni URLs absolutas: evita redirecciones abiertas. Por defecto, `/proyectos/`.
 - `useIrA()` navega con el router dentro de `/proyectos`. Fuera (por ejemplo, volver al editor con `/?proceso=…`) hace una carga completa.
 - «Salir» llama a `DELETE /api/sesion` y recarga en `/proyectos/entrar`, para no dejar en memoria datos del usuario anterior.
-- Menú del marco: Proyectos, y para administradores Usuarios, Catálogos, Auditoría, IA y Sistema (con un punto rojo si `GET /api/sistema` trae avisos de nivel `error`; se consulta cada 60 s). Siempre hay un enlace «Editor libre» a `/`.
+- Menú del marco: Proyectos, y para administradores Usuarios, Catálogos, Auditoría, IA y Sistema (con un punto rojo si `GET /api/sistema` trae avisos de nivel `error`; se consulta cada 60 s). Siempre hay un enlace «Editor libre» a `/` y, junto al nombre, el selector de idioma «ES / EN» (sección 5.10).
 
 ### 5.4 Cliente de la API y `ErrorApi`
 
@@ -569,6 +573,7 @@ Un proyecto archivado es de solo lectura: el shell oculta las acciones de `escri
 
 - El objeto `api` agrupa las llamadas: sesión, proyectos y miembros, procesos y revisiones, IA, catálogos, sistema y administración. `api.eventosIa(id)` devuelve la URL del SSE de una ejecución.
 - `pedir` está exportado para que los módulos de iniciativa usen el mismo tratamiento de errores y sesión.
+- Los mensajes llegan en español (la API no cambia con el idioma). En inglés, `ErrorDe` los traduce con [mensajes.ts](../../apps/web/src/shell/mensajes.ts): primero por el mensaje exacto, después por un patrón (mensajes con datos, como «Ya hay una plantilla llamada «X».») y, si no, por el `codigo` (`SIN_SESION`, `PERMISO`, `ARCHIVADO`, `VALIDACION`, `DUPLICADO`, `CONCURRENCIA`…). Si no conoce ninguno, muestra el texto del servidor. Los `detalles` de validación no se traducen.
 
 ### 5.5 TanStack Query
 
@@ -592,12 +597,14 @@ Sin librería de componentes:
 | `Boton` | Variantes `primario`, `secundario`, `peligro` y `sutil`; `cargando` lo deshabilita y muestra «Un momento…» |
 | `Campo`, `AreaTexto`, `Selector` | Entradas con etiqueta asociada (`useId`) |
 | `Aviso` | `info`, `ok`, `atencion` o `error` (con `role="alert"` o `status`) |
-| `ErrorDe` | Muestra un error, con hasta 8 detalles si es un `ErrorApi` |
+| `ErrorDe` | Muestra un error, con hasta 8 detalles si es un `ErrorApi`; en inglés, traducido si se conoce (sección 5.4) |
 | `Insignia` | Estado de una revisión |
 | `Etiqueta` | Marca `neutro` o `aviso` |
 | `Cargando`, `Vacio` | Estados de carga y lista vacía |
 | `Dialogo` | `<dialog>` nativo controlado por `abierto`; `Esc` lo cierra |
 | `ClaveTemporal` | Muestra una contraseña temporal una sola vez, con botón «Copiar» |
+| `EnlaceEditor` | Enlace al editor (`/`, `?proceso=`, `?revision=`). En inglés lleva un `title` que avisa de que el editor abre en español |
+| `SelectorIdioma` | «ES / EN»: botones con `aria-pressed`, en la cabecera y en «Entrar» |
 
 ### 5.7 Errores de la web
 
@@ -629,6 +636,43 @@ La pantalla «Proyecto» también permite crear un proceso a partir de un JSON e
 | Catálogos | KPIs, verbos del Playbook y temas PPTX de cliente (se crean duplicando MBC o BBVA) |
 | Consumo de IA | Ver [ia.md](ia.md) |
 | Sistema | API, base de datos, worker y cola de IA, copias de seguridad, disco y errores agrupados, con avisos |
+
+### 5.10 Idioma: español e inglés
+
+El shell y las pantallas de los módulos (`/proyectos/…`) están en español y en inglés. **El editor (`/`) sigue en español**, también la vista del invitado: está cubierto byte a byte por la fidelidad y se traducirá aparte. Sin dependencias: [i18n.ts](../../apps/web/src/shell/i18n.ts) tiene unas 200 líneas.
+
+**Idioma elegido**
+
+| | |
+|---|---|
+| Dónde se elige | «ES / EN» en la cabecera (junto al nombre) y en «Entrar» (`SelectorIdioma`) |
+| Dónde se guarda | `localStorage['processiq.idioma']` (`es` o `en`), en este navegador. Otra pestaña abierta lo sigue sin recargar (evento `storage`) |
+| Por defecto | **Español, aunque el navegador esté en inglés.** Es el idioma del equipo, de los procesos y de las pruebas: las E2E y los consultores cuentan con él. El inglés se elige a mano una vez |
+| `<html lang>` | `main.tsx` llama a `aplicarIdioma()` al arrancar y `cambiarIdioma()` lo actualiza. El HTML servido dice `es` hasta que carga el JavaScript |
+| Qué no cambia | Los datos (nombres de procesos, mensajes de revisión, catálogos de KPIs y verbos, textos de la ficha), que están en español; los textos del editor; la API |
+
+**Diccionarios**
+
+- Un diccionario es un objeto plano `clave → texto` con `as const`. El español es la **fuente de verdad** (el texto que había); el inglés se declara `as const satisfies Traduccion<typeof es>`.
+- `Traduccion` obliga, en compilación (`pnpm typecheck`), a que el inglés tenga **todas las claves** del español y, en cada una, **las mismas variables `{x}` y etiquetas `<x>`**. Si falta algo, el error señala la clave en `en.ts`.
+- Variables: `t('proyectos.creadoEl', { fecha })`. El tipo exige pasar las variables que usa el texto en cualquiera de los dos idiomas. Los números se formatean con `Intl` según el idioma (`es-PE` agrupa los miles: «1,921»).
+- Plurales: `{ uno: '{n} proceso', otros: '{n} procesos', cero?: '…' }`, elegidos con `Intl.PluralRules` según `n`.
+- Texto con marcas: `t.rico('clave', variables, { enlace: (texto) => <Link href="/">{texto}</Link> })` devuelve nodos de React. `<strong>`, `<em>` y `<code>` salen solos. Las etiquetas se separan antes de sustituir las variables: un nombre con «<b>» sigue siendo texto.
+- Formatos: `t.fecha(iso)`, `t.numero(n, opciones?)`, `t.estado(e)`, `t.rolProyecto(r)`, `t.rolOrganizacion(r)`, `t.idioma` y `t.locale`. Salen de [formato.ts](../../apps/web/src/shell/formato.ts), que no importa React: el editor usa sus versiones en español sin llevarse el shell.
+- `useT()` devuelve un traductor estable por idioma; al cambiar de idioma, los componentes que lo usan se vuelven a pintar (`useSyncExternalStore`).
+
+| Diccionario | Dónde | Qué traduce |
+|---|---|---|
+| Shell | [textos/es.ts](../../apps/web/src/shell/textos/es.ts), [textos/en.ts](../../apps/web/src/shell/textos/en.ts); `useT` de `i18n.ts` | Cabecera y menú (también las entradas de los módulos), acceso, proyectos, procesos, importación y administración |
+| Módulos | `modulos/<clave>/textos.ts`, con su propio `useT = definirTextos(es, en)` | Las pantallas del módulo. Portafolio, Conocimiento e Invitados (su parte del shell) ya lo tienen |
+| Catálogos del dominio | Mapas en inglés junto al diccionario (`TAREAS_IA_EN`, `EJECUCION_EN`, `CATEGORIAS_PAIN_EN`) | En español se usa la etiqueta de `@processiq/dominio` o `@processiq/ia`; en inglés, la del mapa, y si falta, la española |
+| Mensajes del servidor | [mensajes.ts](../../apps/web/src/shell/mensajes.ts) | Errores de la API (sección 5.4) y avisos de «Sistema», solo en inglés |
+
+**Un módulo nuevo** crea su `textos.ts` con `definirTextos(es, en)` y usa su `useT()` en sus pantallas. Su entrada del menú (`sesion.tsx`) usa una clave `menu.<clave>` que se añade al final del bloque «Cabecera y menú» de `textos/es.ts` y de `textos/en.ts`: son puntos de registro, como `sesion.tsx`.
+
+**Enlaces al editor.** Los textos que llevan al editor («Editor libre», «Abrir en el editor», «Abrir la última versión en el editor»…) se traducen en el shell. En inglés, `EnlaceEditor` les pone un `title` que avisa de que el editor abre en español; «Ver como el cliente» (invitados) avisa igual de la vista del invitado. Donde el shell nombra un menú del editor, lo cita en español con la traducción: “Exportar → JSON” (Export → JSON).
+
+**Pruebas.** [idioma.spec.mjs](../../pruebas/e2e/idioma.spec.mjs) arranca con el navegador en inglés y comprueba que el shell sale en español; cambia a inglés y recorre acceso (con un error de la API traducido), proyectos, un proyecto, un proceso, el editor (que sigue en español), Portafolio, Conocimiento y Administración; recarga, vuelve a español y recarga otra vez. Las demás E2E corren en español sin cambios.
 
 ---
 
@@ -662,4 +706,4 @@ Cambios en `src/app/`: `pnpm fidelidad` y `pnpm e2e` en verde. Pantalla nueva o 
 
 - **El modelo completo no se guarda.** `state._modeloCompleto` no está ni en `processiq.v1` ni en la revisión. Al recargar, o al abrir una revisión guardada en nivel 1 o 2, lo visible pasa a ser el «modelo completo» y el detalle de nivel 3 se pierde. En modo proyecto, la generación con IA se guarda **después** de aplicar el nivel elegido. Es el comportamiento del MVP. Por confirmar si se acepta así.
 - **Borradores sin cambios.** Abrir un proceso solo para verlo deja su borrador (igual a la revisión) hasta el siguiente guardado o hasta que la purga lo borre a los 30 días. No se borra al cerrar la pestaña: otra pestaña con el mismo proceso usa la misma clave.
-- **Registro de claves.** [iniciativas/README.md](../iniciativas/README.md) reserva `processiq.proceso.<id>`, pero no nombra la variante `….base`.
+- **Textos del servidor en la interfaz en inglés.** Se traducen los mensajes de error conocidos y los avisos de «Sistema» (sección 5.10). Siguen en español los `detalles` de validación, el error de una ejecución de IA y los errores y avisos de la vista previa del marco de Conocimiento. Los mensajes de revisión que pone la web al importar («Importado de…» / «Imported from…») se guardan en el idioma de quien importa: son datos y no cambian después. Por confirmar si la API debe devolver un código por aviso para poder traducirlos todos.

@@ -2,22 +2,24 @@
 // estado de su última revisión. Todo sale de la API; aquí solo se presenta.
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'wouter';
-import { enEditor, fecha } from '../../../shell/formato';
-import { Cargando, ErrorDe, Etiqueta, Insignia, Vacio, useTitulo } from '../../../shell/ui';
+import { enEditor } from '../../../shell/formato';
+import { Cargando, EnlaceEditor, ErrorDe, Etiqueta, Insignia, Vacio, useTitulo } from '../../../shell/ui';
 import { apiPortafolio, type ConteoHallazgos, type DetalleCliente, type ProcesoPortafolio } from '../api';
 import {
-  BarraAvance, CasillaArchivados, Cifra, LeyendaAvance, etiquetaCategoria, etiquetaEjecucion, fuera, n, nombreCliente, plural, porcentaje
+  BarraAvance, CasillaArchivados, Cifra, LeyendaAvance, etiquetaCategoria, etiquetaEjecucion, fuera, nombreCliente, porcentaje
 } from '../componentes';
+import { useT, type TraductorPortafolio } from '../textos';
 
 export function Cliente({ nombre, archivados, onArchivados }:
   { nombre: string; archivados: boolean; onArchivados: (v: boolean) => void }) {
-  useTitulo(`${nombreCliente(nombre)} · Portafolio`);
+  const t = useT();
+  useTitulo(t('tituloCliente', { cliente: nombreCliente(nombre, t) }));
   const consulta = useQuery({ queryKey: ['portafolio', 'cliente', nombre, archivados], queryFn: () => apiPortafolio.cliente(nombre, archivados) });
 
   return (
     <>
-      <nav className="migas" aria-label="Ruta">
-        <Link href="/">Portafolio</Link> <span aria-hidden="true">›</span> <span>{nombreCliente(consulta.data?.cliente ?? nombre)}</span>
+      <nav className="migas" aria-label={t('ruta')}>
+        <Link href="/">{t('titulo')}</Link> <span aria-hidden="true">›</span> <span>{nombreCliente(consulta.data?.cliente ?? nombre, t)}</span>
       </nav>
       {consulta.isPending ? <Cargando /> : consulta.isError ? (
         <>
@@ -30,17 +32,19 @@ export function Cliente({ nombre, archivados, onArchivados }:
 }
 
 function Detalle({ d, archivados, onArchivados }: { d: DetalleCliente; archivados: boolean; onArchivados: (v: boolean) => void }) {
+  const t = useT();
   const { resumen, indicadores: i } = d;
   const decisiones = i.porTipo.decision ?? 0;
   const eventos = (i.porTipo.start ?? 0) + (i.porTipo.intermediate ?? 0) + (i.porTipo.end ?? 0);
+  const sinRevisiones = resumen.procesos - i.procesosConContenido;
   return (
     <>
       <div className="encabezado">
         <div>
-          <h1 className={d.cliente ? '' : 'portafolio-sin-cliente'}>{nombreCliente(d.cliente)}</h1>
+          <h1 className={d.cliente ? '' : 'portafolio-sin-cliente'}>{nombreCliente(d.cliente, t)}</h1>
           <p className="sutil">
-            {plural(resumen.proyectos, 'proyecto', 'proyectos')} · {plural(resumen.procesos, 'proceso', 'procesos')}
-            {resumen.actualizadoEn && <> · Actualizado el {fecha(resumen.actualizadoEn)}</>}
+            {t('nProyectos', { n: resumen.proyectos })} · {t('nProcesos', { n: resumen.procesos })}
+            {resumen.actualizadoEn && <> · {t('actualizadoEl', { fecha: t.fecha(resumen.actualizadoEn) })}</>}
           </p>
         </div>
         <div className="acciones"><CasillaArchivados valor={archivados} onCambio={onArchivados} /></div>
@@ -49,9 +53,9 @@ function Detalle({ d, archivados, onArchivados }: { d: DetalleCliente; archivado
       {resumen.procesos > 0 && (
         <section className="tarjeta portafolio-bloque" aria-labelledby="t-avance">
           <div className="portafolio-bloque-cabecera">
-            <h2 id="t-avance">Avance hacia la aprobación</h2>
+            <h2 id="t-avance">{t('avance')}</h2>
             <p className="sutil">
-              {n(resumen.avance.aprobados)} de {plural(resumen.procesos, 'proceso aprobado', 'procesos aprobados')} ({porcentaje(resumen.avance.aprobados, resumen.procesos)} %)
+              {t('procesosAprobados', { a: resumen.avance.aprobados, n: resumen.procesos, p: porcentaje(resumen.avance.aprobados, resumen.procesos) })}
             </p>
           </div>
           <BarraAvance avance={resumen.avance} grande />
@@ -62,35 +66,35 @@ function Detalle({ d, archivados, onArchivados }: { d: DetalleCliente; archivado
       {i.procesosConContenido > 0 && (
         <>
           <dl className="portafolio-cifras">
-            <Cifra etiqueta="Actividades" valor={n(i.actividades)}
-              nota={`${plural(decisiones, 'decisión', 'decisiones')} · ${plural(eventos, 'evento', 'eventos')}`} />
-            <Cifra etiqueta="Roles" valor={n(i.roles)} nota="responsables distintos (carriles)" />
-            <Cifra etiqueta="Pains" valor={n(i.pains.total)}
-              nota={i.pains.total ? `puntuación ${n(i.pains.puntuacion)} · máx. ${n(i.pains.maxima)} de 25` : 'ninguno registrado'} />
-            <Cifra etiqueta="KPIs con valor" valor={n(i.kpis.conValor)}
-              nota={i.kpis.definidos ? `de ${plural(i.kpis.definidos, 'KPI elegido', 'KPIs elegidos')}` : 'ningún KPI elegido'} />
-            <Cifra etiqueta="Hallazgos del Playbook" valor={n(i.hallazgos.total)} nota={textoGraves(i.hallazgos)} />
+            <Cifra etiqueta={t('actividades')} valor={t.numero(i.actividades)}
+              nota={`${t('nDecisiones', { n: decisiones })} · ${t('nEventos', { n: eventos })}`} />
+            <Cifra etiqueta={t('roles')} valor={t.numero(i.roles)} nota={t('rolesNota')} />
+            <Cifra etiqueta={t('pains')} valor={t.numero(i.pains.total)}
+              nota={i.pains.total ? t('painsNota', { p: i.pains.puntuacion, m: i.pains.maxima }) : t('painsNinguno')} />
+            <Cifra etiqueta={t('kpisConValor')} valor={t.numero(i.kpis.conValor)}
+              nota={i.kpis.definidos ? t('kpisElegidos', { n: i.kpis.definidos }) : t('kpisNinguno')} />
+            <Cifra etiqueta={t('hallazgosPlaybook')} valor={t.numero(i.hallazgos.total)} nota={textoGraves(i.hallazgos, t)} />
           </dl>
           <p className="sutil portafolio-nota">
-            Indicadores de la última revisión de {plural(i.procesosConContenido, 'proceso', 'procesos')}
-            {i.procesosConContenido < resumen.procesos && ` (${plural(resumen.procesos - i.procesosConContenido, 'proceso aún no tiene', 'procesos aún no tienen')} revisiones)`}.
+            {t('notaIndicadores', { n: i.procesosConContenido })}
+            {sinRevisiones > 0 && ` (${t('notaSinRevisiones', { n: sinRevisiones })})`}.
           </p>
 
           <div className="portafolio-dos-columnas">
             <section className="tarjeta portafolio-bloque" aria-labelledby="t-ejecucion">
-              <h2 id="t-ejecucion">Tipo de ejecución de las actividades</h2>
+              <h2 id="t-ejecucion">{t('tipoEjecucion')}</h2>
               <Ejecucion ejecucion={i.ejecucion} total={i.actividades} />
             </section>
             <section className="tarjeta portafolio-bloque" aria-labelledby="t-pains">
-              <h2 id="t-pains">Pains principales</h2>
-              {i.painsPrincipales.length === 0 ? <p className="sutil">Ningún proceso tiene pains registrados.</p> : (
+              <h2 id="t-pains">{t('painsPrincipales')}</h2>
+              {i.painsPrincipales.length === 0 ? <p className="sutil">{t('sinPains')}</p> : (
                 <table className="tabla tabla-compacta portafolio-pains">
-                  <thead><tr><th className="portafolio-num" title="Severidad × frecuencia (máximo 25)">Puntuación</th><th>Pain</th><th>Dónde</th></tr></thead>
+                  <thead><tr><th className="portafolio-num" title={t('puntuacionTitulo')}>{t('puntuacion')}</th><th>{t('pain')}</th><th>{t('donde')}</th></tr></thead>
                   <tbody>
                     {i.painsPrincipales.map((p, k) => (
                       <tr key={k}>
-                        <td className="portafolio-num"><strong>{n(p.puntuacion)}</strong><small className="sutil"> {p.severidad}×{p.frecuencia}</small></td>
-                        <td>{p.descripcion || <span className="sutil">Sin descripción</span>}<small className="portafolio-categoria">{etiquetaCategoria(p.categoria)}</small></td>
+                        <td className="portafolio-num"><strong>{t.numero(p.puntuacion)}</strong><small className="sutil"> {p.severidad}×{p.frecuencia}</small></td>
+                        <td>{p.descripcion || <span className="sutil">{t('sinDescripcion')}</span>}<small className="portafolio-categoria">{etiquetaCategoria(p.categoria, t)}</small></td>
                         <td>{p.actividad}<small className="portafolio-categoria"><Link href={fuera.proceso(p.procesoId)}>{p.proceso}</Link></small></td>
                       </tr>
                     ))}
@@ -103,14 +107,14 @@ function Detalle({ d, archivados, onArchivados }: { d: DetalleCliente; archivado
       )}
 
       <section aria-labelledby="t-procesos">
-        <h2 id="t-procesos">Procesos por proyecto</h2>
+        <h2 id="t-procesos">{t('procesosPorProyecto')}</h2>
         {d.proyectos.map((p) => (
           <div key={p.id} className="portafolio-proyecto">
             <h3>
               <Link href={fuera.proyecto(p.id)}>{p.nombre}</Link>
-              {p.archivado && <Etiqueta tono="aviso">Archivado</Etiqueta>}
+              {p.archivado && <Etiqueta tono="aviso">{t('archivado')}</Etiqueta>}
             </h3>
-            {p.procesos.length === 0 ? <Vacio>Este proyecto aún no tiene procesos.</Vacio> : <TablaProcesos procesos={p.procesos} />}
+            {p.procesos.length === 0 ? <Vacio>{t('proyectoSinProcesos')}</Vacio> : <TablaProcesos procesos={p.procesos} />}
           </div>
         ))}
       </section>
@@ -118,28 +122,27 @@ function Detalle({ d, archivados, onArchivados }: { d: DetalleCliente; archivado
   );
 }
 
-const GRAVES: [keyof ConteoHallazgos, string, string][] = [['critical', 'crítico', 'críticos'], ['high', 'alto', 'altos']];
-
-function textoGraves(h: ConteoHallazgos): string {
-  if (h.total === 0) return 'sin observaciones';
-  return GRAVES.map(([s, uno, varios]) => plural(h[s], uno, varios)).join(' · ');
+function textoGraves(h: ConteoHallazgos, t: TraductorPortafolio): string {
+  if (h.total === 0) return t('sinObservaciones');
+  return `${t('nCriticos', { n: h.critical })} · ${t('nAltos', { n: h.high })}`;
 }
 
 function Ejecucion({ ejecucion, total }: { ejecucion: Record<string, number>; total: number }) {
+  const t = useT();
   // De más a menos frecuente; «Sin tipo» siempre al final (es un pendiente, no un tipo)
   const filas = Object.entries(ejecucion).sort(([a, x], [b, y]) => Number(a === 'sin_tipo') - Number(b === 'sin_tipo') || y - x);
-  if (filas.length === 0) return <p className="sutil">Los procesos no tienen actividades.</p>;
+  if (filas.length === 0) return <p className="sutil">{t('sinActividades')}</p>;
   const maximo = Math.max(...filas.map(([, v]) => v));
   return (
     <table className="portafolio-barras">
       <tbody>
         {filas.map(([tipo, v]) => (
           <tr key={tipo} className={tipo === 'sin_tipo' ? 'portafolio-sin-tipo' : ''}>
-            <th scope="row">{etiquetaEjecucion(tipo)}</th>
+            <th scope="row">{etiquetaEjecucion(tipo, t)}</th>
             <td className="portafolio-barras-pista">
-              <span style={{ width: `${(v / maximo) * 100}%` }} title={`${etiquetaEjecucion(tipo)}: ${n(v)} de ${n(total)} actividades`} />
+              <span style={{ width: `${(v / maximo) * 100}%` }} title={t('barraTitulo', { tipo: etiquetaEjecucion(tipo, t), v, total })} />
             </td>
-            <td className="portafolio-num">{n(v)}<small className="sutil"> {porcentaje(v, total)} %</small></td>
+            <td className="portafolio-num">{t.numero(v)}<small className="sutil"> {t('pct', { p: porcentaje(v, total) })}</small></td>
           </tr>
         ))}
       </tbody>
@@ -148,15 +151,16 @@ function Ejecucion({ ejecucion, total }: { ejecucion: Record<string, number>; to
 }
 
 function TablaProcesos({ procesos }: { procesos: ProcesoPortafolio[] }) {
+  const t = useT();
   return (
     <table className="tabla tabla-compacta portafolio-tabla">
       <thead>
         <tr>
-          <th>Proceso</th><th>Última revisión</th>
-          <th className="portafolio-num">Actividades</th><th className="portafolio-num">Roles</th>
-          <th className="portafolio-num" title="Cantidad y la mayor puntuación (severidad × frecuencia)">Pains</th>
-          <th className="portafolio-num">KPIs con valor</th><th className="portafolio-num">Hallazgos</th>
-          <th>Actualizado</th><th><span className="solo-lector">Acciones</span></th>
+          <th>{t('proceso')}</th><th>{t('ultimaRevision')}</th>
+          <th className="portafolio-num">{t('actividades')}</th><th className="portafolio-num">{t('roles')}</th>
+          <th className="portafolio-num" title={t('painsTitulo')}>{t('pains')}</th>
+          <th className="portafolio-num">{t('kpisConValor')}</th><th className="portafolio-num">{t('hallazgos')}</th>
+          <th>{t('actualizado')}</th><th><span className="solo-lector">{t('acciones')}</span></th>
         </tr>
       </thead>
       <tbody>
@@ -166,24 +170,24 @@ function TablaProcesos({ procesos }: { procesos: ProcesoPortafolio[] }) {
           return (
             <tr key={p.id}>
               <td><Link href={fuera.proceso(p.id)}>{p.nombre}</Link></td>
-              <td>{p.ultimaRevision ? <>v{p.ultimaRevision.numero} <Insignia estado={p.ultimaRevision.estado} /></> : <span className="sutil">Sin revisiones</span>}</td>
+              <td>{p.ultimaRevision ? <>v{p.ultimaRevision.numero} <Insignia estado={p.ultimaRevision.estado} /></> : <span className="sutil">{t('sinRevisiones')}</span>}</td>
               {i ? (
                 <>
-                  <td className="portafolio-num">{n(i.actividades)}</td>
-                  <td className="portafolio-num" title={i.roles.join(', ')}>{n(i.roles.length)}</td>
-                  <td className="portafolio-num">{n(i.pains.total)}{i.pains.total > 0 && <small className="sutil"> máx. {n(i.pains.maxima)}</small>}</td>
-                  <td className="portafolio-num">{i.kpis.definidos ? `${n(i.kpis.conValor)} de ${n(i.kpis.definidos)}` : <span className="sutil">—</span>}</td>
+                  <td className="portafolio-num">{t.numero(i.actividades)}</td>
+                  <td className="portafolio-num" title={i.roles.join(', ')}>{t.numero(i.roles.length)}</td>
+                  <td className="portafolio-num">{t.numero(i.pains.total)}{i.pains.total > 0 && <small className="sutil"> {t('maximo', { m: i.pains.maxima })}</small>}</td>
+                  <td className="portafolio-num">{i.kpis.definidos ? t('xDeY', { a: i.kpis.conValor, b: i.kpis.definidos }) : <span className="sutil">—</span>}</td>
                   <td className="portafolio-num">
-                    {n(i.hallazgos.total)}{graves > 0 && <> <Etiqueta tono="aviso">{plural(graves, 'grave', 'graves')}</Etiqueta></>}
+                    {t.numero(i.hallazgos.total)}{graves > 0 && <> <Etiqueta tono="aviso">{t('nGraves', { n: graves })}</Etiqueta></>}
                   </td>
                 </>
               ) : (
                 <td colSpan={5} className="sutil">
-                  {p.contenidoInvalido ? 'No se pudo leer el contenido de la última revisión.' : 'Sin contenido todavía.'}
+                  {p.contenidoInvalido ? t('contenidoInvalido') : t('sinContenido')}
                 </td>
               )}
-              <td className="fecha">{fecha(p.actualizadoEn)}</td>
-              <td className="celda-acciones"><a className="boton boton-sutil" href={enEditor.proceso(p.id)}>Abrir en el editor</a></td>
+              <td className="fecha">{t.fecha(p.actualizadoEn)}</td>
+              <td className="celda-acciones"><EnlaceEditor className="boton boton-sutil" href={enEditor.proceso(p.id)}>{t('abrirEnEditor')}</EnlaceEditor></td>
             </tr>
           );
         })}
