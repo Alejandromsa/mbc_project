@@ -36,7 +36,7 @@ Si trabajas en una iniciativa, lee antes [docs/equipo/README.md](../equipo/READM
 | 5173 | Web (Vite): editor en `/`, plataforma en `/proyectos/` | `pnpm dev` |
 | 8790 | API de desarrollo (`PORT` de `.env.dev`) | `pnpm --filter @processiq/api dev` |
 | 8787 | Intermediario de IA | `pnpm --filter @processiq/intermediario dev` |
-| 5440 | Postgres de desarrollo y pruebas (el 5432 lo suele ocupar un Postgres nativo) | `docker compose --profile dev up -d postgres-dev` |
+| 5440 | Postgres de desarrollo y pruebas, solo en `127.0.0.1` (el 5432 lo suele ocupar un Postgres nativo) | `docker compose -f docker-compose.dev.yml up -d` |
 | 4173 | Vista previa del build | `pnpm --filter @processiq/web preview` |
 | 4401, 4402 | Servidores de la fidelidad (MVP y app nueva) | `pnpm fidelidad` |
 | 4480, 8792, 8793 | Web, API y Anthropic falso de la E2E | `pnpm e2e` |
@@ -62,13 +62,13 @@ pnpm install
 cp .env.dev.example .env.dev         # configuración de la API de desarrollo
 ```
 
-Levanta el Postgres de desarrollo. `docker compose` lee todo `docker-compose.yml` y exige `DOMINIO` y `POSTGRES_PASSWORD` aunque solo arranques `postgres-dev`. Si no tienes un `.env` en la raíz, pásalas en la línea:
+Levanta el Postgres de desarrollo. Está en su propio archivo de Compose, que no necesita `.env`:
 
 ```bash
-DOMINIO=localhost POSTGRES_PASSWORD=solo-desarrollo docker compose --profile dev up -d postgres-dev
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-Esos dos valores no se usan en `postgres-dev`: sus credenciales son fijas de desarrollo y están en el propio `docker-compose.yml` y en `.env.dev.example`. Si prefieres no escribirlas cada vez, crea el `.env` de la raíz (ver [3.4](#34-intermediario-de-ia)).
+Sus credenciales son fijas de desarrollo (`processiq`) y están en el propio `docker-compose.dev.yml` y en `.env.dev.example`. Por eso solo escucha en `127.0.0.1`.
 
 Instala el navegador de las pruebas (una vez; sirve para fidelidad y E2E):
 
@@ -98,11 +98,13 @@ Cada comando va en su propia terminal, desde la raíz.
 ### 3.1 Postgres de desarrollo
 
 ```bash
-docker compose --profile dev up -d postgres-dev   # ver §2 si no tienes .env
-docker compose --profile dev ps postgres-dev      # debe salir «healthy»
+docker compose -f docker-compose.dev.yml up -d    # no necesita .env
+docker compose -f docker-compose.dev.yml ps       # debe salir «healthy»
 ```
 
-Postgres 17 en el puerto 5440, con los datos en el volumen `postgres_dev`. No se usa en producción.
+Postgres 17 en `127.0.0.1:5440`, con los datos en el volumen `processiq_postgres_dev` (proyecto de Compose `processiq-dev`, contenedor `processiq-postgres-dev-1`). No se usa en producción. Para pararlo, `docker compose -f docker-compose.dev.yml down`, **sin `-v`**: borraría los datos.
+
+Si lo levantaste antes con `docker compose --profile dev up -d postgres-dev` (el que publicaba el 5440 en todas las interfaces), cámbialo una vez: [servidor-local.md](../runbooks/servidor-local.md#desarrollo-en-el-pc).
 
 ### 3.2 API
 
@@ -144,7 +146,7 @@ pnpm --filter @processiq/intermediario dev
 ```
 
 - Solo lo usa el **editor libre** en el modo «Clave del equipo». El editor en modo proyecto usa la IA del servidor.
-- Lee el `.env` **de la raíz** (el mismo archivo que usa `docker compose`), no `.env.dev`. Si no lo tienes, créalo desde [.env.example](../../.env.example) con `DOMINIO=localhost`, una `POSTGRES_PASSWORD` cualquiera y estas variables:
+- Lee `.env.dev`, como la API. Solo si no existe, lee el `.env` de la raíz y avisa (en el servidor, ese es el de producción). Descomenta en `.env.dev` estas variables:
 
 | Variable | Valor en desarrollo |
 |---|---|
@@ -152,8 +154,8 @@ pnpm --filter @processiq/intermediario dev
 | `ACCESS_CODE` | Cualquier código; el mismo que pongas en «Ajustes de IA» del editor |
 | `ALLOWED_ORIGINS` | `http://localhost:5173`. Sin él, toda llamada responde 403 |
 
-- Escucha en el 8787. Vite le reenvía `/ia/*` quitando el prefijo `/ia`.
-- **Si tu PC es también el servidor**, ese `.env` es el de producción: no lo cambies para desarrollar.
+- Escucha en el 8787. Vite le reenvía `/ia/*` quitando el prefijo `/ia`. El `PORT` de `.env.dev` es el de la API y el intermediario no lo usa.
+- `ANTHROPIC_API_KEY` en `.env.dev` también la ven la API y el worker de desarrollo: la IA del servidor queda configurada y gasta de verdad.
 
 ### 3.5 Web
 
@@ -220,8 +222,8 @@ Los proyectos se crean a través de la propia API, con las mismas validaciones y
 ```bash
 pnpm fronteras        # dependencias permitidas entre paquetes
 pnpm typecheck        # tipos de todos los paquetes
-pnpm test             # unitarias + integración de la API (necesita postgres-dev)
-pnpm e2e              # plataforma de punta a punta (~1 min; necesita postgres-dev)
+pnpm test             # unitarias + integración de la API (necesita el Postgres de desarrollo)
+pnpm e2e              # plataforma de punta a punta (~1 min; necesita el Postgres de desarrollo)
 pnpm fidelidad        # si tocaste apps/web/src/app/ o packages/ (~2,5 min)
 ```
 
@@ -331,15 +333,16 @@ Staging y producción no se levantan así: se despliegan con `infra/desplegar.sh
 
 | Síntoma | Causa | Solución |
 |---|---|---|
-| `required variable DOMINIO is missing a value` al levantar `postgres-dev` | Compose exige las variables obligatorias de todo el archivo | Pásalas en la línea (ver [§2](#2-primera-instalación)) o crea un `.env` desde `.env.example` |
+| `required variable DOMINIO is missing a value` al levantar el Postgres de desarrollo | Usaste `docker-compose.yml` (el del servidor) | `docker compose -f docker-compose.dev.yml up -d` |
+| `Conflict. The container name "/processiq-postgres-dev-1" is already in use` | Sigue el contenedor viejo (perfil `dev` de `docker-compose.yml`) | Cámbialo una vez: [servidor-local.md](../runbooks/servidor-local.md#desarrollo-en-el-pc) |
 | El puerto 5432 está ocupado | Un Postgres nativo en el PC | El de desarrollo va en el 5440; no lo cambies |
 | `403 Origen no permitido` al entrar o guardar | Abriste la web con otra dirección (otra forma de escribir `localhost`, otro puerto) | Ábrela exactamente en el `ORIGEN_PUBLICO` de `.env.dev` (`http://localhost:5173`) |
 | `/api` responde 502 o no conecta desde Vite | La API no está arrancada, o su `PORT` no es 8790 | Arranca la API; revisa `.env.dev` |
 | `429` «Demasiados intentos fallidos» | 10 fallos de acceso en 15 minutos | Espera, o reinicia la API: el contador vive en memoria |
 | La IA del servidor responde `409 IA_NO_CONFIGURADA` | Falta `ANTHROPIC_API_KEY` en `.env.dev` | Añádela y reinicia la API |
 | Una ejecución de IA se queda «en cola» | El worker no está arrancado | `pnpm --filter @processiq/api worker` |
-| IA del editor libre: `403 Origen no permitido` | `ALLOWED_ORIGINS` del `.env` raíz no incluye `http://localhost:5173` | Añádelo y reinicia el intermediario |
-| IA del editor libre: `401 Codigo de acceso incorrecto` o `500 … secretos` | El código de «Ajustes de IA» no coincide con `ACCESS_CODE`, o falta la clave o el código | Revisa el `.env` raíz |
+| IA del editor libre: `403 Origen no permitido` | `ALLOWED_ORIGINS` de `.env.dev` no incluye `http://localhost:5173` | Añádelo y reinicia el intermediario |
+| IA del editor libre: `401 Codigo de acceso incorrecto` o `500 … secretos` | El código de «Ajustes de IA» no coincide con `ACCESS_CODE`, o falta la clave o el código | Revisa `.env.dev` |
 | La semilla se niega a correr | `DATABASE_URL` no apunta a `localhost` | Es a propósito: solo corre contra el Postgres de desarrollo |
 | PPTX, Word o PDF fallan en desarrollo | Arrancaste `vite` a mano y no existe `apps/web/public/vendor/` | Usa `pnpm dev` |
 | Una migración nueva se aplicó en local pero staging no la ve | Su marca de tiempo es anterior a otra ya aplicada | Regenérala después de traer `main` ([§6](#6-añadir-una-migración)) |
@@ -348,9 +351,9 @@ Staging y producción no se levantan así: se despliegan con `infra/desplegar.sh
 
 | Síntoma | Causa | Solución |
 |---|---|---|
-| `pnpm test` falla con `ECONNREFUSED` | El Postgres de desarrollo está apagado | `docker compose --profile dev up -d postgres-dev` |
+| `pnpm test` falla con `ECONNREFUSED` | El Postgres de desarrollo está apagado | `docker compose -f docker-compose.dev.yml up -d` |
 | Pruebas de la API que fallan al azar con dos copias abiertas | Las dos usan y borran `processiq_pruebas` | `TEST_DATABASE_URL` distinto en cada copia ([pruebas.md §7](pruebas.md#7-integración-de-la-api)) |
-| `pnpm e2e` no arranca | Puerto 4480, 8792 u 8793 ocupado, o `postgres-dev` apagado | Cierra la otra corrida; levanta Postgres |
+| `pnpm e2e` no arranca | Puerto 4480, 8792 u 8793 ocupado, o el Postgres de desarrollo apagado | Cierra la otra corrida; levanta Postgres |
 | La fidelidad pasa con código que debería fallar | Probaste un `dist` viejo o un servidor viejo en 4401/4402 | Usa `pnpm fidelidad`; cierra los servidores de otras copias |
 | La fidelidad falla por décimas de píxel solo a veces | Fuentes o tiempos, no el código | `--repeat-each 5` sobre ese caso antes de tocar nada |
 | Typecheck en verde y build en rojo | Dependencia sin declarar o import que solo resuelve en el editor | Revisa el `package.json` y el `index.ts` del paquete |

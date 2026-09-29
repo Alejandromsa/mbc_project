@@ -9,23 +9,64 @@ Todo se hace en el servidor, en la carpeta del repositorio, con Git Bash. El dis
 
 ## Flujo normal
 
-1. **Fusionar el PR en `main`** (con la CI en verde) y actualizar el servidor:
+1. **Fusionar el PR en `main`** (con la CI en verde).
+2. **Staging:** lo despliega solo el [sondeo](#despliegue-automático-a-staging-sondeo) en 10 minutos como mucho; `infra/sondear-main.sh --estado` dice en qué va. A mano, con el sondeo en pausa (construye las imágenes con la versión = commit y las levanta):
    ```bash
    git switch main && git pull
-   ```
-2. **Staging** (construye las imágenes con la versión = commit y las levanta):
-   ```bash
    infra/desplegar.sh staging
    ```
-3. **Validar en staging:** entrar, abrir un proceso, guardar una revisión y mirar «Sistema».
-4. **Promover a producción la MISMA imagen** (no reconstruye):
+3. **Validar en staging:** entrar, abrir un proceso, guardar una revisión y mirar «Sistema». Anotar la versión validada (`infra/desplegar.sh versiones`).
+4. **Promover a producción la MISMA imagen** (no reconstruye), con la versión validada:
    ```bash
-   infra/desplegar.sh produccion
+   infra/desplegar.sh produccion <version>
    ```
+   Sin versión, promueve la que tenga staging **en ese momento**. Con el sondeo activo puede ser otra más nueva que llegó mientras validabas: indica siempre la versión.
    La API aplica las migraciones nuevas al arrancar.
 5. Comprobar `https://mbc.asissoft.com/proyectos/admin/sistema`.
 
 `infra/desplegar.sh versiones` muestra qué versión corre en cada entorno y el registro de despliegues (`despliegues.log`).
+
+## Despliegue automático a staging (sondeo)
+
+El servidor mira `main` cada 10 minutos y, si avanzó, despliega staging. Es el servidor quien pregunta a GitHub: no hay runners propios de GitHub Actions, que en un repositorio público dejarían a un PR ejecutar código en el servidor ([ADR 18](../adr/0018-repositorio-publico.md)). **Producción sigue siendo manual.**
+
+Cada consulta ([infra/sondear-main.sh](../../infra/sondear-main.sh)):
+
+1. Se niega si la carpeta no está en `main`, si tiene cambios sin confirmar o si falta `.env.staging`.
+2. Toma su cerrojo (`.git/processiq-sondeo.cerrojo`). Si hay otra consulta en curso, no hace nada. Un cerrojo de más de 2 horas se da por abandonado.
+3. `git fetch`. Si `origin/main` es la versión de staging (`VERSION` de `.env.staging`), termina.
+4. Si no: `git pull --ff-only` e `infra/desplegar.sh staging`. Se niega si el `main` local tiene commits que no están en `origin/main`, y no hace nada si staging va por delante.
+5. Si el despliegue falla, no lo reintenta con ese commit: espera al siguiente, o a que lo despliegues a mano. La salida del último despliegue queda en `.git/processiq-sondeo.salida`.
+
+Registro en `despliegues.log`, con líneas `sondeo: …`: cada despliegue (bien o mal) y cada cambio de situación (pausa, rechazo). Las consultas sin cambios no se anotan, y un rechazo que se repite se anota una sola vez.
+
+```bash
+infra/sondear-main.sh --estado            # último resultado, pausa, cerrojo, commit fallido y versiones
+infra/sondear-main.sh --simular           # qué haría ahora, sin pull ni despliegue (sí hace git fetch)
+infra/sondear-main.sh --pausar "motivo"   # deja de desplegar (queda en .git/processiq-sondeo.pausa)
+infra/sondear-main.sh --reanudar
+```
+
+**Pausarlo** antes de:
+- desplegar staging a mano, o trabajar en la carpeta del servidor en otra rama (si no, lo rechaza y lo anota);
+- validar una versión con calma: así staging no cambia mientras tanto.
+
+También se puede desactivar la tarea: `Disable-ScheduledTask -TaskName 'ProcessIQ - sondeo de main a staging'` (y `Enable-ScheduledTask` para volver).
+
+### Instalación (una vez, en el servidor)
+
+En PowerShell, **con la cuenta que tiene Docker Desktop** y sin permisos de administrador, en la carpeta del repositorio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File infra\instalar-sondeo.ps1          # registra la tarea (o la sustituye)
+powershell -ExecutionPolicy Bypass -File infra\instalar-sondeo.ps1 -Quitar  # la borra
+```
+
+- La tarea se llama «ProcessIQ - sondeo de main a staging». Ejecuta Git Bash sin ventana cada 10 minutos (`-Minutos` para cambiarlo), una sola vez a la vez, y la corta a la hora.
+- Solo corre con la sesión iniciada, igual que Docker Desktop.
+- `origin` tiene que poder leerse sin credenciales: el repositorio es público y se usa por HTTPS.
+- Antes, comprueba que la carpeta está en `main` y limpia: `infra/sondear-main.sh --simular`.
+- Después: `Get-ScheduledTaskInfo -TaskName 'ProcessIQ - sondeo de main a staging'` (`LastTaskResult` 0 = bien, 1 = rechazo o fallo) e `infra/sondear-main.sh --estado`.
 
 ## Reversión
 
@@ -58,6 +99,8 @@ Las imágenes anteriores siguen en el servidor, así que revertir tarda lo que t
 - **`No existe la imagen processiq/…:<version>`:** esa versión no pasó por staging. Desplegar antes en staging.
 - **`Hay cambios sin confirmar`:** la versión se identifica por el commit. Confirmar o descartar los cambios.
 - **Staging responde 502:** su pila está parada (`infra/desplegar.sh staging`) o producción no tiene la red (`docker compose up -d`).
+- **`RED_BORDE no coincide`:** producción (`.env`) y staging (`.env.staging`) tienen que usar la misma red. Pon el mismo valor en los dos archivos, o quítalo de los dos. Una `RED_BORDE` exportada en la terminal gana a los archivos, como en Compose.
+- **El sondeo no despliega:** `infra/sondear-main.sh --estado` y las líneas `sondeo:` de `despliegues.log` dicen por qué (pausa, otra rama, cambios sin confirmar, commit fallido). Si falló un despliegue, su salida está en `.git/processiq-sondeo.salida`; arreglado el problema, `infra/desplegar.sh staging` (con el sondeo en pausa) o el siguiente commit de `main`.
 - **Espacio en disco:** `infra/desplegar.sh produccion` borra solo las imágenes viejas al terminar. También se puede lanzar a mano con `infra/desplegar.sh limpiar [n]`. Siempre conserva:
   - las versiones de producción y de staging;
   - la versión anterior de producción, para poder revertir;

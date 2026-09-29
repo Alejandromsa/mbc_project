@@ -2,6 +2,10 @@
 //   POST /api/errores          la web y el editor informan de sus errores (pública, con límite por IP)
 //   GET  /api/sistema          estado para el administrador, con avisos
 //   GET  /api/sistema/errores/:huella   las últimas repeticiones de un error
+// Es del servidor entero, no de una organización: cualquier administrador ve el
+// estado, la cola de IA, las copias y los errores de todas (con el correo de
+// quien tuvo el error). A diferencia de la auditoría, no se filtra: con varias
+// organizaciones, hará falta un rol de operación del servidor (docs/tecnica/seguridad.md).
 import { readdir, stat, statfs } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Hono } from 'hono';

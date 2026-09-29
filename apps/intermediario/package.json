@@ -4,7 +4,7 @@
   "version": "4.4.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "dev": "node scripts/dev.mjs",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

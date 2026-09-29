@@ -78,8 +78,10 @@ Todas las de `.env.example`, `.env.dev.example`, `.env.staging.example` y las de
 
 | Nombre | Tipo | Dueño |
 |---|---|---|
-| `web`, `api`, `worker`, `postgres`, `respaldo`, `intermediario`, `postgres-dev` | Servicios de `docker-compose.yml` | `nucleo` |
-| `processiq`, `processiq-staging` | Proyectos de Compose | `nucleo` |
+| `web`, `api`, `worker`, `postgres`, `respaldo`, `intermediario` | Servicios de `docker-compose.yml` | `nucleo` |
+| `postgres-dev` (contenedor `processiq-postgres-dev-1`, volumen `processiq_postgres_dev`) | Servicio de `docker-compose.dev.yml` | `nucleo` |
+| `processiq`, `processiq-staging`, `processiq-dev` | Proyectos de Compose | `nucleo` |
+| `ProcessIQ - sondeo de main a staging` | Tarea programada de Windows (`infra/instalar-sondeo.ps1`) | `nucleo` |
 | `processiq-borde` | Red Docker | `nucleo` |
 | `mbc.asissoft.com`, `staging.mbc.asissoft.com` | Dominios | `nucleo` |
 
