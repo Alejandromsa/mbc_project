@@ -13,6 +13,8 @@ export default defineConfig({
   workers: 1,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   outputDir: 'resultados',
+  // Falla si alguna prueba violó la CSP del Caddyfile (la web se sirve con ella: src/servidor.mjs)
+  globalTeardown: './src/comprobar-csp.mjs',
   use: { ...devices['Desktop Chrome'], baseURL: BASE, trace: 'retain-on-failure' },
   webServer: [
     {
