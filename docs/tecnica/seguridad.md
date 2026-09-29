@@ -350,7 +350,7 @@ Cuidado: si un código mete datos del proceso en el mensaje de un `Error`, esos 
 | Excepciones | [ADR 17](../adr/0017-excepciones-auditoria-dependencias.md): `canvas` eliminado con `pnpm.overrides`; tres avisos aceptados (`image-size` por pptxgenjs y `mammoth`) en `pnpm.auditConfig.ignoreGhsas` de [package.json](../../package.json). Solo valen mientras esas librerías corran en el navegador |
 | Un solo lockfile | `pnpm-lock.yaml`. La CI instala con `--frozen-lockfile`; las imágenes con `pnpm fetch` y `pnpm install --offline --frozen-lockfile` |
 | Versión de pnpm | Fijada en `packageManager` (`pnpm@10.33.0`); Node 22 en la CI y en las imágenes |
-| Librerías del navegador | Versión exacta (pptxgenjs 3.12.0, JSZip 3.10.1, mammoth 1.8.0, pdf.js 4.7.76; también React y las demás dependencias de ejecución de la web) y servidas desde la propia web. Regla: nada desde un CDN |
+| Librerías del navegador | Versión exacta (pptxgenjs 3.12.0, JSZip 3.10.1, mammoth 1.13.0, pdf.js 4.7.76; también React y las demás dependencias de ejecución de la web) y servidas desde la propia web. Regla: nada desde un CDN |
 | Resto de dependencias | Rangos `^` en `package.json`, resueltos siempre por el lockfile |
 | GitHub | Avisos de Dependabot y escaneo de secretos ([ADR 18](../adr/0018-repositorio-publico.md)) |
 | Runners | Solo los de GitHub. No hay runners propios: un PR desde un fork podría ejecutar código en el servidor. El despliegue a staging lo inicia el propio servidor, que consulta `main` cada 10 minutos ([despliegue.md](../runbooks/despliegue.md#despliegue-automático-a-staging-sondeo)) |

@@ -39,7 +39,7 @@ Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 | Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 102 | Nada | Segundos |
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
 | Integración de la API | Vitest | `apps/api/src/*.test.ts` | 44 | Postgres de desarrollo | — |
-| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 32 | Web construida, Chromium, internet | ~2,5 min |
+| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 33 | Web construida, Chromium, internet | ~2,5 min |
 | E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 18 | Web construida, Chromium, Postgres de desarrollo | ~1 min |
 | Imágenes | `docker compose build` | [infra/](../../infra) | — | Docker | — |
 | Banco de calidad | Consola del navegador | [bench/](../../bench/README.md) | Manual | Procesos reales fuera del repositorio | — |
