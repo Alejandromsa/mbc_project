@@ -1,6 +1,6 @@
 # Revisión por invitados externos (`invitados`)
 
-> **Estado:** reservada · **Responsable:** @Alejandromsa (agente de invitados) · **Desde:** 28-sep-2026
+> **Estado:** en desarrollo · **Responsable:** @Alejandromsa (agente de invitados) · **Desde:** 28-sep-2026
 
 ## Objetivo
 
