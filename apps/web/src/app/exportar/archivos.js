@@ -1,13 +1,46 @@
-// Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
+// Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1, salvo el JSON
+// completo (divergencia D7 en docs/fase1-divergencias.md).
 import { $, canvas } from '../dom.js';
 import { normalizeFicha, state } from '../estado.js';
+import { autoLayout } from '../layout/auto-layout.js';
 import { render } from '../lienzo/render.js';
+import { renderKpiLibrary } from '../paneles/kpis.js';
 import { persist } from '../persistencia.js';
+import { updateViewUi } from '../vistas/comparador.js';
 
 // =================== EXPORT / IMPORT ===================
+// D7: el MVP exportaba solo meta, ficha y la vista activa (nodes, edges). Ahora
+// el JSON lleva lo mismo que una revisión de un proyecto (contenidoDe en
+// plataforma/proyecto.js): las dos vistas, KPIs, RACI, SIPOC, la simulación y
+// los carriles. Sigue sin schemaVersion (formato del MVP), así que lo leen igual
+// el editor, «Nuevo proceso → JSON» del shell y la importación asistida.
 function exportJson() {
-  const data = { meta: state.meta, ficha: state.ficha, nodes: state.nodes, edges: state.edges, exportedAt: new Date().toISOString() };
+  const data = {
+    meta: state.meta, ficha: state.ficha, nodes: state.nodes, edges: state.edges,
+    activeView: state.activeView,
+    views: { ...state._views, [state.activeView]: { nodes: state.nodes, edges: state.edges } },
+    raci: state._raci || null, sipoc: state._sipoc || null, simResults: state._simResults || null,
+    kpiValues: state._kpiValues || null, lanes: state._lanes || null,
+    exportedAt: new Date().toISOString()
+  };
   download(JSON.stringify(data, null, 2), filename('json'), 'application/json');
+}
+
+/** JSON completo (D7): trae las dos vistas. Los del MVP no. */
+const esJsonCompleto = (data) => !!data.views && typeof data.views === 'object' && !Array.isArray(data.views);
+
+/** Siguiente id libre mirando nodos, aristas y pains de las dos vistas (los ids son letra + número). */
+function siguienteIdDeTodo() {
+  let max = 0;
+  const ver = (o) => { const m = /(\d+)$/.exec(String(o && o.id != null ? o.id : '')); if (m) max = Math.max(max, Number(m[1])); };
+  const vista = (v) => {
+    if (!v) return;
+    (v.nodes || []).forEach((n) => { ver(n); (Array.isArray(n && n.pains) ? n.pains : []).forEach(ver); });
+    (v.edges || []).forEach(ver);
+  };
+  vista({ nodes: state.nodes, edges: state.edges });
+  Object.values(state._views || {}).forEach(vista);
+  return max + 1;
 }
 
 function importJson(e) {
@@ -21,12 +54,29 @@ function importJson(e) {
       state.ficha = normalizeFicha(data.ficha);
       state.nodes = data.nodes || [];
       state.edges = data.edges || [];
-      state.nextId = (Math.max(0, ...state.nodes.map(n => parseInt(n.id.slice(1), 10) || 0)) || 0) + 1;
+      const completo = esJsonCompleto(data);
+      if (completo) {
+        // D7: vistas y análisis del JSON completo. Un JSON del MVP sigue el camino de siempre.
+        state.activeView = data.activeView === 'tobe' ? 'tobe' : 'asis';
+        state._views = { asis: data.views.asis || null, tobe: data.views.tobe || null };
+        state._raci = data.raci || null;
+        state._sipoc = data.sipoc || null;
+        state._simResults = data.simResults || null;
+        state._kpiValues = data.kpiValues || {};
+        state._lanes = data.lanes || null;
+        state.selectedNodeId = null;
+        state.selectedEdgeId = null;
+        state.nextId = siguienteIdDeTodo();
+      } else {
+        state.nextId = (Math.max(0, ...state.nodes.map(n => parseInt(n.id.slice(1), 10) || 0)) || 0) + 1;
+      }
       $('#processName').value = state.meta.name || '';
       $('#processIndustry').value = state.meta.industry || '';
       $('#processMacro').value = state.meta.macroprocess || '';
+      if (completo) { updateViewUi(); renderKpiLibrary(); }
       persist();
-      render();
+      // Sin carriles guardados, se calculan (como al abrir datos de una versión vieja)
+      if (completo && state.nodes.length > 0 && !state._lanes) autoLayout(); else render();
     } catch (err) { alert('Archivo JSON inválido.'); }
   };
   reader.readAsText(f);

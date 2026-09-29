@@ -39,7 +39,7 @@ function attachHeaderListeners() {
     // Con API key el To-Be lo disena Claude sobre ESTE proceso; sin key, reglas fijas
     if (aiReady() && state.nodes.length) {
       activateTab('copilot');
-      copilotPost('user', 'Disenar el proceso To-Be (IA).');
+      copilotPost('user', 'Diseñar el proceso To-Be (IA).');
       runAiTask('propose-tobe');
       return;
     }

@@ -54,7 +54,7 @@ async function runIngest(source) {
       if (r.kind === 'bpmn' && sourcesList().length > 0) {
         const desc = describeCurrentProcessAsText();
         if (desc) addSource('diagrama', r.name, 'Diagrama existente del proceso:' + String.fromCharCode(10) + desc);
-        ingestProgress('Diagrama anadido como fuente', 100);
+        ingestProgress('Diagrama añadido como fuente', 100);
         endIngestJob();
         return;
       }
@@ -69,7 +69,7 @@ async function runIngest(source) {
       const tipo = /transcrip|audio|reunion|llamada|teams|zoom/i.test(r.name) ? 'transcripcion' : 'documento';
       addSource(tipo, r.name, r.text);
       if (source.addOnly) {
-        ingestProgress('Fuente anadida: ' + r.name, 100);
+        ingestProgress('Fuente añadida: ' + r.name, 100);
         endIngestJob();
         return;
       }
@@ -161,6 +161,43 @@ async function runIngest(source) {
 // Compatibilidad: el input de archivo entra por aquí
 async function ingestDocFile(file) { return runIngest({ file }); }
 
+// D6 (docs/fase1-divergencias.md): mammoth 1.13 convierte las casillas de Word
+// (w14:checkbox) en casillas sin texto, y el texto extraído perdía si estaban
+// marcadas (☒) o no (☐). Antes de leer, se quita esa marca de casilla del
+// documento: su contenido, el símbolo, se lee como texto, igual que con
+// mammoth 1.8.0. Sin casillas, o si algo falla, se lee el archivo tal cual.
+const NS_WORD_2010 = 'http://schemas.microsoft.com/office/word/2010/wordml';
+
+function quitarMarcasDeCasilla(xml) {
+  const decl = new RegExp('xmlns:([A-Za-z_][\\w.-]*)="' + NS_WORD_2010.replace(/[.]/g, '[.]') + '"').exec(xml);
+  if (!decl) return xml;
+  const p = decl[1].replace(/[.-]/g, (c) => '\\' + c);
+  return xml
+    .replace(new RegExp('<' + p + ':checkbox\\b[^>]*/>', 'g'), '')
+    .replace(new RegExp('<' + p + ':checkbox\\b[^>]*>[\\s\\S]*?</' + p + ':checkbox>', 'g'), '');
+}
+
+async function casillasComoTexto(buf) {
+  try {
+    await lazyLoadScript(CDN.jszip);
+    const zip = await window.JSZip.loadAsync(buf);
+    const rels = zip.file('_rels/.rels') ? await zip.file('_rels/.rels').async('string') : '';
+    // El documento principal es el destino de la relación officeDocument (casi siempre word/document.xml)
+    const rel = /<Relationship\b[^>]*Type="[^"]*\/officeDocument"[^>]*>/.exec(rels);
+    const target = rel && /Target="([^"]+)"/.exec(rel[0]);
+    const destino = target ? target[1].replace(/^\//, '') : 'word/document.xml';
+    const doc = zip.file(destino);
+    if (!doc) return buf;
+    const xml = await doc.async('string');
+    const limpio = quitarMarcasDeCasilla(xml);
+    if (limpio === xml) return buf;
+    zip.file(destino, limpio);
+    return await zip.generateAsync({ type: 'arraybuffer' });
+  } catch (_) {
+    return buf;
+  }
+}
+
 // Lectura de documentos: @processiq/documentos (extraerTexto). Aquí va el
 // entorno del navegador: progreso, cancelación y carga diferida de librerías.
 const entornoExtraccion = {
@@ -168,7 +205,11 @@ const entornoExtraccion = {
   ceder: uiTick,
   comprobarCancelado: throwIfCancelled,
   leer: readFileAs,
-  mammoth: async () => { await lazyLoadScript(CDN.mammoth); return window.mammoth; },
+  mammoth: async () => {
+    await lazyLoadScript(CDN.mammoth);
+    const mammoth = window.mammoth;
+    return { extractRawText: async (o) => mammoth.extractRawText({ arrayBuffer: await casillasComoTexto(o.arrayBuffer) }) };
+  },
   // pdf.js se importa como módulo ESM (la primera vez tarda unos segundos: avisamos)
   pdfjs: async () => {
     if (!window._pdfjsLib) {

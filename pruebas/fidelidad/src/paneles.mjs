@@ -1,7 +1,7 @@
 // Escenarios de paneles y vistas: validaciones, KPIs, simulador, propiedades,
 // pains, ficha, As-Is/To-Be (con su PPTX), recarga desde localStorage e
 // importación de un proyecto JSON.
-import { cargarFuentes, clicExport, descargar } from './escenarios.mjs';
+import { cargarFuentes, clicExport, descargar, jsonDelMvp } from './escenarios.mjs';
 import { estadoDiagrama } from './interacciones.mjs';
 
 const esperar = (page, ms) => page.waitForTimeout(ms);
@@ -87,8 +87,11 @@ export async function capturarPaneles(page, demo) {
   e = await estadoDiagrama(page);
   a['vista-as-is/resumen.json'] = e.resumen; a['vista-as-is/diagrama.svg'] = e.svg;
 
-  // Recarga: el estado se restaura desde localStorage
-  const proyecto = (await descargar(page, () => clicExport(page, 'json'))).datos;
+  // Recarga: el estado se restaura desde localStorage.
+  // El JSON que se importa después es el del formato del MVP (en la app nueva,
+  // sin las claves del JSON completo, D7): así se compara la importación de los
+  // JSON de siempre. La del JSON completo la prueba divergencias.spec.mjs.
+  const proyecto = Buffer.from(jsonDelMvp((await descargar(page, () => clicExport(page, 'json'))).datos.toString('utf8')));
   await page.reload();
   await page.waitForFunction(() => !!window.ProcessIQ);
   // La app pinta desde localStorage ANTES de que el arnés pueda cargar las

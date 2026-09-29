@@ -30,8 +30,8 @@ async function runAiTask(kind) {
         { system: AI_ROLE, effort: 'high', maxTokens: 8000 });
     copilotPost('ai', md);
   } catch (e) {
-    copilotPost('ai', '**No se pudo completar el analisis:** ' + e.message +
-      String.fromCharCode(10) + String.fromCharCode(10) + '_Puedes reintentar o usar el modo basico._');
+    copilotPost('ai', '**No se pudo completar el análisis:** ' + e.message +
+      String.fromCharCode(10) + String.fromCharCode(10) + '_Puedes reintentar o usar el modo básico._');
   }
   return true;
 }

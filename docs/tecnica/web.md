@@ -2,7 +2,7 @@
 
 Qué hay en `apps/web`: el editor de procesos y el shell de proyectos, cómo se construyen y se sirven, y cómo trabaja el editor dentro de un proyecto.
 
-**Actualizado:** 28-sep-2026.
+**Actualizado:** 29-sep-2026.
 
 ---
 
@@ -61,7 +61,7 @@ Las librerías que el MVP cargaba desde jsDelivr se instalan por npm con **versi
 |---|---|---|---|---|
 | pptxgenjs | 3.12.0 | `pptxgen.bundle.js` | `<script>` clásico en `index.html` (global `PptxGenJS`) | Export PPTX |
 | JSZip | 3.10.1 | `jszip.min.js` | Bajo demanda (`lazyLoadScript`) | Post-proceso del PPTX y lectura de `.pptx` |
-| mammoth | 1.13.0 (el MVP usa la 1.8.0: divergencia D6) | `mammoth.browser.min.js` | Bajo demanda | Word → texto |
+| mammoth | 1.13.0 (el MVP usa la 1.8.0: divergencia D6) | `mammoth.browser.min.js` | Bajo demanda | Word → texto. Antes de leer, [ingesta/flujo.js](../../apps/web/src/app/ingesta/flujo.js) quita del documento la marca de las casillas (`w14:checkbox`, con JSZip) para que su símbolo `☒`/`☐` se lea como texto, igual que con 1.8.0 |
 | pdf.js | 4.7.76 | `pdf.min.mjs`, `pdf.worker.min.mjs` | `import()` dinámico (ESM) la primera vez | PDF → texto |
 
 - Las rutas están en `CDN` de [ingesta/formatos.js](../../apps/web/src/app/ingesta/formatos.js). El nombre `CDN` es histórico: ya no apuntan a un CDN.
@@ -156,7 +156,7 @@ Claves del navegador (todas reservadas en [iniciativas/README.md](../iniciativas
 | Clave | Quién la usa | Contenido |
 |---|---|---|
 | `processiq.v1` | Editor libre | El proceso (forma de `persist()`) |
-| `processiq.proceso.<id>` | Modo proyecto | Borrador local del proceso |
+| `processiq.proceso.<id>` | Modo proyecto | Borrador local del proceso. Se borra (con su `….base`) al guardar una revisión que lo contiene; al abrir un proceso se purgan los de otros procesos con más de 30 días (sección 4.2) |
 | `processiq.proceso.<id>.base` | Modo proyecto | `{ revisionId, huella }` de la versión de partida del borrador |
 | `processiq.abriendo` | Modo proyecto | Clave temporal mientras llega la revisión |
 | `processiq.ui` | Editor | Cajón derecho abierto a mano y pestaña activa |
@@ -207,7 +207,7 @@ Menú Exportar ([ui/cabecera.js](../../apps/web/src/app/ui/cabecera.js)). La app
 
 | Formato | Módulo | Paquete | Notas |
 |---|---|---|---|
-| JSON | [exportar/archivos.js](../../apps/web/src/app/exportar/archivos.js) | — | `meta`, `ficha`, `nodes`, `edges`, `exportedAt`. Se reimporta con «Importar» |
+| JSON | [exportar/archivos.js](../../apps/web/src/app/exportar/archivos.js) | — | Lo mismo que una revisión (`contenidoDe`): `meta`, `ficha`, `nodes`, `edges`, `activeView`, `views` (As-Is y To-Be), `raci`, `sipoc`, `simResults`, `kpiValues` y `lanes`, más `exportedAt`; el MVP exportaba solo `meta`, `ficha`, `nodes`, `edges` y `exportedAt` (divergencia D7). Sin `schemaVersion`: lo leen «Importar», «Nuevo proceso → JSON» y la importación asistida del shell. «Importar» restaura las dos vistas y los análisis; un JSON del MVP (sin `views`) se importa como siempre |
 | SVG / PNG | [exportar/archivos.js](../../apps/web/src/app/exportar/archivos.js) | — | Serializa el lienzo (`serializeCanvasSvg`) con los colores copiados de las variables CSS |
 | BPMN 2.0 | [bpmn/exportar.js](../../apps/web/src/app/bpmn/exportar.js) | `@processiq/bpmn` | Importar: [bpmn/importar.js](../../apps/web/src/app/bpmn/importar.js) o soltar un `.bpmn` en la ingesta |
 | PPTX (MBC, BBVA y temas de la organización) | [exportar/pptx.js](../../apps/web/src/app/exportar/pptx.js) | `@processiq/exportar` | `construirPptx` y `posprocesarPptx` (JSZip convierte las líneas en conectores anclados). Guarda el resultado en `state._ultimoPptx` para las pruebas |
@@ -373,16 +373,17 @@ Sin esos parámetros, el módulo no hace nada.
 1. Pinta la barra con «Abriendo el proceso…».
 2. Pide a la API la revisión (si la hay), el proceso con sus revisiones y el rol, y el proyecto.
 3. Pide los catálogos de la organización y los aplica (sección 4.6). Si fallan, avisa y sigue con los de fábrica.
-4. Busca un **borrador local** del proceso (`processiq.proceso.<id>`) y su base (`….base`). Si la huella del borrador no coincide con la de su base, hay cambios sin guardar y pregunta:
+4. Purga los borradores de **otros** procesos (`purgarBorradores`): los que llevan más de 30 días sin cambios (`savedAt` del borrador) y las bases que se quedaron sin borrador. Lo que no reconoce como borrador del editor no lo toca, y nunca toca `processiq.v1`.
+5. Busca un **borrador local** del proceso (`processiq.proceso.<id>`) y su base (`….base`). Si la huella del borrador no coincide con la de su base, hay cambios sin guardar y pregunta:
    - borrador sobre la misma versión: «Recuperar mis cambios» o «Descartarlos»;
    - borrador sobre **otra** versión: «Seguir con mis cambios sobre la vN» (cambia la versión de partida y la URL) o «Descartarlos».
 
    El diálogo es obligatorio: `Esc` no lo cierra.
-5. Cambia la clave del almacén a `processiq.proceso.<id>`, carga el contenido en `state`, pinta, pasa el linter y encuadra.
-6. Fija la huella guardada: la de la base si se recuperó el borrador; si no, la del contenido abierto, que escribe en `….base`.
-7. Reinicia el historial (la revisión abierta es la línea base de deshacer), llama a `persist()` y empieza a escuchar los cambios.
-8. Si el rol o el proyecto no permiten guardar, avisa de que es solo lectura.
-9. Registra la IA del servidor (sección 4.7) y ofrece dibujar una generación pendiente (ver [ia.md](ia.md)).
+6. Cambia la clave del almacén a `processiq.proceso.<id>`, carga el contenido en `state`, pinta, pasa el linter y encuadra.
+7. Fija la huella guardada: la de la base si se recuperó el borrador; si no, la del contenido abierto, que escribe en `….base`.
+8. Reinicia el historial (la revisión abierta es la línea base de deshacer), llama a `persist()` y empieza a escuchar los cambios. Tras cada `persist()`, si falta `….base` (se borró al guardar o la purgó otra pestaña), la vuelve a escribir (`asegurarBase`): sin ella, un borrador con cambios no se ofrecería recuperar.
+9. Si el rol o el proyecto no permiten guardar, avisa de que es solo lectura.
+10. Registra la IA del servidor (sección 4.7) y ofrece dibujar una generación pendiente (ver [ia.md](ia.md)).
 
 Errores al abrir:
 
@@ -411,6 +412,7 @@ Errores al abrir:
 3. Normaliza el contenido con `migrarProyecto`. Si no valida, muestra los errores y no guarda.
 4. `POST /api/procesos/:id/revisiones` con `contenido`, `mensaje`, `padreId` (la revisión abierta, o `null`) y, si sale de una generación con IA, `ejecucionIaId`.
 5. Actualiza la versión de partida y la última, la huella y `….base`, y cambia la URL a `/?revision=<nueva>`.
+6. Si nada cambió mientras se guardaba, la revisión ya contiene el borrador: borra `processiq.proceso.<id>` y `….base`. El siguiente cambio los vuelve a crear. Si hubo cambios durante el guardado, el borrador se queda con la base nueva y se ofrecerá recuperarlo.
 
 | Resultado | Aviso |
 |---|---|
@@ -597,7 +599,7 @@ Lleva a un proyecto el trabajo del editor libre ([importacion.ts](../../apps/web
 
 - **Qué lee:**
   - `localStorage['processiq.v1']` del mismo navegador (mismo origen que el shell), si tiene al menos un nodo: nombre (`meta.name`), número de nodos, industria y fecha (`savedAt`);
-  - archivos JSON exportados desde el editor («Exportar → JSON»), en lote. Deben tener una lista `nodes`; si no traen nombre, se usa el del archivo.
+  - archivos JSON exportados desde el editor («Exportar → JSON»), en lote. Deben tener una lista `nodes`; si no traen nombre, se usa el del archivo. Los de ahora llevan también las dos vistas y los análisis (divergencia D7) y llegan enteros a la revisión; los del MVP, solo la vista activa.
 - **Aviso en «Proyectos»:** si el navegador tiene trabajo sin llevar, lo ofrece. «No, gracias» guarda la fecha del guardado en `processiq.importacion.descartado` y no vuelve a ofrecerlo hasta que haya un guardado nuevo.
 - **Cómo crea los procesos:** por cada pendiente, `POST /api/proyectos/:id/procesos` con `nombre` (editable en la tabla), `contenido` (el JSON tal cual) y un mensaje («Importado del editor libre de un navegador» o «Importado de `archivo`»). La API valida el contenido con `migrarProyecto` y crea la primera revisión.
 - Cada resultado se muestra aparte (enlaces a «Abrir en el editor» y a sus revisiones, o el error). Los que fallan siguen en la lista.
@@ -646,5 +648,5 @@ Cambios en `src/app/`: `pnpm fidelidad` y `pnpm e2e` en verde. Pantalla nueva o 
 ## 8. Puntos por confirmar
 
 - **El modelo completo no se guarda.** `state._modeloCompleto` no está ni en `processiq.v1` ni en la revisión. Al recargar, o al abrir una revisión guardada en nivel 1 o 2, lo visible pasa a ser el «modelo completo» y el detalle de nivel 3 se pierde. En modo proyecto, la generación con IA se guarda **después** de aplicar el nivel elegido. Es el comportamiento del MVP. Por confirmar si se acepta así.
-- **Borradores que no se borran.** Las claves `processiq.proceso.<id>` y `….base` nunca se eliminan, ni al guardar. Con muchos procesos abiertos en un navegador pueden llenar la cuota de `localStorage` y hacer fallar `persist()`. Por confirmar si hace falta una limpieza.
+- **Borradores sin cambios.** Abrir un proceso solo para verlo deja su borrador (igual a la revisión) hasta el siguiente guardado o hasta que la purga lo borre a los 30 días. No se borra al cerrar la pestaña: otra pestaña con el mismo proceso usa la misma clave.
 - **Registro de claves.** [iniciativas/README.md](../iniciativas/README.md) reserva `processiq.proceso.<id>`, pero no nombra la variante `….base`.

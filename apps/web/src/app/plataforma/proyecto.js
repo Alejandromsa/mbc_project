@@ -42,7 +42,10 @@ const pedidoRevision = parametros.get('revision');
 const pedidoProceso = parametros.get('proceso');
 
 const CLAVE_ABRIENDO = 'processiq.abriendo';
-const claveBorrador = (procesoId) => `processiq.proceso.${procesoId}`;
+const PREFIJO_BORRADOR = 'processiq.proceso.';
+const claveBorrador = (procesoId) => `${PREFIJO_BORRADOR}${procesoId}`;
+/** Días que se conserva en el navegador el borrador de un proceso que no se vuelve a abrir. */
+const DIAS_BORRADOR = 30;
 
 const ctx = {
   proceso: null, proyecto: null, rol: null,
@@ -122,6 +125,60 @@ function huellaDe(snapshot) {
 const leer = (clave) => { try { return JSON.parse(localStorage.getItem(clave) || 'null'); } catch { return null; } };
 const escribir = (clave, valor) => { try { localStorage.setItem(clave, JSON.stringify(valor)); } catch { /* cuota llena */ } };
 
+// =================== Borradores locales ===================
+// El trabajo de cada proceso se guarda en su borrador (`processiq.proceso.<id>`,
+// lo escribe persist()) y en `….base` la versión de partida y su huella. Sin
+// limpieza llenarían la cuota del navegador: se borran al guardar una revisión
+// que ya los contiene y, al abrir un proceso, los de otros procesos con más de
+// DIAS_BORRADOR días. `processiq.v1` (editor libre) no se toca nunca.
+
+function borrarBorrador(procesoId) {
+  const clave = claveBorrador(procesoId);
+  try { localStorage.removeItem(clave); localStorage.removeItem(clave + '.base'); } catch { /* sin almacenamiento */ }
+}
+
+/**
+ * Borra los borradores de otros procesos cuyo último cambio (`savedAt`) tiene
+ * más de DIAS_BORRADOR días, y las bases que se quedaron sin borrador (sin él
+ * no sirven: abrir() las vuelve a escribir). Lo que no se reconoce como un
+ * borrador del editor no se toca. El del proceso que se abre sigue el camino
+ * de siempre: si tiene cambios, se ofrece recuperarlo.
+ */
+function purgarBorradores(procesoActual) {
+  const ids = new Set();
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const c = localStorage.key(i);
+      if (!c || !c.startsWith(PREFIJO_BORRADOR)) continue;
+      ids.add(c.slice(PREFIJO_BORRADOR.length).replace(/\.base$/, ''));
+    }
+  } catch { return; }
+  const limite = Date.now() - DIAS_BORRADOR * 24 * 60 * 60 * 1000;
+  for (const id of ids) {
+    if (!id || id === procesoActual) continue;
+    const borrador = leer(claveBorrador(id));
+    if (borrador === null) {
+      const base = leer(claveBorrador(id) + '.base');
+      if (base && typeof base === 'object' && 'huella' in base) borrarBorrador(id);
+      continue;
+    }
+    const guardado = borrador && typeof borrador === 'object' ? Date.parse(borrador.savedAt) : NaN;
+    if (Number.isFinite(guardado) && guardado < limite) borrarBorrador(id);
+  }
+}
+
+/**
+ * Tras cada persist(): si falta la base del borrador (se borró al guardar, o
+ * la purgó otra pestaña), se vuelve a escribir. Sin ella, un borrador con
+ * cambios no se ofrecería recuperar.
+ */
+function asegurarBase() {
+  if (!ctx.proceso) return;
+  const clave = claveBorrador(ctx.proceso.id) + '.base';
+  try { if (localStorage.getItem(clave) !== null) return; } catch { return; }
+  escribir(clave, { revisionId: ctx.base ? ctx.base.id : null, huella: ctx.huellaGuardada });
+}
+
 // =================== Cargar en el editor ===================
 
 function siguienteId(minimo) {
@@ -185,6 +242,8 @@ async function abrir() {
       ultima: datos.revisiones[0] ? { id: datos.revisiones[0].id, numero: datos.revisiones[0].numero } : null
     });
 
+    purgarBorradores(ctx.proceso.id);
+
     // ¿Quedaron en este navegador cambios sin guardar de este proceso?
     const clave = claveBorrador(ctx.proceso.id);
     const borrador = leer(clave);
@@ -223,7 +282,7 @@ async function abrir() {
     resetHistory();   // la revisión abierta es la línea base de deshacer
     persist();
     ctx.sucio = recuperado;
-    alCambiar(programarRevision);
+    alCambiar(() => { asegurarBase(); programarRevision(); });
     pintarBarra();
     activarPresencia();
     if (!puedeGuardar()) avisar('info', motivoSoloLectura());
@@ -309,8 +368,10 @@ async function guardarContenido(mensaje, ejecucionIaId = null) {
   }
   ctx.guardando = true;
   pintarBarra();
+  let guardada = false;
   try {
     const res = await api.guardarRevision(ctx.proceso.id, { contenido, mensaje, padreId: partida ? partida.id : null, ejecucionIaId });
+    guardada = true;
     ctx.base = { id: res.revision.id, numero: res.revision.numero, estado: res.revision.estado };
     ctx.ultima = { id: res.revision.id, numero: res.revision.numero };
     ctx.huellaGuardada = hash(JSON.stringify(contenido));
@@ -331,6 +392,9 @@ async function guardarContenido(mensaje, ejecucionIaId = null) {
   } finally {
     ctx.guardando = false;
     ctx.sucio = huellaDe(snapshotDelEstado()) !== ctx.huellaGuardada;
+    // La revisión ya contiene el borrador: se borra. Si hubo cambios mientras
+    // se guardaba, el borrador tiene más que la revisión y se queda (con la base nueva).
+    if (guardada && !ctx.sucio) borrarBorrador(ctx.proceso.id);
     pintarBarra();
   }
 }

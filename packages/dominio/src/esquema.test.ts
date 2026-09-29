@@ -60,6 +60,86 @@ describe('migrarProyecto', () => {
     ]));
   });
 
+  it('quita las cachés de pintado también si la entrada ya es v1, dentro de nodes, edges y de cada vista', () => {
+    const r1 = migrarProyecto(VENTA_LOTES);
+    if (!r1.ok) throw new Error('debería migrar');
+    const conCaches = (lista: any[]) => lista.map((o) => ({ ...o, _d: 'M0 0', _dSerie: 'x', _band: 1, _inferredOwner: true, _sello: 's1' }));
+    const v1 = {
+      ...r1.proyecto,
+      nodes: conCaches(r1.proyecto.nodes),
+      edges: conCaches(r1.proyecto.edges),
+      views: { asis: { nodes: conCaches(r1.proyecto.nodes), edges: conCaches(r1.proyecto.edges) }, tobe: null }
+    };
+    const r = migrarProyecto(v1);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.versionOrigen).toBe(1);
+    const claves = JSON.stringify(r.proyecto);
+    for (const k of ['_d"', '_dSerie', '_band', '_inferredOwner', '_sello']) expect(claves).not.toContain(`"${k}`);
+    // Sin cachés, el resultado es el mismo v1 de partida (con sus vistas)
+    expect(r.proyecto).toEqual({ ...r1.proyecto, views: { asis: { nodes: r1.proyecto.nodes, edges: r1.proyecto.edges }, tobe: null } });
+  });
+
+  it('normaliza las vistas como el primer nivel en lugar de rechazarlas', () => {
+    const r = migrarProyecto({
+      nodes: [{ id: 'n1', type: 'task' }],
+      edges: [],
+      views: {
+        asis: { nodes: [{ id: 'n1', type: 'decision', _band: 2 }, null, 'basura'], edges: [{ id: 'e1', from: 'n1', to: 'n2', _d: 'M0 0' }] },
+        tobe: 'no es una vista',
+        otra: { se: 'conserva' }
+      }
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.proyecto.views).toEqual({
+      asis: { nodes: [{ id: 'n1', type: 'decision', x: 0, y: 0, w: 110, h: 80, label: '' }], edges: [{ id: 'e1', from: 'n1', to: 'n2', label: '' }] },
+      tobe: null,
+      otra: { se: 'conserva' }
+    });
+    // Sin nodes ni edges, o con algo que no es una lista: listas vacías
+    const r2 = migrarProyecto({ nodes: [], edges: [], views: { asis: { nodes: 'x' }, tobe: {} } });
+    expect(r2.ok && r2.proyecto.views).toEqual({ asis: { nodes: [], edges: [] }, tobe: { nodes: [], edges: [] } });
+    // Una etiqueta que no es texto pasa a texto; una vista que no es un objeto se quita
+    const r3 = migrarProyecto({ schemaVersion: 1, meta: r.proyecto.meta, ficha: r.proyecto.ficha, nodes: [], edges: [],
+      views: { asis: { nodes: [{ id: 'a', type: 'task', x: 1, y: 2, w: 3, h: 4, label: 7 }], edges: [{ id: 'e', label: null }] } } });
+    expect(r3.ok && r3.proyecto.views).toEqual({ asis: { nodes: [{ id: 'a', type: 'task', x: 1, y: 2, w: 3, h: 4, label: '7' }], edges: [{ id: 'e', label: '' }] } });
+    const r4 = migrarProyecto({ nodes: [], edges: [], views: [1, 2] });
+    expect(r4.ok && 'views' in r4.proyecto).toBe(false);
+  });
+
+  it('en las vistas tolera lo que el primer nivel rechaza: se guardó así antes de validarlas', () => {
+    const vista = {
+      nodes: [{ id: 'a', type: 'nube', x: 0, y: 0, w: 10, h: 10, label: 'Tipo desconocido', pains: [{ severity: 9 }] },
+        { type: 'task', x: 0, y: 0, w: 10, h: 10, label: 'Sin id' }, { id: 'a', type: 'end', x: 0, y: 0, w: 10, h: 10, label: 'Id repetido' }],
+      edges: [{ id: 'e', from: 'a', to: 'no-existe', label: '' }, { label: 'Sin extremos' }]
+    };
+    const r = migrarProyecto({ nodes: [], edges: [], views: { asis: null, tobe: vista } });
+    expect(r.ok).toBe(true);
+    expect(r.ok && r.proyecto.views).toEqual({ asis: null, tobe: vista });
+  });
+
+  it('conserva el orden de las claves de las vistas (la huella de los borradores no cambia)', () => {
+    const nodo = { label: 'Primero la etiqueta', id: 'n1', owner: 'Ventas', type: 'task', h: 76, w: 158, y: 5, x: 4 };
+    const r = migrarProyecto({ nodes: [], edges: [], views: { asis: { edges: [], nodes: [nodo] }, tobe: null } });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(JSON.stringify((r.proyecto.views as any).asis)).toBe(JSON.stringify({ edges: [], nodes: [nodo] }));
+  });
+
+  it('las vistas del editor (localStorage del MVP) pasan igual y la migración es idempotente', () => {
+    for (const datos of [SINIESTROS, VENTA_LOTES]) {
+      const guardado = { ...datos, activeView: 'tobe', views: { asis: { nodes: datos.nodes, edges: datos.edges }, tobe: { nodes: datos.nodes, edges: datos.edges } } };
+      const r = migrarProyecto(guardado);
+      expect(r.ok).toBe(true);
+      if (!r.ok) return;
+      const views = r.proyecto.views as any;
+      expect(views.tobe.nodes).toEqual(r.proyecto.nodes);
+      expect(views.asis.edges).toEqual(r.proyecto.edges);
+      expect(migrarProyecto(r.proyecto)).toEqual({ ok: true, proyecto: r.proyecto, versionOrigen: 1 });
+    }
+  });
+
   it('rechaza tipos de nodo desconocidos, entradas que no son objeto y versiones futuras', () => {
     expect(migrarProyecto({ nodes: [{ id: 'a', type: 'nube' }], edges: [] }).ok).toBe(false);
     expect(migrarProyecto('texto').ok).toBe(false);

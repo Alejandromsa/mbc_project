@@ -88,19 +88,21 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 
 ### 5.3 Editor y dominio
 
-- 🔜 El esquema v1 valida poco: no revisa `views`, `lanes`, `raci`, `sipoc` ni `simResults`, y si la entrada ya es v1 conserva las claves efímeras.
+- ✅ Esquema v1: `migrarProyecto` quita las claves efímeras también si la entrada ya es v1 (en `nodes`, `edges` y cada vista) y valida `views` de forma tolerante: la normaliza como el primer nivel en vez de rechazarla ([modelo de datos §8.7](tecnica/modelo-de-datos.md#87-vistas-as-is-y-to-be)). Ningún contenido aceptado antes se rechaza (comprobado con los fixtures, los v1 guardados antes y lo que envía el editor).
+- 🔜 El esquema v1 sigue sin revisar `lanes`, `raci`, `sipoc` ni `simResults`.
 - 🔜 Guardar en el nivel 1 o 2 guarda la vista resumida: el detalle completo (`_modeloCompleto`) se pierde (heredado del MVP).
-- 🔜 Los borradores locales `processiq.proceso.<id>` (y `.base`) nunca se borran del navegador.
-- 🔜 «Exportar → JSON» solo lleva la vista activa: no la otra vista, ni KPIs, RACI, SIPOC o la simulación.
+- ✅ Los borradores locales `processiq.proceso.<id>` (y `.base`) se borran al guardar una revisión que los contiene, y al abrir un proceso se purgan los de otros procesos con más de 30 días ([web §4.2 y §4.4](tecnica/web.md#42-abrir-el-proceso)).
+- ✅ «Exportar → JSON» lleva lo mismo que una revisión: las dos vistas, KPIs, RACI, SIPOC, la simulación y los carriles; se importa entero en el editor, «Nuevo proceso → JSON» y la importación asistida (divergencia D7).
 - 🔜 RACI y SIPOC con IA devuelven un informe en texto, no las matrices editables que usa el PPTX.
-- 🔜 El panel «Lint» dice que lo crítico «bloquea export», pero no lo bloquea.
-- 🔜 Textos sin tilde en la interfaz del editor («Anadir», «Analisis»): cambiarlos exige registrar la divergencia con el MVP.
+- ✅ El panel «Lint» ya no dice que lo crítico «bloquea export»: dice que conviene resolverlo antes de exportar, y la exportación sigue sin bloquearse (divergencia D8).
+- ✅ Tildes de la interfaz del editor («Añadir», «Análisis»…) (divergencia D9).
+- 🔜 Siguen sin tilde las etiquetas de las tareas de IA del copiloto, que están en `packages/ia/src/prompts.ts` y se ven en el chat: «Proponer reingenieria To-Be», «Oportunidades de automatizacion», «Cuello de botella y ruta critica». Cambiarlas es otra divergencia (se ven en los mensajes que compara la fidelidad) y un cambio del paquete de IA.
 - 🔜 El importador BPMN aplana los subprocesos y no lee carriles ni posiciones.
 - 🔜 `herramientas/fronteras.mjs` no detecta `import './x.js'` sin `from`.
 - 🔜 Colaboración: cambiar el estado de la última revisión (enviar a revisión, aprobar) no avisa con `NOTIFY`; la página del proceso lo ve en el sondeo de 5 s del SSE. Añadir el aviso en `POST /api/revisiones/:id/estado` si hace falta al momento.
 - 🔜 Colaboración: la presencia no dice qué versión tiene abierta cada persona (solo si está viendo o editando).
 - ✅ Avisos de la auditoría de pptxgenjs y mammoth ([ADR 17](adr/0017-excepciones-auditoria-dependencias.md)), sin excepciones: mammoth pasa a 1.13.0 (divergencia D6), e `image-size`, que pptxgenjs declara pero no usa, se quita con un override. pptxgenjs sigue en 3.12.0, porque la 4.0.1 no quita el aviso; da el mismo `.pptx` y está evaluada en la ADR.
-- 🔜 Con mammoth 1.13 el texto extraído de un Word pierde el símbolo de las casillas (`☒`/`☐`), así que «marcado» y «sin marcar» se leen igual (divergencia D6). Evaluar si recuperarlo con una opción de mammoth o un preproceso.
+- ✅ Con mammoth 1.13 el texto extraído de un Word perdía el símbolo de las casillas (`☒`/`☐`). mammoth no tiene opción para eso en `extractRawText`, así que el editor quita antes la marca de casilla del documento (preproceso con JSZip) y el símbolo se lee como con 1.8.0 (divergencia D6).
 
 ### 5.4 Documentación
 
