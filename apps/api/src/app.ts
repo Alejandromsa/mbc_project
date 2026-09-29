@@ -20,11 +20,20 @@ import { registrarError } from './observabilidad.js';
 import type { Escucha } from './ia/avisos.js';
 import { rutasPortafolio } from './modulos/portafolio/index.js';
 import { rutasConocimiento } from './modulos/conocimiento/index.js';
+import { rutasInvitados, rutasPublicasInvitados } from './modulos/invitados/index.js';
 
 /** Rutas que no exigen sesión. */
 const PUBLICAS = new Set(['GET /api/salud', 'POST /api/sesion', 'POST /api/errores']);
 /** Rutas permitidas con contraseña temporal pendiente de cambio. */
 const CON_CLAVE_TEMPORAL = new Set(['GET /api/sesion', 'DELETE /api/sesion', 'POST /api/sesion/clave']);
+/**
+ * Prefijo de las rutas sin sesión que validan su propio token (ADR 20): no se
+ * lee la cookie, así que no ven a ningún usuario. Tienen límite de uso por IP
+ * y las escrituras siguen exigiendo el Origin de la web.
+ */
+const PREFIJO_PUBLICO = '/api/publico/';
+/** Peticiones por IP y minuto a las rutas de PREFIJO_PUBLICO. */
+const USOS_PUBLICOS_POR_MINUTO = 120;
 
 export interface OpcionesApp {
   /** Avisos de Postgres (LISTEN) para el progreso en vivo de la IA; sin ella, el SSE sondea. */
@@ -36,6 +45,8 @@ export interface OpcionesApp {
 export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp = {}) {
   const app = new Hono<Entorno>();
   const limitador = new LimitadorAccesos();
+  // Cuenta cada uso de una ruta pública como si fuera un fallo: pasado el máximo, 429 hasta que acabe el minuto
+  const usosPublicos = new LimitadorAccesos(USOS_PUBLICOS_POR_MINUTO, 60_000);
 
   app.onError(async (err, c) => {
     if (err instanceof ErrorHttp) {
@@ -87,6 +98,12 @@ export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp 
   app.use('/api/*', async (c, next) => {
     const clave = `${c.req.method} ${c.req.path}`;
     if (PUBLICAS.has(clave)) return next();
+    if (c.req.path.startsWith(PREFIJO_PUBLICO)) {
+      const ip = 'ip:' + c.get('ip');
+      if (usosPublicos.bloqueado(ip)) throw new ErrorHttp(429, 'Demasiadas peticiones seguidas. Espera un minuto y vuelve a intentarlo.', 'LIMITE');
+      usosPublicos.fallo(ip);
+      return next();
+    }
     const token = getCookie(c, COOKIE_SESION);
     if (!token) throw new ErrorHttp(401, 'Inicia sesión para continuar.', 'SIN_SESION');
     const [fila] = await db.select({
@@ -120,5 +137,7 @@ export function crearApp(db: BaseDeDatos, config: Config, opciones: OpcionesApp 
   app.route('/api', rutasSistema());
   app.route('/api/portafolio', rutasPortafolio());
   app.route('/api/conocimiento', rutasConocimiento());
+  app.route('/api/invitados', rutasInvitados());
+  app.route('/api/publico/invitados', rutasPublicasInvitados());
   return app;
 }

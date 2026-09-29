@@ -50,6 +50,13 @@
       "when": 1790645370688,
       "tag": "0006_conocimiento_busqueda",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790646660766,
+      "tag": "0007_invitados_enlaces",
+      "breakpoints": true
     }
   ]
 }

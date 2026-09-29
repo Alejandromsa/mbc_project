@@ -9,3 +9,6 @@ import './app/inicio.js';
 // Sin esos parámetros no hace nada. Va después de inicio.js: su arranque corre
 // después del del editor.
 import './app/plataforma/proyecto.js';
+// Invitados (ADR 20): la revisión compartida con un enlace (/?invitado=…), en modo
+// lectura y sin sesión. Sin ese parámetro no hace nada.
+import './app/plataforma/invitado.js';
