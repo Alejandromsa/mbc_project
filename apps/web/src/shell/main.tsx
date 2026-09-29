@@ -82,7 +82,7 @@ createRoot(document.getElementById('raiz')!).render(
           <Route path="/admin/ia"><ConSesion soloAdmin><ConsumoIa /></ConSesion></Route>
           <Route path="/admin/catalogos"><ConSesion soloAdmin><Catalogos /></ConSesion></Route>
           <Route path="/admin/sistema"><ConSesion soloAdmin><Sistema /></ConSesion></Route>
-          <Route path="/conocimiento" nest><ConSesion><RutasConocimiento /></ConSesion></Route>
+          <Route path="/conocimiento/*?"><ConSesion><RutasConocimiento /></ConSesion></Route>
           <Route><ConSesion><NoEncontrada /></ConSesion></Route>
         </Switch>
       </Router>

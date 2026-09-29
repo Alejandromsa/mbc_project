@@ -90,7 +90,8 @@ dl.conocimiento-comun dd { margin: 0; }
 
 .conocimiento-tabla { margin-top: var(--space-2); }
 .conocimiento-tabla caption { text-align: left; padding: 0 0 var(--space-2); font-size: var(--font-xs); }
-.conocimiento-num { text-align: right !important; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Más específico que «.tabla th, .tabla td» del shell, que alinea todo a la izquierda */
+.tabla th.conocimiento-num, .tabla td.conocimiento-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .conocimiento-sin-equivalente td:first-child { color: var(--gray-700); }
 
 /* ---------- Marco de referencia ---------- */

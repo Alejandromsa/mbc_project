@@ -10,10 +10,10 @@ import { apiConocimiento, type CoberturaCategoria, type ProcesoParecido } from '
 import { Barra, PestanasConocimiento, fuera, pct } from '../componentes';
 
 const UMBRALES = [
-  { valor: '0.25', texto: 'Amplio (25 %)' },
-  { valor: '0.35', texto: 'Normal (35 %)' },
-  { valor: '0.5', texto: 'Estricto (50 %)' },
-  { valor: '0.65', texto: 'Muy estricto (65 %)' }
+  { valor: '0.25', texto: 'Amplio (25%)' },
+  { valor: '0.35', texto: 'Normal (35%)' },
+  { valor: '0.5', texto: 'Estricto (50%)' },
+  { valor: '0.65', texto: 'Muy estricto (65%)' }
 ];
 
 export function Proceso({ id }: { id: string }) {

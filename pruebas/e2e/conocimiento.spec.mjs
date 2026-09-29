@@ -34,6 +34,8 @@ test('el administrador importa el marco con vista previa; una consultora busca, 
   await page.getByRole('button', { name: 'Importar 40 elementos' }).click();
   await expect(page.getByText('Marco importado: 40 elementos.')).toBeVisible();
   await expect(page.getByRole('row', { name: /3\.0 Gestionar siniestros 16/ })).toBeVisible();
+  // Arriba del todo: con la página desplazada, la cabecera fija sale en medio de la captura completa
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: 'resultados/conocimiento-marco.png', fullPage: true });
 
   // 2. El mismo proceso de siniestros, redibujado en otro proyecto (para «parecidos»)
@@ -52,6 +54,11 @@ test('el administrador importa el marco con vista previa; una consultora busca, 
   // 3. Buscar sin tilde un término de la semilla
   await irAConocimiento(propietario);
   await expect(propietario.getByRole('heading', { name: 'Conocimiento', level: 1 })).toBeVisible();
+  // El menú del shell sigue funcionando dentro del módulo
+  const menu = propietario.getByRole('navigation', { name: 'Secciones' });
+  await expect(menu.getByRole('link', { name: 'Conocimiento' })).toHaveAttribute('aria-current', 'page');
+  await expect(menu.getByRole('link', { name: 'Proyectos' })).toHaveAttribute('href', '/proyectos/');
+  await expect(menu.getByRole('link', { name: 'Proyectos' })).not.toHaveAttribute('aria-current', 'page');
   await propietario.getByLabel('Buscar en actividades, sistemas, roles y ficha').fill('poliza vigente');
   await propietario.getByRole('button', { name: 'Buscar', exact: true }).click();
   await expect(propietario).toHaveURL(/\/proyectos\/conocimiento\/\?q=poliza/);
@@ -65,6 +72,7 @@ test('el administrador importa el marco con vista previa; una consultora busca, 
   // 4. Desde el resultado: parecidos (de otro proyecto) y comparativo con el marco
   await resultado.getByRole('link', { name: 'Parecidos y comparativo' }).click();
   await expect(propietario.getByRole('heading', { name: 'Gestión de siniestros', level: 1 })).toBeVisible();
+  await expect(menu.getByRole('link', { name: 'Conocimiento' })).toHaveAttribute('aria-current', 'page');
   const primero = propietario.locator('.conocimiento-parecidos > li').first();
   await expect(primero).toContainText('Siniestros vehiculares');
   await expect(primero).toContainText('Autos del Sur (prueba)');
@@ -72,7 +80,7 @@ test('el administrador importa el marco con vista previa; una consultora busca, 
   await expect(primero).toContainText('Core Seguros');
   await expect(propietario.getByText('9 de 10 actividades tienen un equivalente en el marco')).toBeVisible();
   const categoria = propietario.locator('.conocimiento-categoria').filter({ hasText: 'Gestionar siniestros' });
-  await expect(categoria).toContainText('3 de 4 grupos cubiertos (75 %)');
+  await expect(categoria).toContainText('3 de 4 grupos cubiertos (75%)');
   await expect(categoria.locator('li.falta')).toHaveText(/3\.4 Recuperar costos del siniestro/);
   await expect(propietario.getByRole('row', { name: /Validar póliza vigente/ })).toContainText('3.1.2 Validar la vigencia de la póliza');
   await expect(propietario.getByRole('row', { name: /Cotizar talleres/ })).toContainText('Sin equivalente en el marco');
