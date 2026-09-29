@@ -125,14 +125,14 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 
     → **Regla:** antes de hacer público un repositorio, auditar el historial completo y no solo el árbol actual: valores reales de los `.env` contra todos los blobs, patrones de claves, correos de autor y datos de red. Si hay que ocultar algo que ya pasó por un PR, reescribir en un repositorio nuevo; en el mismo repositorio, el dato sigue visible en los PR.
 
-22h. **Postgres 17 ejecuta las funciones de un índice con un `search_path` seguro.** Una función IMMUTABLE que envuelve `unaccent` sin calificar el esquema funciona en una consulta normal, pero `CREATE INDEX` falla con «function unaccent(text) does not exist». Pasa también en `REINDEX`, `VACUUM`, `ANALYZE` y en la restauración de una copia. Se comprobó con un control en el Postgres de desarrollo (ADR 19).
-    → **Regla:** toda función usada en un índice (o en una vista materializada) califica cada objeto que usa: `public.unaccent('public.unaccent'::regdictionary, …)`. Falla incluso con la tabla vacía, así que la propia migración lo delata en las pruebas; aun así, probar `pg_dump` y `pg_restore` con datos.
-
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 
 22h. **Un aviso de la barra del proyecto no se ve durante una generación.** El aviso de «modelo sustituido» se mostraba con `avisar()` al encolar, pero el diálogo de ingesta (z-index 1000, fondo desenfocado) tapa la barra (z-index 60), y al terminar el aviso de «guardado como vN» lo reemplaza. La E2E pasaba igual: `toContainText` no exige que el elemento se vea. Lo mostró la captura.
     → **Regla:** lo que la persona deba leer mientras genera va también en el progreso de la ingesta (`onEstado`). Un aviso nuevo se comprueba con una captura en el momento en que debería verse, no solo con `toContainText`.
+
+22i. **Postgres 17 ejecuta las funciones de un índice con un `search_path` seguro.** Una función IMMUTABLE que envuelve `unaccent` sin calificar el esquema funciona en una consulta normal, pero `CREATE INDEX` falla con «function unaccent(text) does not exist». Pasa también en `REINDEX`, `VACUUM`, `ANALYZE` y en la restauración de una copia. Se comprobó con un control en el Postgres de desarrollo (ADR 19).
+    → **Regla:** toda función usada en un índice (o en una vista materializada) califica cada objeto que usa: `public.unaccent('public.unaccent'::regdictionary, …)`. Falla incluso con la tabla vacía, así que la propia migración lo delata en las pruebas; aun así, probar `pg_dump` y `pg_restore` con datos.
 
 ## Portado de código
 
