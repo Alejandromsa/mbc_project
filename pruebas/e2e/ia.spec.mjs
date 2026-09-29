@@ -130,6 +130,7 @@ test('el copiloto y el análisis de dolores van al servidor; el administrador ve
 
   const admin = await (await browser.newContext()).newPage();
   await entrar(admin, 'admin');
+  await admin.getByRole('navigation', { name: 'Secciones' }).getByText('Administración').click();
   await admin.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'IA' }).click();
   await expect(admin.getByRole('heading', { name: 'Consumo de IA' })).toBeVisible();
   const ultimas = admin.getByRole('table').last();   // «Últimas ejecuciones» (la primera es «Por persona»)

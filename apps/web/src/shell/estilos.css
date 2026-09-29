@@ -39,11 +39,26 @@ code { font-family: var(--font-mono); font-size: var(--font-sm); }
 .shell-cabecera nav { display: flex; gap: var(--space-1); flex: 1; }
 .shell-cabecera nav a {
   padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm);
-  text-decoration: none; color: var(--gray-700); font-weight: 500;
+  text-decoration: none; color: var(--gray-700); font-weight: 500; white-space: nowrap;
 }
 .shell-cabecera nav a:hover { background: var(--gray-100); color: var(--mbc-azul); }
 .shell-cabecera nav a.activo { background: var(--trace-tint); color: var(--trace-dk); }
-.usuario { display: flex; align-items: center; gap: var(--space-4); font-size: var(--font-sm); }
+/* «Administración»: desplegable con las pantallas de administrador */
+.menu-admin { position: relative; }
+.menu-admin > summary {
+  list-style: none; cursor: pointer; user-select: none; white-space: nowrap;
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); color: var(--gray-700); font-weight: 500;
+}
+.menu-admin > summary::-webkit-details-marker { display: none; }
+.menu-admin > summary::after { content: '▾'; margin-left: var(--space-1); font-size: var(--font-xs); }
+.menu-admin > summary:hover { background: var(--gray-100); color: var(--mbc-azul); }
+.menu-admin.activo > summary { background: var(--trace-tint); color: var(--trace-dk); }
+.menu-admin-lista {
+  position: absolute; top: calc(100% + var(--space-1)); left: 0; z-index: 20; min-width: 190px;
+  display: flex; flex-direction: column; gap: 2px; padding: var(--space-2);
+  background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+}
+.usuario { display: flex; align-items: center; gap: var(--space-4); font-size: var(--font-sm); white-space: nowrap; }
 .usuario a { color: var(--gray-700); }
 .usuario-nombre { display: flex; flex-direction: column; text-align: right; font-weight: 600; color: var(--gray-900); }
 .usuario-nombre small { font-weight: 400; color: var(--gray-600); }
@@ -215,6 +230,9 @@ button.enlace { background: none; border: 0; padding: 0; font: inherit; color: v
 @media (max-width: 720px) {
   .shell-cabecera { flex-wrap: wrap; height: auto; padding: var(--space-3) var(--space-4); gap: var(--space-3); }
   .shell-cabecera nav { order: 3; width: 100%; overflow-x: auto; }
+  /* En la barra que se desplaza, un desplegable absoluto quedaría recortado: va en línea */
+  .menu-admin[open] { display: flex; }
+  .menu-admin-lista { position: static; flex-direction: row; padding: 0; border: 0; box-shadow: none; background: none; }
   .encabezado { flex-direction: column; }
   .tabla { display: block; overflow-x: auto; }
 }
