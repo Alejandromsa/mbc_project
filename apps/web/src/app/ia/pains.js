@@ -28,7 +28,7 @@ async function aiAnalyzePains() {
   if (state.nodes.length === 0) { alert('No hay proceso que analizar.'); return; }
   if (!aiReady()) {
     if (iaRemota()) { iaRemota().avisarNoDisponible(); return; }
-    if (confirm('El analisis profundo de dolores usa la IA (Claude). Aun no configuraste tu API key. Abrir Ajustes de IA?')) openAiSettings();
+    if (confirm('El análisis profundo de dolores usa la IA (Claude). Aún no configuraste tu API key. ¿Abrir Ajustes de IA?')) openAiSettings();
     return;
   }
   copilotPost('ai', '_Analizando el proceso en busca de dolores..._');
@@ -43,7 +43,7 @@ async function aiAnalyzePains() {
       data = parseJsonLoose(raw);
     }
   } catch (e) {
-    copilotPost('ai', '**No se pudo completar el analisis:** ' + e.message);
+    copilotPost('ai', '**No se pudo completar el análisis:** ' + e.message);
     return;
   }
   const r = interpretarPains(data, state.nodes, state.nextId);
@@ -69,11 +69,11 @@ async function aiAnalyzePains() {
            (t.x.impact ? '  - Impacto: ' + escapeHtml(t.x.impact) + NL : '');
   });
   if (state._sectorPains.length) {
-    msg += NL + '---' + NL + NL + '**Hipotesis del sector - NO detectadas en este flujo, a validar con el cliente:**' + NL + NL;
+    msg += NL + '---' + NL + NL + '**Hipótesis del sector - NO detectadas en este flujo, a validar con el cliente:**' + NL + NL;
     state._sectorPains.forEach((h, i) => {
       msg += (i + 1) + '. **' + escapeHtml(h.titulo || '') + '** - ' + escapeHtml(h.descripcion || '') + NL +
-             (h.donde ? '   - Donde mirar: ' + escapeHtml(h.donde) + NL : '') +
-             (h.senal ? '   - Como confirmarlo: ' + escapeHtml(h.senal) + NL : '');
+             (h.donde ? '   - Dónde mirar: ' + escapeHtml(h.donde) + NL : '') +
+             (h.senal ? '   - Cómo confirmarlo: ' + escapeHtml(h.senal) + NL : '');
     });
     msg += NL + '_Estas NO se agregaron al diagrama: son preguntas para el levantamiento, no hallazgos._';
   }

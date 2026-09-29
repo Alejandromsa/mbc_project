@@ -5,6 +5,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { VIEWPORT, abrirApp } from './escenarios.mjs';
 import { PUERTO_REFERENCIA, PUERTO_NUEVA } from './puertos.mjs';
+import { conTextosNuevos } from './textos-divergentes.mjs';
 
 const APPS = {
   referencia: `http://127.0.0.1:${PUERTO_REFERENCIA}/`,
@@ -79,6 +80,9 @@ export async function compararEnAmbas(browser, caso, capturar, opciones = {}) {
   };
   const ref = await ejecutar(APPS.referencia);
   const nueva = await ejecutar(APPS.nueva);
+  // Textos de la interfaz cambiados a propósito (D8, D9): en el MVP se ponen los
+  // nuevos antes de comparar (textos-divergentes.mjs). Lo guardado en resultados/ ya lleva ese cambio.
+  for (const k of Object.keys(ref.artefactos)) ref.artefactos[k] = conTextosNuevos(ref.artefactos[k]);
 
   expect(nueva.errores, 'errores de JavaScript en la app nueva').toEqual(ref.errores);
   const claves = [...new Set([...Object.keys(ref.artefactos), ...Object.keys(nueva.artefactos)])].sort();
