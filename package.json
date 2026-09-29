@@ -21,14 +21,11 @@
   },
   "pnpm": {
     "overrides": {
-      "canvas": "-"
+      "canvas": "-",
+      "pptxgenjs>image-size": "-"
     },
     "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-5p2g-fcmc-qvqq",
-        "GHSA-w3rx-r6r6-pgpr",
-        "GHSA-rmjr-87wv-gf87"
-      ]
+      "ignoreGhsas": []
     }
   }
 }

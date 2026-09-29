@@ -10,7 +10,7 @@ import { $ } from '../dom.js';
 // ============================================================
 // Librerías servidas desde la propia app (npm -> public/vendor/, ver
 // scripts/copiar-vendor.mjs), con las mismas versiones que el MVP cargaba por
-// CDN: mammoth 1.8.0, pdf.js 4.7.76, JSZip 3.10.1. Se cargan bajo demanda.
+// Desde /vendor/ (antes CDN): mammoth 1.13.0, pdf.js 4.7.76, JSZip 3.10.1. Se cargan bajo demanda.
 const CDN = {
   mammoth: '/vendor/mammoth.browser.min.js',
   pdfjs:   '/vendor/pdf.min.mjs',

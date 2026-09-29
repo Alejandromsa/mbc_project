@@ -61,7 +61,7 @@ Las librerías que el MVP cargaba desde jsDelivr se instalan por npm con **versi
 |---|---|---|---|---|
 | pptxgenjs | 3.12.0 | `pptxgen.bundle.js` | `<script>` clásico en `index.html` (global `PptxGenJS`) | Export PPTX |
 | JSZip | 3.10.1 | `jszip.min.js` | Bajo demanda (`lazyLoadScript`) | Post-proceso del PPTX y lectura de `.pptx` |
-| mammoth | 1.8.0 | `mammoth.browser.min.js` | Bajo demanda | Word → texto |
+| mammoth | 1.13.0 (el MVP usa la 1.8.0: divergencia D6) | `mammoth.browser.min.js` | Bajo demanda | Word → texto |
 | pdf.js | 4.7.76 | `pdf.min.mjs`, `pdf.worker.min.mjs` | `import()` dinámico (ESM) la primera vez | PDF → texto |
 
 - Las rutas están en `CDN` de [ingesta/formatos.js](../../apps/web/src/app/ingesta/formatos.js). El nombre `CDN` es histórico: ya no apuntan a un CDN.
