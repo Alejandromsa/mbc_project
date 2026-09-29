@@ -82,7 +82,7 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - ✅ El intermediario en desarrollo lee `.env.dev` (o `.env` si no existe); `ALLOWED_ORIGINS` documentada.
 - ✅ `HORAS_SESION` y `PORT` validadas; `RESPALDO_ESPERA_INICIAL_S` llega al contenedor; `desplegar.sh` lee `RED_BORDE` también de los `.env`.
 - ✅ Despliegue automático a staging desde `main`, por sondeo desde el servidor (`infra/sondear-main.sh`; sin runners propios: [ADR 18](adr/0018-repositorio-publico.md)). Producción sigue siendo manual. 🙋 Falta instalar la tarea programada en el servidor (`infra/instalar-sondeo.ps1`).
-- ✅ `Content-Security-Policy` obligatoria y `Permissions-Policy` en Caddy; Montserrat servida desde la propia web; la E2E corre con la CSP y falla con cualquier violación (`plataforma/csp`). Queda `style-src 'unsafe-inline'`, que necesita el editor portado ([seguridad.md §16](tecnica/seguridad.md#16-qué-no-está-cubierto-todavía)).
+- ✅ `Content-Security-Policy` obligatoria y `Permissions-Policy` en Caddy; Montserrat servida desde la propia web; la E2E corre con la CSP y falla con cualquier violación (PR #16). Queda `style-src 'unsafe-inline'`, que necesita el editor portado ([seguridad.md §16](tecnica/seguridad.md#16-qué-no-está-cubierto-todavía)).
 - 🔜 Alertas por correo o webhook (necesita el SMTP o el webhook).
 - 🔜 `CODEOWNERS` real y revisión obligatoria (necesita el equipo).
 
@@ -96,7 +96,7 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - 🔜 El panel «Lint» dice que lo crítico «bloquea export», pero no lo bloquea.
 - 🔜 Textos sin tilde en la interfaz del editor («Anadir», «Analisis»): cambiarlos exige registrar la divergencia con el MVP.
 - 🔜 El importador BPMN aplana los subprocesos y no lee carriles ni posiciones.
-- ✅ `herramientas/fronteras.mjs` detecta `import './x.js'` sin `from` (`export * from` ya lo detectaba) y comprueba su extractor con casos de ejemplo (`plataforma/csp`).
+- ✅ `herramientas/fronteras.mjs` detecta `import './x.js'` sin `from` (`export * from` ya lo detectaba) y comprueba su extractor con casos de ejemplo (PR #16).
 - 🔜 Colaboración: cambiar el estado de la última revisión (enviar a revisión, aprobar) no avisa con `NOTIFY`; la página del proceso lo ve en el sondeo de 5 s del SSE. Añadir el aviso en `POST /api/revisiones/:id/estado` si hace falta al momento.
 - 🔜 Colaboración: la presencia no dice qué versión tiene abierta cada persona (solo si está viendo o editando).
 - ✅ Avisos de la auditoría de pptxgenjs y mammoth ([ADR 17](adr/0017-excepciones-auditoria-dependencias.md)), sin excepciones: mammoth pasa a 1.13.0 (divergencia D6), e `image-size`, que pptxgenjs declara pero no usa, se quita con un override. pptxgenjs sigue en 3.12.0, porque la 4.0.1 no quita el aviso; da el mismo `.pptx` y está evaluada en la ADR.
