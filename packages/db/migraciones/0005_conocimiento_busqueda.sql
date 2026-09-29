@@ -4,8 +4,10 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;--> statement-breakpoint
 CREATE EXTENSION IF NOT EXISTS unaccent WITH SCHEMA public;--> statement-breakpoint
 -- unaccent() es STABLE y un índice solo admite funciones IMMUTABLE: se envuelve.
--- Todo va calificado con public. porque pg_dump restaura con search_path vacío
--- y, sin calificar, la restauración del índice fallaría.
+-- Todo va calificado con public.: desde Postgres 17, CREATE INDEX, REINDEX,
+-- VACUUM y ANALYZE ejecutan las funciones del índice con un search_path seguro
+-- (pg_catalog, pg_temp), y pg_restore con uno vacío. Sin calificar, esta misma
+-- migración falla con «function unaccent(text) does not exist».
 CREATE OR REPLACE FUNCTION public.conocimiento_normalizar(texto text) RETURNS text
 	LANGUAGE sql IMMUTABLE PARALLEL SAFE STRICT
 	AS $$ SELECT lower(public.unaccent('public.unaccent'::regdictionary, texto)) $$;--> statement-breakpoint

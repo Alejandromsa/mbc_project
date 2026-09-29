@@ -24,6 +24,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
   - un límite no numérico en la auditoría ya no da error 500;
   - el worker purga cada hora las sesiones caducadas.
 - **portafolio:** tablero por cliente en «Portafolio»: avance de los procesos hacia la aprobación e indicadores de su última revisión (actividades, roles, pains, tipo de ejecución, KPIs con valor y hallazgos del Playbook), solo con los proyectos que cada uno puede ver.
+- **conocimiento:** buscador en «Conocimiento» sobre la última revisión de los procesos de mis proyectos (actividades, sistemas, roles y ficha; sin tildes ni mayúsculas y con tolerancia a erratas), procesos parecidos de otros proyectos y comparativo con el marco APQC PCF, que importa un administrador desde un CSV con vista previa. Sin IA: `pg_trgm` y `unaccent` (ADR 19).
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 

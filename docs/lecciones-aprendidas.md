@@ -40,6 +40,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 5c. **`structuredClone` en `dominio` rompió el typecheck de todos los paquetes que dependen de él**: cada paquete compila la fuente TS de sus dependencias con su propia configuración (`lib: ES2022`, sin tipos de DOM ni de Node).
    → **Regla:** los paquetes compartidos (`dominio` sobre todo) solo usan ECMAScript estándar: nada de globales del navegador ni de Node en `src/`. Tras tocar `dominio`, correr `pnpm typecheck` en la raíz, no solo en el paquete.
 
+5d. **La herramienta de escritura de archivos convirtió las secuencias de escape Unicode en el carácter literal.** Un `/[\u0300-\u036f]/g` para quitar tildes llegó al archivo con los dos caracteres combinantes reales, y un `'\ufeff…'` de una prueba, con un BOM invisible dentro de la cadena. Funcionaba igual, pero no se veía. `\s`, `\r` y `\n` sí llegaron intactos.
+    → **Regla:** no escribir `\uXXXX` en código a través de la herramienta de escritura. Usar propiedades Unicode (`/\p{M}/gu` para quitar tildes tras `normalize('NFD')`) o `String.fromCharCode(0xfeff)`. Tras escribir, comprobar con `od -c` o `grep` que no quedaron caracteres invisibles.
+
 ## Pruebas de fidelidad
 
 6. **Verde falso por `dist` desactualizado.** Se ejecutó Playwright directamente tras un build que había fallado y las pruebas pasaron contra la versión anterior.
@@ -121,6 +124,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
     - Se publicó como repositorio nuevo con el mismo nombre (ADR 18).
 
     → **Regla:** antes de hacer público un repositorio, auditar el historial completo y no solo el árbol actual: valores reales de los `.env` contra todos los blobs, patrones de claves, correos de autor y datos de red. Si hay que ocultar algo que ya pasó por un PR, reescribir en un repositorio nuevo; en el mismo repositorio, el dato sigue visible en los PR.
+
+22h. **Postgres 17 ejecuta las funciones de un índice con un `search_path` seguro.** Una función IMMUTABLE que envuelve `unaccent` sin calificar el esquema funciona en una consulta normal, pero `CREATE INDEX` falla con «function unaccent(text) does not exist». Pasa también en `REINDEX`, `VACUUM`, `ANALYZE` y en la restauración de una copia. Se comprobó con un control en el Postgres de desarrollo (ADR 19).
+    → **Regla:** toda función usada en un índice (o en una vista materializada) califica cada objeto que usa: `public.unaccent('public.unaccent'::regdictionary, …)`. Falla incluso con la tabla vacía, así que la propia migración lo delata en las pruebas; aun así, probar `pg_dump` y `pg_restore` con datos.
 
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
