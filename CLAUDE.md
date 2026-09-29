@@ -33,7 +33,7 @@ pnpm fronteras                                  # dependencias permitidas entre 
 pnpm fidelidad                                  # build de la web + comparación con el MVP (Playwright, ~2,5 min)
 pnpm --filter @processiq/motor test             # un solo paquete
 pnpm --filter @processiq/pruebas-fidelidad exec playwright test -g "loadComplex11$"   # un escenario (¡tras build!)
-docker compose --profile dev up -d postgres-dev # Postgres de desarrollo en :5440 (lo necesitan las pruebas de la API)
+docker compose -f docker-compose.dev.yml up -d  # Postgres de desarrollo en 127.0.0.1:5440, sin .env (lo necesitan las pruebas de la API)
 pnpm --filter @processiq/api dev                # API en :8790 con .env.dev (copiar de .env.dev.example); Vite reenvía /api
 pnpm --filter @processiq/api semilla            # cuentas de prueba (*@processiq.test, clave Prueba-ProcessIQ-2026) y proyectos en todos los estados
 pnpm --filter @processiq/api worker             # worker de IA (cola ejecuciones_ia); con ANTHROPIC_API_KEY en .env.dev gasta de verdad
@@ -41,6 +41,7 @@ pnpm --filter @processiq/api exec vitest run -t "numera las revisiones"   # una 
 pnpm --filter @processiq/db generar             # nueva migración tras cambiar packages/db/src/esquema.ts
 pnpm e2e                                        # build + shell/editor/API/Postgres de punta a punta (Playwright, ~1 min; base processiq_e2e)
 infra/desplegar.sh staging | produccion [version] | versiones   # servidor: staging, promoción y reversión (docs/runbooks/despliegue.md)
+infra/sondear-main.sh --estado | --simular | --pausar | --reanudar   # servidor: el sondeo que despliega main en staging cada 10 min
 ```
 
 ## Estructura
@@ -102,7 +103,7 @@ docs/iniciativas/    registro de iniciativas y reservas (rutas, tablas, puertos�
   - Sesión por cookie `piq_sesion` (httpOnly; en la base solo se guarda el hash del token). Las escrituras exigen `Origin` igual a `ORIGEN_PUBLICO` (CSRF). Con contraseña temporal solo se permite cambiarla.
   - Permisos en `permisos.ts`: rol de organización (`admin`/`consultor`/`lector`) y rol por proyecto (`propietario`/`editor`/`revisor`/`lector`). Un proyecto sin acceso devuelve 404, no 403.
   - Revisiones: el contenido es JSON v1 validado con `migrarProyecto` de `dominio`. El número se asigna bajo `select … for update` sobre el proceso. Si `padreId` no es la última revisión, se guarda igual y se responde `conflicto: true`. Una revisión `aprobada` es inmutable.
-  - Errores: `{ error: { mensaje, codigo, detalles } }`, lanzados con `ErrorHttp`. Toda escritura relevante llama a `registrar()` (auditoría).
+  - Errores: `{ error: { mensaje, codigo, detalles } }`, lanzados con `ErrorHttp`. Toda escritura relevante llama a `registrar()` (auditoría). Cada fila lleva la organización del autor y cada administrador ve solo la suya; la CLI registra con `registrarEvento` (`cli.…`, sin autor). «Sistema» es del servidor entero.
   - `scripts/construir.mjs` empaqueta con esbuild (`servidor`, `worker`, `cli`) y copia `packages/db/migraciones` a `dist/`; la API migra al arrancar y el worker no.
 - IA en el servidor (fase 2.3, `apps/api/src/ia`, `rutas/ia.ts`):
   - La fila de `ejecuciones_ia` es el trabajo: el worker la toma con `SKIP LOCKED` (`cola.ts`) y la ejecuta con `llamarClaude` en modo `servidor` de `@processiq/ia` (`ejecutar.ts`).
@@ -120,7 +121,7 @@ docs/iniciativas/    registro de iniciativas y reservas (rutas, tablas, puertos�
   - el copiloto, los comandos, deshacer, minería, ingesta de texto y de archivos, importación BPMN e IA simulada (peticiones incluidas);
   - paneles y vistas.
 
-  Si algo difiere, los artefactos quedan en `pruebas/fidelidad/resultados/<caso>/`. Todo se compara byte a byte. La única tolerancia es de ±0,25 px en `x`/`width` de `rect.edge-label-bg`: con la máquina cargada, la medición de las etiquetas largas varía de forma intermitente (ver `comparar.mjs`).
+  Si algo difiere, los artefactos quedan en `pruebas/fidelidad/resultados/<caso>/` (cada ejecución empieza borrando los de la anterior). Todo se compara byte a byte. La única tolerancia es de ±0,25 px en `x`/`width` de `rect.edge-label-bg`: con la máquina cargada, la medición de las etiquetas largas varía de forma intermitente (ver `comparar.mjs`).
 - **Nunca editar `pruebas/fidelidad/referencia-mvp/`.** Un cambio intencional de comportamiento se registra en `docs/fase1-divergencias.md` y se prueba en `divergencias.spec.mjs`.
 - Antes de tocar un área que la fidelidad no cubre, **añadir primero el escenario** y ver que pasa.
 - **Portar sin reescribir:** mover el código tal cual (con scripts que copian el texto literal y verifican con `diff`) y cambiar solo la frontera: parámetros en lugar de `state` y de globales. Los prompts y mensajes se comparan byte a byte.

@@ -54,8 +54,9 @@ services:
       DATABASE_URL: postgres://processiq:${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}@postgres:5432/processiq
       ORIGEN_PUBLICO: ${ORIGEN_PUBLICO:-https://${DOMINIO}}
       HORAS_SESION: ${HORAS_SESION:-12}
-      # La API no llama a Anthropic (lo hace el worker): solo informa si hay clave y aplica los topes
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # La API no llama a Anthropic (lo hace el worker): no recibe la clave, solo
+      # si existe («si» o vacío), para informarlo y no encolar sin ella
+      IA_CONFIGURADA: ${ANTHROPIC_API_KEY:+si}
       PRESUPUESTO_IA_MENSUAL_USD: ${PRESUPUESTO_IA_MENSUAL_USD:-100}
       LIMITE_IA_USUARIO_MENSUAL_USD: ${LIMITE_IA_USUARIO_MENSUAL_USD:-25}
       MODELOS_IA_PERMITIDOS: ${MODELOS_IA_PERMITIDOS:-claude-opus-5,claude-sonnet-5}
@@ -124,6 +125,8 @@ services:
       TZ: ${ZONA_HORARIA:-America/Lima}
       RESPALDO_CADA_HORAS: ${RESPALDO_CADA_HORAS:-24}
       RESPALDO_CONSERVAR: ${RESPALDO_CONSERVAR:-14}
+      # Espera antes de la primera copia, para que la API haya creado las tablas
+      RESPALDO_ESPERA_INICIAL_S: ${RESPALDO_ESPERA_INICIAL_S:-300}
     volumes:
       - ${CARPETA_RESPALDOS:-./respaldos}:/respaldos
       - ./infra/respaldo.sh:/respaldo.sh:ro
@@ -149,31 +152,13 @@ services:
     expose:
       - "8787"
 
-  # Postgres de DESARROLLO y pruebas (perfil dev): puerto 5440 del PC porque el
-  # 5432 lo ocupa un Postgres nativo. No se usa en producción.
-  #   docker compose --profile dev up -d postgres-dev
-  postgres-dev:
-    logging: *registro
-    profiles: ["dev"]
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_DB: processiq
-      POSTGRES_USER: processiq
-      POSTGRES_PASSWORD: processiq
-    ports:
-      - "5440:5432"
-    volumes:
-      - postgres_dev:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U processiq -d processiq"]
-      interval: 5s
-      retries: 10
+# El Postgres de desarrollo y pruebas está en docker-compose.dev.yml (otro
+# proyecto: no necesita .env y producción no lo toca).
 
 volumes:
   caddy_datos:
   caddy_config:
   postgres_datos:
-  postgres_dev:
 
 networks:
   # Red compartida con el proyecto de staging: por ella el Caddy de producción

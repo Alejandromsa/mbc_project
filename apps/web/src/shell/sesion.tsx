@@ -93,6 +93,7 @@ function Marco({ usuario, children }: { usuario: Usuario; children: ReactNode })
           <nav aria-label="Secciones">
             <EnlaceMenu href="/">Proyectos</EnlaceMenu>
             <EnlaceMenu href="/portafolio">Portafolio</EnlaceMenu>
+            <EnlaceMenu href="/conocimiento">Conocimiento</EnlaceMenu>
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/usuarios">Usuarios</EnlaceMenu>}
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/catalogos">Catálogos</EnlaceMenu>}
             {usuario.rol === 'admin' && <EnlaceMenu href="/admin/auditoria">Auditoría</EnlaceMenu>}

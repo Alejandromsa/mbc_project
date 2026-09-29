@@ -90,7 +90,7 @@ Requisitos: Node 22+, pnpm 10 y Docker Desktop. La guía completa, con problemas
 
 ```bash
 pnpm install
-docker compose --profile dev up -d postgres-dev          # Postgres de desarrollo (puerto 5440)
+docker compose -f docker-compose.dev.yml up -d           # Postgres de desarrollo (127.0.0.1:5440; no necesita .env)
 cp .env.dev.example .env.dev
 pnpm --filter @processiq/api semilla                      # cuentas de prueba por rol y proyectos de ejemplo
 pnpm --filter @processiq/api dev                          # API en :8790

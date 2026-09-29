@@ -1,0 +1,42 @@
+Código;Nombre;Descripción
+1.0;Planificar el negocio;Marco de ejemplo inventado para las pruebas de ProcessIQ: no es el APQC PCF.
+1.1;Definir la estrategia comercial;
+1.1.1;Analizar el mercado objetivo;
+1.1.2;Fijar las metas de venta;
+1.2;Gestionar el portafolio de productos;
+1.2.1;Diseñar productos nuevos;
+2.0;Vender y atender a los clientes;
+2.1;Captar clientes;
+2.1.1;Registrar y derivar prospectos;Desde cualquier canal (web, llamada, feria).
+2.1.2;Elaborar el perfil del cliente;
+2.2;Cerrar la venta;
+2.2.1;Presentar el producto al cliente;
+2.2.2;Ofrecer la propuesta comercial;"Incluye descuentos; los aprueba la jefatura
+según la política vigente."
+2.2.3;Generar el contrato de venta;
+2.2.4;Tomar la firma del cliente;
+2.3;Atender reclamos de clientes;
+2.3.1;Registrar el reclamo;
+2.3.2;Responder al cliente;
+3.0;Gestionar siniestros;
+3.1;Recibir el aviso de siniestro;
+3.1.1;Registrar el aviso de siniestro;
+3.1.2;Validar la vigencia de la póliza;
+3.2;Evaluar el siniestro;
+3.2.1;Solicitar la documentación del siniestro;
+3.2.2;Coordinar el peritaje del bien;
+3.2.3;Evaluar la cobertura del siniestro;
+3.3;Liquidar el siniestro;
+3.3.1;Liquidar la reserva del siniestro;
+3.3.2;Autorizar el pago de la indemnización;
+3.3.3;Ejecutar el pago al asegurado;
+3.3.4;Notificar la resolución al asegurado;
+3.4;Recuperar costos del siniestro;
+3.4.1;Gestionar el salvamento;
+3.4.2;Recobrar a terceros responsables;
+4.0;Administrar las finanzas;
+4.1;Gestionar la tesorería;
+4.1.1;Programar pagos a terceros;
+4.1.2;Conciliar cuentas bancarias;
+4.2;Contabilizar operaciones;
+4.2.1;Registrar asientos contables;

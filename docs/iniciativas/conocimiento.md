@@ -52,7 +52,7 @@ Módulo dentro de la plataforma. Es la versión sin IA del «RAG sobre entregabl
 
 | # | Qué entrega | Rama | PR | Estado |
 |---|---|---|---|---|
-| 1 | Índice y buscador, procesos parecidos, importación y comparativo APQC; pantallas; E2E | `conocimiento/busqueda` | | ⏳ |
+| 1 | Índice y buscador, procesos parecidos, importación y comparativo APQC; pantallas; E2E | `conocimiento/busqueda` | #11 | en revisión |
 
 ## Pruebas
 

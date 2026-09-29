@@ -529,11 +529,11 @@ El objeto `revision` de las listas es:
 
 ## Auditoría
 
-[rutas/auditoria.ts](../../apps/api/src/rutas/auditoria.ts). La tabla `auditoria` solo recibe inserciones ([auditoria.ts](../../apps/api/src/auditoria.ts)): usuario, acción, entidad, id, detalle e IP.
+[rutas/auditoria.ts](../../apps/api/src/rutas/auditoria.ts). La tabla `auditoria` solo recibe inserciones ([auditoria.ts](../../apps/api/src/auditoria.ts)): usuario, organización, acción, entidad, id, detalle e IP. La organización es la del autor o, sin autor (entrada fallida, línea de comandos), la de la cuenta afectada.
 
 ### `GET /api/auditoria`
 
-- **Permiso:** admin.
+- **Permiso:** admin. Solo devuelve los eventos de **su organización**; los que no tienen organización (un intento de entrar con un correo que no existe) no los devuelve a nadie.
 - **Parámetros de consulta** (opcionales): `entidad` (p. ej. `proyecto`), `entidadId`, `limite` (1–500, por defecto 100; si no es un número, se usa el de por defecto).
 - **Respuesta 200:** del más reciente al más antiguo:
 
@@ -543,7 +543,7 @@ El objeto `revision` de las listas es:
                  "usuario": "correo@ejemplo.test" } ] }
 ```
 
-`usuario` es el correo (o `null` si el evento no tiene usuario, como un inicio de sesión fallido). La lista completa de acciones está en [Acciones de auditoría](#acciones-de-auditoría).
+`usuario` es el correo (o `null` si el evento no tiene usuario, como un inicio de sesión fallido o un comando de `cli.js`). La lista completa de acciones está en [Acciones de auditoría](#acciones-de-auditoría).
 
 ## IA en el servidor
 
@@ -932,6 +932,8 @@ Todas las escrituras relevantes llaman a `registrar()` ([auditoria.ts](../../app
 | `usuario.alta` | `usuario` | `{ email, rol }` | `POST /api/usuarios` |
 | `usuario.cambio` | `usuario` | cambios | `PATCH /api/usuarios/:id` |
 | `usuario.restablecer_clave` | `usuario` | — | `POST /api/usuarios/:id/restablecer-clave` |
+| `cli.usuario.alta` | `usuario` | `{ origen: 'cli', email, rol }` | `cli.js crear-usuario` (sin autor) |
+| `cli.usuario.restablecer_clave` | `usuario` | `{ origen: 'cli', email }` | `cli.js restablecer-clave` (sin autor) |
 | `proyecto.alta` | `proyecto` | `{ nombre }` | `POST /api/proyectos` |
 | `proyecto.cambio` | `proyecto` | cambios | `PATCH /api/proyectos/:id` |
 | `proyecto.miembro` | `proyecto` | `{ usuarioId, rol }` | `PUT …/miembros/:usuarioId` |
@@ -958,7 +960,7 @@ Todas las escrituras relevantes llaman a `registrar()` ([auditoria.ts](../../app
 | `invitados.comentario.alta` | `invitados_comentario` | `{ enlaceId, procesoId, revisionId, nombre, elementoId }` (sin usuario: lo escribe un invitado) | `POST /api/publico/invitados/:token/comentarios` |
 | `invitados.comentario.resolucion` | `invitados_comentario` | `{ procesoId, resuelto }` | `POST /api/invitados/comentarios/:id/resolver` |
 
-No dejan rastro: `POST /api/ia/ejecuciones/:id/descartar`, `POST /api/errores` y los comandos de [cli.ts](../../apps/api/src/cli.ts).
+No dejan rastro: `POST /api/ia/ejecuciones/:id/descartar` y `POST /api/errores`.
 
 ## Intermediario de IA (`/ia`)
 
@@ -1040,7 +1042,7 @@ Encontrados al revisar el código para este documento.
 
 **Abiertos:**
 
-1. **Auditoría y «Sistema» no filtran por organización.** `GET /api/auditoria`, `GET /api/sistema` y `GET /api/sistema/errores/:huella` leen toda la base. Hoy hay una sola organización; con varias, un admin vería datos de las demás.
+1. **«Sistema» no filtra por organización.** `GET /api/sistema` y `GET /api/sistema/errores/:huella` son del servidor entero, a propósito: con varias organizaciones, un admin vería los errores de las demás (con el correo de quien los tuvo). `GET /api/auditoria` sí filtra por la organización del admin.
 2. **Existencia de procesos.** Un proceso de un proyecto sin acceso responde «Proyecto no encontrado.» y uno inexistente, «Proceso no encontrado.». Los dos son 404; el riesgo es bajo porque los ids son UUID.
 3. **Modelo por defecto.** La API usa el primero de `MODELOS_IA_PERMITIDOS` en el orden de la variable. `GET /api/ia/estado` los lista en el orden del catálogo, y el editor toma el primero de esa lista. Si la variable no empieza por `claude-opus-5`, los dos pueden no coincidir.
 4. **Tipos del cliente.** `api.cambiarProyecto` declara que devuelve un `Proyecto` con `rol`, pero `PATCH /api/proyectos/:id` no devuelve `rol`.

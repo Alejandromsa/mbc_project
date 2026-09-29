@@ -1,0 +1,111 @@
+/* ============================================================
+   Conocimiento: buscador, parecidos, comparativo y marco de referencia.
+   Solo clases .conocimiento-*; colores y espacios de src/tokens.css.
+   ============================================================ */
+
+/* ---------- Pestañas de la sección ---------- */
+.conocimiento-pestanas { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--gray-200); margin: var(--space-2) 0 var(--space-5); }
+.conocimiento-pestanas a {
+  font-weight: 600; color: var(--gray-600); text-decoration: none;
+  padding: var(--space-2) var(--space-4); border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.conocimiento-pestanas a:hover { color: var(--mbc-azul); }
+.conocimiento-pestanas a.activa { color: var(--trace-dk); border-bottom-color: var(--trace); }
+
+/* ---------- Buscador ---------- */
+.conocimiento-buscador { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-6); max-width: 760px; }
+.conocimiento-buscador label { font-weight: 600; font-size: var(--font-sm); color: var(--gray-800); }
+.conocimiento-buscador small { color: var(--gray-600); font-size: var(--font-xs); }
+.conocimiento-buscador-fila { display: flex; gap: var(--space-2); }
+.conocimiento-buscador-fila input {
+  flex: 1; min-width: 0; font: inherit; font-size: var(--font-lg); padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--gray-300); border-radius: var(--radius-sm); background: var(--white); color: var(--gray-900);
+}
+.conocimiento-buscador-fila input:focus { border-color: var(--trace); outline: none; box-shadow: 0 0 0 3px var(--trace-ring); }
+.conocimiento-buscador-fila .boton { padding-left: var(--space-6); padding-right: var(--space-6); }
+.conocimiento-vacio-titulo { font-weight: 700; color: var(--mbc-azul); font-size: var(--font-lg); margin: 0 0 var(--space-2); }
+.conocimiento-ejemplos { margin-bottom: 0; }
+
+/* ---------- Resultados ---------- */
+.conocimiento-conteo { font-size: var(--font-md); color: var(--gray-700); margin: 0 0 var(--space-3); }
+.conocimiento-resultados, .conocimiento-parecidos, .conocimiento-categorias {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-3);
+}
+.conocimiento-resultado { display: grid; gap: var(--space-2); padding: var(--space-4) var(--space-5); }
+.conocimiento-resultado h3, .conocimiento-parecidos h3 { margin: 0; font-size: var(--font-lg); line-height: var(--leading-tight); }
+.conocimiento-resultado h3 a, .conocimiento-parecidos h3 a { color: var(--mbc-azul); text-decoration: none; }
+.conocimiento-resultado h3 a:hover, .conocimiento-parecidos h3 a:hover { text-decoration: underline; }
+.conocimiento-resultado-cabeza { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-1) var(--space-4); }
+.conocimiento-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); font-size: var(--font-sm); color: var(--gray-600); }
+.conocimiento-meta a { color: var(--gray-700); }
+.conocimiento-extracto {
+  display: flex; gap: var(--space-3); align-items: baseline; margin: 0;
+  padding: var(--space-2) var(--space-3); background: var(--gray-50); border-radius: var(--radius-sm); color: var(--gray-800);
+}
+.conocimiento-campo {
+  flex: none; font-size: var(--font-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-600);
+  min-width: 88px;
+}
+.conocimiento-extracto mark { background: var(--trace-tint); color: var(--mbc-azul); font-weight: 600; border-radius: 3px; padding: 0 2px; }
+.conocimiento-resultado-acciones { justify-content: flex-start; }
+
+/* ---------- Detalle: parecidos y comparativo ---------- */
+.conocimiento-detalle section:first-child h2 { margin-top: 0; }
+.conocimiento-parecidos > li { padding: var(--space-4) var(--space-5); }
+.conocimiento-parecido-cabeza { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-4); }
+.conocimiento-parecido-valor { display: grid; justify-items: end; gap: 2px; min-width: 120px; }
+.conocimiento-parecido-valor strong { font-size: var(--font-xl); color: var(--mbc-azul); line-height: 1; }
+.conocimiento-parecido-valor small { color: var(--gray-600); font-size: var(--font-xs); }
+.conocimiento-comun { margin: var(--space-3) 0 0; font-size: var(--font-sm); }
+dl.conocimiento-comun { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-3); align-items: baseline; }
+dl.conocimiento-comun dt { color: var(--gray-600); font-weight: 600; }
+dl.conocimiento-comun dd { margin: 0; }
+.conocimiento-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.conocimiento-chips li { padding: 1px var(--space-2); border-radius: var(--radius-full); background: var(--trace-tint); color: var(--trace-dk); }
+.conocimiento-chips li.conocimiento-chip-mas { background: none; color: var(--gray-600); }
+
+.conocimiento-barra { display: block; width: 100%; height: 6px; border-radius: var(--radius-full); background: var(--gray-150); overflow: hidden; }
+.conocimiento-barra > span { display: block; height: 100%; background: var(--trace); border-radius: inherit; }
+
+.conocimiento-comparativo { transition: opacity var(--duration-fast); }
+.conocimiento-actualizando { opacity: 0.6; }
+.conocimiento-comparativo-resumen { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-6); flex-wrap: wrap; }
+.conocimiento-comparativo-resumen p { margin: 0 0 var(--space-4); max-width: 64ch; }
+.conocimiento-comparativo-resumen .campo { min-width: 200px; }
+.conocimiento-subtitulo { font-size: var(--font-md); color: var(--gray-800); margin: var(--space-5) 0 var(--space-3); }
+
+.conocimiento-categoria { padding: var(--space-4) var(--space-5); }
+.conocimiento-categoria-cabeza { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); }
+.conocimiento-categoria h4 { margin: 0; font-size: var(--font-md); color: var(--mbc-azul); }
+.conocimiento-categoria code, .conocimiento-tabla code, .conocimiento-sin-actividades code { color: var(--gray-600); font-size: var(--font-xs); }
+.conocimiento-cobertura { display: grid; grid-template-columns: minmax(120px, 240px) auto; align-items: center; gap: var(--space-3); margin: var(--space-3) 0; font-size: var(--font-sm); }
+.conocimiento-grupos { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-1) var(--space-4); font-size: var(--font-sm); }
+.conocimiento-grupos li.cubierto > span { color: var(--success); font-weight: 700; }
+.conocimiento-grupos li.falta { color: var(--gray-600); }
+.conocimiento-grupos li.falta > span { color: var(--gray-400); }
+.conocimiento-grupos small { color: var(--gray-500); }
+.conocimiento-sin-actividades { margin-top: var(--space-3); font-size: var(--font-sm); color: var(--gray-700); }
+.conocimiento-sin-actividades summary { cursor: pointer; color: var(--gray-600); }
+.conocimiento-sin-actividades ul { margin: var(--space-2) 0 0; padding-left: var(--space-5); }
+
+.conocimiento-tabla { margin-top: var(--space-2); }
+.conocimiento-tabla caption { text-align: left; padding: 0 0 var(--space-2); font-size: var(--font-xs); }
+/* Más específico que «.tabla th, .tabla td» del shell, que alinea todo a la izquierda */
+.tabla th.conocimiento-num, .tabla td.conocimiento-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.conocimiento-sin-equivalente td:first-child { color: var(--gray-700); }
+
+/* ---------- Marco de referencia ---------- */
+.conocimiento-cifras { margin: 0 0 var(--space-3); }
+.conocimiento-cifras strong { color: var(--mbc-azul); }
+.conocimiento-nota { margin-top: var(--space-6); }
+.conocimiento-importar { max-width: 860px; }
+.conocimiento-importar > p:first-child { margin-top: 0; max-width: 72ch; }
+.conocimiento-importar input[type="file"] { max-width: 100%; font-size: var(--font-sm); }
+.conocimiento-previa { border-top: 1px solid var(--gray-150); margin-top: var(--space-4); padding-top: var(--space-2); }
+.conocimiento-previa .acciones { margin-top: var(--space-4); }
+
+@media (max-width: 720px) {
+  .conocimiento-parecido-cabeza, .conocimiento-comparativo-resumen { flex-direction: column; align-items: stretch; }
+  .conocimiento-parecido-valor { justify-items: start; }
+  .conocimiento-extracto { flex-direction: column; gap: var(--space-1); }
+}

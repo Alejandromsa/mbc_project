@@ -17,6 +17,8 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Operación | Seguridad y operación del servidor ([§5.2](#52-seguridad-y-operación)), despliegue automático a staging | `plataforma/operacion` | `infra/`, `docker-compose*.yml`, `.env*.example`, `config.ts`, `cli.ts`, `rutas/auditoria.ts`, `rutas/sistema.ts`, runbooks | ⏳ |
 | Portafolio | Iniciativa `portafolio`: tablero por cliente e indicadores | `portafolio/tablero` | [ficha](iniciativas/portafolio.md) | ✅ PR #6 |
 | Conocimiento | Iniciativa `conocimiento`: búsqueda sobre entregables y comparativo APQC | `conocimiento/busqueda` | [ficha](iniciativas/conocimiento.md) | ⏳ |
+| Invitados (ola 2) | Iniciativa `invitados`: enlace de solo lectura con caducidad y comentarios del cliente | `invitados/enlaces` | [ficha](iniciativas/invitados.md) | ⏳ |
+| Colaboración (ola 2) | Núcleo: presencia, «editando» y aviso de revisiones nuevas | `plataforma/colaboracion` | [ficha](iniciativas/colaboracion.md) | 🔜 después de invitados |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -51,8 +53,8 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 |---|---|---|
 | Portafolio de procesos por cliente e indicadores | Módulo `portafolio` | ✅ PR #6 |
 | Búsqueda sobre entregables anteriores y comparativo APQC PCF | Módulo `conocimiento` | ⏳ ola 1 (el comparativo necesita el archivo APQC) |
-| Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo con rutas públicas | 🔜 ola 2 |
-| Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo | 🔜 ola 2 (después de invitados: tocan la misma integración del editor) |
+| Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo `invitados` | ⏳ ola 2 |
+| Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo (`colaboracion`) | 🔜 ola 2, después de invitados (tocan la misma integración del editor) |
 | Interfaz en inglés | Núcleo | 🔜 ola 3 (toca todas las pantallas: va cuando no haya módulos a medias) |
 
 ## 5. Deuda técnica y hallazgos abiertos
@@ -66,20 +68,19 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - ✅ Si el servidor no permite el modelo elegido, usa otro y el editor lo avisa (PR #7).
 - ✅ Un aviso `ia_cola` despierta a todos los bucles del worker (PR #7).
 - ✅ `clasificarErrorIa` decide por la clase marcada en el error; el texto queda solo como respaldo (PR #7).
-- ⏳ La cabecera del intermediario dice que es temporal; sigue sirviendo al editor libre.
+- ✅ La cabecera del intermediario ya no dice que es temporal (PR de operación).
 - 🔜 Salida estructurada, caché de prompts y versión del prompt en `ejecuciones_ia` (previstas en la arquitectura).
 - 🔜 Dibujar en el servidor el proceso generado por la IA (hoy lo dibuja el editor al abrirlo).
 
 ### 5.2 Seguridad y operación
 
-- ⏳ `GET /api/auditoria` y «Sistema» no filtran por organización (hoy hay una sola).
-- ⏳ Lo que se hace con `cli.js` no queda en la auditoría.
-- ⏳ `postgres-dev` publica el puerto 5440 en todas las interfaces; debe ser solo `127.0.0.1`.
-- ⏳ El contenedor `api` recibe `ANTHROPIC_API_KEY` aunque no la usa.
-- ⏳ `docker compose --profile dev up -d postgres-dev` exige `DOMINIO` y `POSTGRES_PASSWORD` aunque no los use.
-- ⏳ El intermediario en desarrollo lee `.env` y no `.env.dev`; falta documentar `ALLOWED_ORIGINS`.
-- ⏳ `HORAS_SESION` y `PORT` no se validan; `RESPALDO_ESPERA_INICIAL_S` no llega al contenedor; `desplegar.sh` solo lee `RED_BORDE` de la terminal.
-- ⏳ Despliegue automático a staging al fusionar en `main`, por sondeo desde el servidor (sin runners propios: [ADR 18](adr/0018-repositorio-publico.md)). Producción sigue siendo manual.
+- ✅ `GET /api/auditoria` filtra por la organización del administrador. «Sistema» sigue siendo del servidor entero, documentado ([seguridad.md §8](tecnica/seguridad.md#8-auditoría-y-registros)).
+- ✅ Lo que se hace con `cli.js` queda en la auditoría (`cli.…`).
+- ✅ El Postgres de desarrollo está en `docker-compose.dev.yml`, solo en `127.0.0.1:5440` y sin `.env`.
+- ✅ El contenedor `api` recibe `IA_CONFIGURADA`, no `ANTHROPIC_API_KEY`.
+- ✅ El intermediario en desarrollo lee `.env.dev` (o `.env` si no existe); `ALLOWED_ORIGINS` documentada.
+- ✅ `HORAS_SESION` y `PORT` validadas; `RESPALDO_ESPERA_INICIAL_S` llega al contenedor; `desplegar.sh` lee `RED_BORDE` también de los `.env`.
+- ✅ Despliegue automático a staging desde `main`, por sondeo desde el servidor (`infra/sondear-main.sh`; sin runners propios: [ADR 18](adr/0018-repositorio-publico.md)). Producción sigue siendo manual. 🙋 Falta instalar la tarea programada en el servidor (`infra/instalar-sondeo.ps1`).
 - 🔜 Cabecera `Content-Security-Policy` (antes hay que servir Montserrat desde la propia web).
 - 🔜 Alertas por correo o webhook (necesita el SMTP o el webhook).
 - 🔜 `CODEOWNERS` real y revisión obligatoria (necesita el equipo).
@@ -101,4 +102,4 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 
 - 🔜 `arquitectura.md` §7 y §8 describen tablas y rutas previstas que no coinciden con las reales (`/api/ia/analisis/{tipo}`, SSE con `Last-Event-ID`, `fuentes`, `exportaciones`…): marcar qué está hecho y cómo.
 - 🔜 Comentario desfasado en `esquema.ts` sobre las claves de `ejecuciones_ia.tarea`.
-- 🔜 La fidelidad no borra las carpetas de resultados entre corridas: quedan restos que parecen fallos.
+- ✅ La fidelidad no borra las carpetas de resultados entre corridas: quedan restos que parecen fallos (`plataforma/operacion`).

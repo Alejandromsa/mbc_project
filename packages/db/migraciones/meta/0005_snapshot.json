@@ -1,5 +1,5 @@
 {
-  "id": "7f87cc5c-08ee-4c81-820e-8b4746f6cd41",
+  "id": "f306a00b-04f2-484d-9265-0389d4a60880",
   "prevId": "ca1519c7-45f4-4299-a43d-3b7ad9a79ed5",
   "version": "7",
   "dialect": "postgresql",
@@ -16,6 +16,12 @@
         },
         "usuario_id": {
           "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "organizacion_id": {
+          "name": "organizacion_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -80,9 +86,44 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "auditoria_organizacion_idx": {
+          "name": "auditoria_organizacion_idx",
+          "columns": [
+            {
+              "expression": "organizacion_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "auditoria_organizacion_id_organizaciones_id_fk": {
+          "name": "auditoria_organizacion_id_organizaciones_id_fk",
+          "tableFrom": "auditoria",
+          "tableTo": "organizaciones",
+          "columnsFrom": [
+            "organizacion_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -481,370 +522,6 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.invitados_comentarios": {
-      "name": "invitados_comentarios",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "enlace_id": {
-          "name": "enlace_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "revision_id": {
-          "name": "revision_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "elemento_id": {
-          "name": "elemento_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "elemento_etiqueta": {
-          "name": "elemento_etiqueta",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "nombre": {
-          "name": "nombre",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "texto": {
-          "name": "texto",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "creado_en": {
-          "name": "creado_en",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "resuelto_en": {
-          "name": "resuelto_en",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "resuelto_por": {
-          "name": "resuelto_por",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "invitados_comentarios_enlace_idx": {
-          "name": "invitados_comentarios_enlace_idx",
-          "columns": [
-            {
-              "expression": "enlace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "invitados_comentarios_revision_idx": {
-          "name": "invitados_comentarios_revision_idx",
-          "columns": [
-            {
-              "expression": "revision_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "invitados_comentarios_enlace_id_invitados_enlaces_id_fk": {
-          "name": "invitados_comentarios_enlace_id_invitados_enlaces_id_fk",
-          "tableFrom": "invitados_comentarios",
-          "tableTo": "invitados_enlaces",
-          "columnsFrom": [
-            "enlace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "invitados_comentarios_revision_id_revisiones_id_fk": {
-          "name": "invitados_comentarios_revision_id_revisiones_id_fk",
-          "tableFrom": "invitados_comentarios",
-          "tableTo": "revisiones",
-          "columnsFrom": [
-            "revision_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "invitados_comentarios_resuelto_por_usuarios_id_fk": {
-          "name": "invitados_comentarios_resuelto_por_usuarios_id_fk",
-          "tableFrom": "invitados_comentarios",
-          "tableTo": "usuarios",
-          "columnsFrom": [
-            "resuelto_por"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.invitados_enlaces": {
-      "name": "invitados_enlaces",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "organizacion_id": {
-          "name": "organizacion_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "proyecto_id": {
-          "name": "proyecto_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "proceso_id": {
-          "name": "proceso_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "revision_id": {
-          "name": "revision_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "token_hash": {
-          "name": "token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "destinatario": {
-          "name": "destinatario",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "admite_comentarios": {
-          "name": "admite_comentarios",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "caduca_en": {
-          "name": "caduca_en",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "revocado_en": {
-          "name": "revocado_en",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "revocado_por": {
-          "name": "revocado_por",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "creado_por": {
-          "name": "creado_por",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "creado_en": {
-          "name": "creado_en",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "ultimo_acceso": {
-          "name": "ultimo_acceso",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "invitados_enlaces_proceso_idx": {
-          "name": "invitados_enlaces_proceso_idx",
-          "columns": [
-            {
-              "expression": "proceso_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "invitados_enlaces_revision_idx": {
-          "name": "invitados_enlaces_revision_idx",
-          "columns": [
-            {
-              "expression": "revision_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "invitados_enlaces_organizacion_id_organizaciones_id_fk": {
-          "name": "invitados_enlaces_organizacion_id_organizaciones_id_fk",
-          "tableFrom": "invitados_enlaces",
-          "tableTo": "organizaciones",
-          "columnsFrom": [
-            "organizacion_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "invitados_enlaces_proyecto_id_proyectos_id_fk": {
-          "name": "invitados_enlaces_proyecto_id_proyectos_id_fk",
-          "tableFrom": "invitados_enlaces",
-          "tableTo": "proyectos",
-          "columnsFrom": [
-            "proyecto_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "invitados_enlaces_proceso_id_procesos_id_fk": {
-          "name": "invitados_enlaces_proceso_id_procesos_id_fk",
-          "tableFrom": "invitados_enlaces",
-          "tableTo": "procesos",
-          "columnsFrom": [
-            "proceso_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "invitados_enlaces_revision_id_revisiones_id_fk": {
-          "name": "invitados_enlaces_revision_id_revisiones_id_fk",
-          "tableFrom": "invitados_enlaces",
-          "tableTo": "revisiones",
-          "columnsFrom": [
-            "revision_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "invitados_enlaces_revocado_por_usuarios_id_fk": {
-          "name": "invitados_enlaces_revocado_por_usuarios_id_fk",
-          "tableFrom": "invitados_enlaces",
-          "tableTo": "usuarios",
-          "columnsFrom": [
-            "revocado_por"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "invitados_enlaces_creado_por_usuarios_id_fk": {
-          "name": "invitados_enlaces_creado_por_usuarios_id_fk",
-          "tableFrom": "invitados_enlaces",
-          "tableTo": "usuarios",
-          "columnsFrom": [
-            "creado_por"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "invitados_enlaces_token_hash_unique": {
-          "name": "invitados_enlaces_token_hash_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
-        }
-      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

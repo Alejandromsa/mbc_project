@@ -12,6 +12,7 @@ Cada decisión con consecuencias duraderas queda registrada: contexto, decisión
 | [16](0016-staging-mismo-servidor.md) | Staging en el mismo servidor, detrás del Caddy de producción | Vigente (mientras no haya PaaS) |
 | [17](0017-excepciones-auditoria-dependencias.md) | Excepciones de la auditoría de dependencias | Vigente; revisar en cada actualización |
 | [18](0018-repositorio-publico.md) | Repositorio público, sin licencia, con el historial depurado y `main` protegida | Vigente |
+| [19](0019-busqueda-pg-trgm-unaccent.md) | Búsqueda sobre los procesos con `pg_trgm` y `unaccent`, sin IA; función de normalización IMMUTABLE creada a mano en la migración | Vigente |
 | [20](0020-rutas-publicas-con-token.md) | Rutas públicas bajo `/api/publico/`, con token propio y sin sesión (invitados) | Vigente |
 
 Plantilla para una nueva: copiar cualquiera de las anteriores. Una decisión que se sustituye no se borra: se marca «Sustituida por N».

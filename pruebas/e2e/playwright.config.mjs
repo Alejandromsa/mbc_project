@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { BASE, PUERTO_ANTHROPIC, PUERTO_API, URL_BASE_DATOS } from './src/entorno.mjs';
 
-// Requisitos: Postgres de desarrollo en :5440 (docker compose --profile dev up -d postgres-dev)
+// Requisitos: Postgres de desarrollo en :5440 (docker compose -f docker-compose.dev.yml up -d)
 // y la web construida (el script "e2e" la construye antes).
 export default defineConfig({
   testDir: '.',

@@ -16,9 +16,20 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 REGISTRO=despliegues.log
-RED="${RED_BORDE:-processiq-borde}"
 
 version_de() { grep -E '^VERSION=' "$1" 2>/dev/null | tail -1 | cut -d= -f2 || true; }
+
+# Valor de una variable en un archivo de entorno, sin comillas ni \r (vacío si no está)
+valor_de() {   # archivo variable
+  grep -E "^$2=" "$1" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r' | sed -E "s/^(['\"])(.*)\1$/\2/" || true
+}
+
+# Red compartida por producción y staging. Como en Compose: la terminal gana al
+# archivo (.env en producción, .env.staging en staging), y si no, la de siempre.
+red_de() {   # archivo
+  local r="${RED_BORDE:-$(valor_de "$1" RED_BORDE)}"
+  echo "${r:-processiq-borde}"
+}
 
 fijar_version() {   # archivo version
   if grep -qE '^VERSION=' "$1"; then
@@ -43,8 +54,11 @@ esperar_api() {   # proyecto
 
 staging() {
   [ -f .env.staging ] || { echo "Falta .env.staging (copiar de .env.staging.example y completar)."; exit 1; }
-  docker network inspect "$RED" >/dev/null 2>&1 || {
-    echo "No existe la red $RED: arranca antes producción con esta configuración (docker compose up -d)."; exit 1; }
+  red=$(red_de .env.staging)
+  [ "$red" = "$(red_de .env)" ] || {
+    echo "RED_BORDE no coincide: producción usa $(red_de .env) (.env) y staging $red (.env.staging). Pon el mismo valor en los dos."; exit 1; }
+  docker network inspect "$red" >/dev/null 2>&1 || {
+    echo "No existe la red $red: arranca antes producción con esta configuración (docker compose up -d)."; exit 1; }
   if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     echo "Hay cambios sin confirmar: la versión no correspondería a un commit. Confírmalos o descártalos."; exit 1
   fi
