@@ -34,6 +34,7 @@ import { runLinter } from '../validacion/lint.js';
 import { updateViewUi } from '../vistas/comparador.js';
 import './barra.css';
 import { aplicarCatalogos } from './catalogos.js';
+import { activarColaboracion } from './colaboracion.js';
 import { crearIaRemota } from './ia.js';
 
 const parametros = new URLSearchParams(location.search);
@@ -51,6 +52,11 @@ const ctx = {
   sucio: false,
   guardando: false
 };
+
+// Colaboración en tiempo real (ADR 21): presencia y aviso de revisiones nuevas; se activa al abrir
+let colaboracion = null;
+/** Se abre otra revisión a propósito: no se pregunta al salir por los cambios sin guardar. */
+let recargando = false;
 
 if (pedidoRevision || pedidoProceso) {
   // Mientras llega la revisión, el editor arranca vacío (sin cargar el trabajo libre).
@@ -219,6 +225,7 @@ async function abrir() {
     ctx.sucio = recuperado;
     alCambiar(programarRevision);
     pintarBarra();
+    activarPresencia();
     if (!puedeGuardar()) avisar('info', motivoSoloLectura());
     await activarIa();
     await ofrecerGeneracionPendiente();
@@ -252,7 +259,7 @@ function programarRevision() {
 }
 
 window.addEventListener('beforeunload', (e) => {
-  if (ctx.sucio) { e.preventDefault(); e.returnValue = ''; }
+  if (ctx.sucio && !recargando) { e.preventDefault(); e.returnValue = ''; }
 });
 
 document.addEventListener('keydown', (e) => {
@@ -328,6 +335,34 @@ async function guardarContenido(mensaje, ejecucionIaId = null) {
   }
 }
 
+// =================== Colaboración en tiempo real (ADR 21) ===================
+
+function activarPresencia() {
+  if (colaboracion) return;
+  colaboracion = activarColaboracion({
+    procesoId: ctx.proceso.id,
+    contenedor: barra.querySelector('[data-ref="presencia"]'),
+    sucio: () => ctx.sucio,
+    guardando: () => ctx.guardando,
+    base: () => ctx.base,
+    ultima: () => ctx.ultima,
+    alRevisionNueva: (r) => { ctx.ultima = { id: r.id, numero: r.numero }; pintarBarra(); },
+    cargarRevision,
+    avisar,
+    preguntar
+  });
+}
+
+/** Abre otra revisión del proceso (colaboración: «Cargar la nueva versión»). `descartar`: borra antes el borrador local. */
+function cargarRevision(id, descartar) {
+  if (descartar) {
+    const clave = claveBorrador(ctx.proceso.id);
+    try { localStorage.removeItem(clave); localStorage.removeItem(clave + '.base'); } catch { /* sin almacenamiento */ }
+  }
+  recargando = true;
+  location.assign(`/?revision=${encodeURIComponent(id)}`);
+}
+
 // =================== IA del servidor (fase 2.3) ===================
 
 async function activarIa() {
@@ -388,6 +423,7 @@ function crearBarra() {
       <span class="piq-proyecto-ruta" data-ref="ruta"></span>
       <span class="piq-proyecto-detalle" data-ref="detalle"></span>
     </div>
+    <div class="piq-presencia" data-ref="presencia" hidden></div>
     <span class="piq-proyecto-cambios" data-ref="cambios" hidden>Cambios sin guardar</span>
     <button type="button" class="piq-proyecto-guardar" data-ref="guardar" hidden title="Crea una versión nueva en el proyecto (Ctrl+S)">Guardar revisión</button>`;
   barra.querySelector('[data-ref="guardar"]').addEventListener('click', () => guardar());
@@ -439,13 +475,19 @@ function pintarBarra(opciones = {}) {
   boton.disabled = ctx.guardando;
   boton.textContent = ctx.guardando ? 'Guardando…' : 'Guardar revisión';
   boton.classList.toggle('piq-proyecto-guardar-destacado', ctx.sucio);
+  if (colaboracion) colaboracion.actualizar();
 }
 
 let ocultarAviso = null;
-/** tipo: ok | info | atencion | error. */
-function avisar(tipo, texto, detalles = [], enlace = null) {
+let numeroAviso = 0;
+/**
+ * tipo: ok | info | atencion | error. acciones: botones [{ texto, alPulsar, principal }].
+ * Devuelve una función que lo cierra si sigue siendo el aviso a la vista.
+ */
+function avisar(tipo, texto, detalles = [], enlace = null, acciones = []) {
   if (!avisoEl) crearBarra();
   clearTimeout(ocultarAviso);
+  const numero = ++numeroAviso;
   avisoEl.className = `piq-proyecto-aviso piq-aviso-${tipo}`;
   avisoEl.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
   avisoEl.textContent = '';
@@ -463,6 +505,19 @@ function avisar(tipo, texto, detalles = [], enlace = null) {
     a.textContent = enlace.texto;
     avisoEl.appendChild(a);
   }
+  if (acciones.length) {
+    const botones = document.createElement('div');
+    botones.className = 'piq-aviso-acciones';
+    acciones.forEach((ac) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      if (ac.principal) b.className = 'piq-aviso-principal';
+      b.textContent = ac.texto;
+      b.addEventListener('click', () => ac.alPulsar());
+      botones.appendChild(b);
+    });
+    avisoEl.appendChild(botones);
+  }
   const cerrar = document.createElement('button');
   cerrar.type = 'button';
   cerrar.className = 'piq-aviso-cerrar';
@@ -472,6 +527,7 @@ function avisar(tipo, texto, detalles = [], enlace = null) {
   avisoEl.appendChild(cerrar);
   avisoEl.hidden = false;
   if (tipo === 'ok') ocultarAviso = setTimeout(() => { avisoEl.hidden = true; }, 6000);
+  return () => { if (numero === numeroAviso) avisoEl.hidden = true; };
 }
 
 /** Diálogo modal nativo. Devuelve el botón pulsado ('si' | 'no') y el texto escrito. */

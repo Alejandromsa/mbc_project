@@ -14,7 +14,7 @@
 | `portafolio` | Portafolio de procesos por cliente e indicadores | @Alejandromsa (agente) | Módulo | en desarrollo | [portafolio.md](portafolio.md) |
 | `conocimiento` | Búsqueda sobre entregables y comparativo APQC | @Alejandromsa (agente) | Módulo | en desarrollo | [conocimiento.md](conocimiento.md) |
 | `invitados` | Revisión por invitados externos: enlace de solo lectura con caducidad y comentarios | @Alejandromsa (agente) | Módulo (con rutas públicas) | en desarrollo | [invitados.md](invitados.md) |
-| `colaboracion` | Colaboración en tiempo real: presencia, «editando» y aviso de revisiones nuevas | Plataforma (agente) | Núcleo | reservada | [colaboracion.md](colaboracion.md) |
+| `colaboracion` | Colaboración en tiempo real: presencia, «editando» y aviso de revisiones nuevas | Plataforma (agente) | Núcleo | en desarrollo | [colaboracion.md](colaboracion.md) |
 
 ## Propuestas sin reservar
 

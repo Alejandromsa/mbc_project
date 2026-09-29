@@ -18,7 +18,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Portafolio | Iniciativa `portafolio`: tablero por cliente e indicadores | `portafolio/tablero` | [ficha](iniciativas/portafolio.md) | ✅ PR #6 |
 | Conocimiento | Iniciativa `conocimiento`: búsqueda sobre entregables y comparativo APQC | `conocimiento/busqueda` | [ficha](iniciativas/conocimiento.md) | ⏳ |
 | Invitados (ola 2) | Iniciativa `invitados`: enlace de solo lectura con caducidad y comentarios del cliente | `invitados/enlaces` | [ficha](iniciativas/invitados.md) | ⏳ |
-| Colaboración (ola 2) | Núcleo: presencia, «editando» y aviso de revisiones nuevas | `plataforma/colaboracion` | [ficha](iniciativas/colaboracion.md) | 🔜 después de invitados |
+| Colaboración (ola 2) | Núcleo: presencia, «editando» y aviso de revisiones nuevas | `plataforma/colaboracion` | [ficha](iniciativas/colaboracion.md) | ⏳ incremento 1 en revisión (PR #15) |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -54,7 +54,8 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Portafolio de procesos por cliente e indicadores | Módulo `portafolio` | ✅ PR #6 |
 | Búsqueda sobre entregables anteriores y comparativo APQC PCF | Módulo `conocimiento` | ⏳ ola 1 (el comparativo necesita el archivo APQC) |
 | Comentarios y revisión por invitados externos (enlace de solo lectura con caducidad) | Módulo `invitados` | ⏳ ola 2 |
-| Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo (`colaboracion`) | 🔜 ola 2, después de invitados (tocan la misma integración del editor) |
+| Colaboración en tiempo real (presencia, aviso de revisiones nuevas, bloqueo suave) | Núcleo (`colaboracion`) | ⏳ ola 2: incremento 1 en revisión ([ADR 21](adr/0021-presencia-y-eventos-por-sse.md)) |
+| Edición simultánea del mismo diagrama (CRDT u operaciones en vivo) | Núcleo | 🔜 por decidir, sobre la base de `colaboracion` (necesitaría canal en los dos sentidos: otra ADR) |
 | Interfaz en inglés | Núcleo | 🔜 ola 3 (toca todas las pantallas: va cuando no haya módulos a medias) |
 
 ## 5. Deuda técnica y hallazgos abiertos
@@ -96,6 +97,8 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - 🔜 Textos sin tilde en la interfaz del editor («Anadir», «Analisis»): cambiarlos exige registrar la divergencia con el MVP.
 - 🔜 El importador BPMN aplana los subprocesos y no lee carriles ni posiciones.
 - 🔜 `herramientas/fronteras.mjs` no detecta `import './x.js'` sin `from`.
+- 🔜 Colaboración: cambiar el estado de la última revisión (enviar a revisión, aprobar) no avisa con `NOTIFY`; la página del proceso lo ve en el sondeo de 5 s del SSE. Añadir el aviso en `POST /api/revisiones/:id/estado` si hace falta al momento.
+- 🔜 Colaboración: la presencia no dice qué versión tiene abierta cada persona (solo si está viendo o editando).
 - ✅ Avisos de la auditoría de pptxgenjs y mammoth ([ADR 17](adr/0017-excepciones-auditoria-dependencias.md)), sin excepciones: mammoth pasa a 1.13.0 (divergencia D6), e `image-size`, que pptxgenjs declara pero no usa, se quita con un override. pptxgenjs sigue en 3.12.0, porque la 4.0.1 no quita el aviso; da el mismo `.pptx` y está evaluada en la ADR.
 - 🔜 Con mammoth 1.13 el texto extraído de un Word pierde el símbolo de las casillas (`☒`/`☐`), así que «marcado» y «sin marcar» se leen igual (divergencia D6). Evaluar si recuperarlo con una opción de mammoth o un preproceso.
 

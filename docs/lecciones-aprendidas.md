@@ -152,6 +152,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
     - mirar el rango vulnerable y la primera versión corregida (`gh api advisories/<GHSA>`) y compararlos con el rango que pide la última versión de X (`pnpm view X dependencies`);
     - buscar en el código publicado de X si de verdad usa la dependencia. Si no la usa, se quita con `pnpm.overrides` (`"X>dep": "-"`) en lugar de aceptarla.
 
+22n. **Un símbolo Unicode como icono se vio como una mancha.** El «✎» delante de «Ana está editando» (barra del editor, colaboración) no está en Montserrat: el navegador lo pintó con una fuente de reserva, borroso y sin forma de lápiz. Las pruebas pasaban; se vio al ampliar la captura. En la misma tarea, un `\\|` dentro de un script pasado por heredoc llegó como `\|` y dejó una tabla Markdown con una columna de más (reincidencia de la 1).
+    → **Regla:** los iconos pequeños de la interfaz se dibujan (SVG en línea o una máscara CSS con `currentColor`), no con caracteres de símbolo. Una captura con un icono nuevo se revisa ampliada. Y la 1 sigue valiendo: nada de heredoc si el contenido lleva `\`.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.

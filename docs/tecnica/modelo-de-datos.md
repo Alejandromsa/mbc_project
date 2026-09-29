@@ -49,6 +49,8 @@ erDiagram
   procesos ||--o{ ejecuciones_ia : "proceso_id (cascade)"
   revisiones |o--o{ ejecuciones_ia : "revision_id (set null)"
   revisiones |o--o{ revisiones : "padre_id (sin FK)"
+  procesos ||--o{ presencias : "proceso_id (cascade)"
+  usuarios ||--o{ presencias : "usuario_id (cascade)"
 
   organizaciones {
     uuid id PK
@@ -113,6 +115,11 @@ erDiagram
   latidos {
     text servicio PK
   }
+  presencias {
+    uuid proceso_id PK, FK
+    uuid usuario_id PK, FK
+    text pestana PK
+  }
 ```
 
 `auditoria`, `errores` y `latidos` no tienen clave foránea hacia `usuarios`: su `usuario_id` es una referencia lógica que sobrevive aunque el usuario desaparezca. `auditoria` sí la tiene hacia `organizaciones`.
@@ -128,11 +135,12 @@ erDiagram
 | `revisiones.proceso_id` → `procesos` | `cascade` | …y con ellos sus revisiones… |
 | `ejecuciones_ia.proceso_id` → `procesos` | `cascade` | …y sus ejecuciones de IA. |
 | `ejecuciones_ia.revision_id` → `revisiones` | `set null` | Borrar la revisión deja la ejecución sin enlace. |
+| `presencias.proceso_id` → `procesos`, `presencias.usuario_id` → `usuarios` | `cascade` | Borrar un proceso o un usuario borra su presencia. |
 | `plantillas_proceso.creado_por` → `usuarios`, `plantillas_proceso.origen_revision_id` → `revisiones` | `set null` | La plantilla sobrevive a su autor y a la revisión de la que salió. |
 | Todas las que apuntan a `organizaciones` | `no action` | No se puede borrar una organización con datos. |
 | `proyectos.creado_por`, `procesos.creado_por`, `revisiones.autor_id`, `ejecuciones_ia.usuario_id` → `usuarios` | `no action` | No se puede borrar un usuario que creó algo: se desactiva (`activo = false`). |
 
-> La API no borra organizaciones, usuarios, proyectos, procesos ni revisiones: solo desactiva usuarios y archiva proyectos. Borra filas de `sesiones` (también las caducadas, cada hora desde el worker), `miembros_proyecto`, `verbos_playbook`, `temas_pptx`, `plantillas_proceso` y `errores` (purga). La semilla de desarrollo (`pnpm --filter @processiq/api semilla`) sí borra los proyectos de las cuentas de prueba, y ahí actúan las cascadas.
+> La API no borra organizaciones, usuarios, proyectos, procesos ni revisiones: solo desactiva usuarios y archiva proyectos. Borra filas de `sesiones` (también las caducadas, cada hora desde el worker), `miembros_proyecto`, `verbos_playbook`, `temas_pptx`, `plantillas_proceso`, `errores` (purga) y `presencias` (al cerrar la pestaña y al caducar). La semilla de desarrollo (`pnpm --filter @processiq/api semilla`) sí borra los proyectos de las cuentas de prueba, y ahí actúan las cascadas.
 
 ---
 
@@ -487,6 +495,26 @@ Enlaces de solo lectura a una revisión y los comentarios de quien los abre ([fi
 
 Índices `invitados_comentarios_enlace_idx (enlace_id)` y `invitados_comentarios_revision_idx (revision_id)`.
 
+### Colaboración (núcleo, iniciativa `colaboracion`)
+
+Quién tiene abierto cada proceso ([ficha](../iniciativas/colaboracion.md), [ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)). La escribe solo `apps/api/src/colaboracion`. Es efímera: sin histórico ni auditoría.
+
+#### `presencias`
+
+Una fila por pestaña abierta en un proceso (el editor o la página del proceso del shell).
+
+| Columna | Tipo | Nulo | Por defecto | Significado |
+|---|---|:-:|---|---|
+| `proceso_id` | uuid | no | — | FK → `procesos` (`cascade`). Parte de la clave primaria. |
+| `usuario_id` | uuid | no | — | FK → `usuarios` (`cascade`). Parte de la clave primaria. |
+| `pestana` | text | no | — | Identificador aleatorio que genera la web por pestaña (8–64 caracteres). Parte de la clave primaria. |
+| `lugar` | text | no | — | `editor` o `shell` (lo valida la API). |
+| `estado` | text | no | — | `viendo` o `editando` (hay cambios sin guardar). La API solo guarda `editando` si la persona puede escribir en el proyecto y no está archivado. |
+| `desde` | timestamptz | no | `now()` | Cuándo se abrió la pestaña. |
+| `ultimo_latido` | timestamptz | no | `now()` | Último latido. Caduca a los 60 s. |
+
+Clave primaria `(proceso_id, usuario_id, pestana)`; índice `presencias_ultimo_latido_idx (ultimo_latido)` para borrar las caducadas.
+
 ---
 
 ## 5. Canales `LISTEN/NOTIFY`
@@ -495,8 +523,9 @@ Enlaces de solo lectura a una revisión y los comentarios de quien los abre ([fi
 |---|---|---|---|
 | `ia_cola` | id de la ejecución | La API al encolar | El worker: despierta y mira la cola. |
 | `ia_ejecucion` | id de la ejecución | El worker en cada cambio (estado, progreso) y la API al cancelar | La API, para el SSE `/api/ia/ejecuciones/:id/eventos`. |
+| `procesos_evento` | id del proceso | La API: al guardar una revisión (dentro de la transacción) y cuando cambia la presencia (entra, cambia de estado, se va o caduca) | La API, para el SSE `/api/procesos/:id/eventos` ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)). |
 
-Los avisos solo despiertan. El estado se lee siempre de la tabla, y cada evento SSE envía la fila completa, así que reconectar es seguro. Los que esperan tienen además un sondeo de respaldo (10 s en el worker, 5 s en el SSE).
+Los avisos solo despiertan. El estado se lee siempre de la tabla, y cada evento SSE envía el estado completo (la fila, o la presencia y la última revisión), así que reconectar es seguro. La API escucha los dos canales en una sola conexión (`Escucha`, [ia/avisos.ts](../../apps/api/src/ia/avisos.ts)). Los que esperan tienen además un sondeo de respaldo (10 s en el worker, 5 s en el SSE).
 
 ---
 
@@ -688,6 +717,13 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
 
 **Uso:** `GET /api/catalogos` devuelve solo lo activo, con la forma de `@processiq/dominio`. En modo proyecto, el editor reemplaza en sitio los catálogos por defecto ([ADR 14](../adr/0014-catalogos-en-sitio.md)).
 
+### 6.8 Presencia
+
+- **Alta y latido:** cada pestaña hace `PUT /api/procesos/:id/presencia` al abrirse, cada 20 s y cuando cambia su estado (*upsert*). Mientras su SSE siga abierto, la API renueva también `ultimo_latido` cada 20 s.
+- **Caducidad:** una fila sin latido en 60 s ya no se muestra; el siguiente latido de cualquiera borra todas las caducadas (y avisa a sus procesos).
+- **Baja:** al cerrar la pestaña, `DELETE …/presencia` con `keepalive`; si no llega, caduca sola. Borrar el proceso o la cuenta también la borra (cascada).
+- **Avisos:** `NOTIFY procesos_evento` cuando entra una pestaña, cambia su estado o se va; y, dentro de la transacción, al guardar una revisión.
+
 ---
 
 ## 7. Migraciones
@@ -700,6 +736,7 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
 | [0003_observabilidad.sql](../../packages/db/migraciones/0003_observabilidad.sql) | 26-sep-2026 | Tipo `origen_error`. Tablas `errores` y `latidos`. |
 | [0004_plantillas_proceso.sql](../../packages/db/migraciones/0004_plantillas_proceso.sql) | 28-sep-2026 | Tabla `plantillas_proceso`. |
 | [0005_auditoria_organizacion.sql](../../packages/db/migraciones/0005_auditoria_organizacion.sql) | 28-sep-2026 | Columna `auditoria.organizacion_id` (FK nulable), su índice y el relleno de las filas existentes (dos `UPDATE` añadidos a mano). |
+| [0008_colaboracion_presencias.sql](../../packages/db/migraciones/0008_colaboracion_presencias.sql) | 28-sep-2026 | Tabla `presencias` (colaboración, [ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)) con sus FK en cascada e índice por último latido. |
 
 Todas solo añaden: ninguna borra ni renombra. Cada migración tiene su instantánea en `migraciones/meta/NNNN_snapshot.json` y una entrada en [meta/_journal.json](../../packages/db/migraciones/meta/_journal.json) (`idx`, `when` en milisegundos, `tag`).
 
