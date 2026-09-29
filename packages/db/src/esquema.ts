@@ -254,3 +254,53 @@ export const latidos = pgTable('latidos', {
   detalle: jsonb('detalle').notNull().default(sql`'{}'::jsonb`),
   en: timestamp('en', { withTimezone: true }).notNull().defaultNow()
 });
+
+// ===== invitados =====
+// Revisión por invitados externos (docs/iniciativas/invitados.md, ADR 20): un
+// enlace de solo lectura a una revisión, con caducidad, y los comentarios que
+// deja quien lo abre. Del token solo se guarda el SHA-256, como en las sesiones.
+
+/** Enlace para que alguien sin cuenta vea una revisión (y, si se permite, la comente). */
+export const invitadosEnlaces = pgTable('invitados_enlaces', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizacionId: uuid('organizacion_id').notNull().references(() => organizaciones.id, { onDelete: 'cascade' }),
+  proyectoId: uuid('proyecto_id').notNull().references(() => proyectos.id, { onDelete: 'cascade' }),
+  procesoId: uuid('proceso_id').notNull().references(() => procesos.id, { onDelete: 'cascade' }),
+  revisionId: uuid('revision_id').notNull().references(() => revisiones.id, { onDelete: 'cascade' }),
+  /** SHA-256 del token: el enlace completo solo se muestra al crearlo. */
+  tokenHash: text('token_hash').notNull().unique(),
+  /** A quién se envió, en texto libre («Gerencia de Operaciones»). */
+  destinatario: text('destinatario').notNull(),
+  admiteComentarios: boolean('admite_comentarios').notNull().default(true),
+  caducaEn: timestamp('caduca_en', { withTimezone: true }).notNull(),
+  /** Revocado si tiene fecha: el acceso se corta en el acto. */
+  revocadoEn: timestamp('revocado_en', { withTimezone: true }),
+  revocadoPor: uuid('revocado_por').references(() => usuarios.id, { onDelete: 'set null' }),
+  creadoPor: uuid('creado_por').notNull().references(() => usuarios.id),
+  creadoEn: creado(),
+  /** Última vez que alguien abrió el enlace. */
+  ultimoAcceso: timestamp('ultimo_acceso', { withTimezone: true })
+}, (t) => [
+  index('invitados_enlaces_proceso_idx').on(t.procesoId),
+  index('invitados_enlaces_revision_idx').on(t.revisionId)
+]);
+
+/** Comentario de un invitado sobre la revisión del enlace, o sobre un elemento de su diagrama. */
+export const invitadosComentarios = pgTable('invitados_comentarios', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  enlaceId: uuid('enlace_id').notNull().references(() => invitadosEnlaces.id, { onDelete: 'cascade' }),
+  revisionId: uuid('revision_id').notNull().references(() => revisiones.id, { onDelete: 'cascade' }),
+  /** Id del nodo en el contenido de la revisión; nulo = el proceso en general. */
+  elementoId: text('elemento_id'),
+  /** Etiqueta del nodo al comentar: el equipo la lee sin abrir el diagrama. */
+  elementoEtiqueta: text('elemento_etiqueta'),
+  /** El nombre que escribe el invitado: no se piden correos. */
+  nombre: text('nombre').notNull(),
+  texto: text('texto').notNull(),
+  creadoEn: creado(),
+  resueltoEn: timestamp('resuelto_en', { withTimezone: true }),
+  resueltoPor: uuid('resuelto_por').references(() => usuarios.id, { onDelete: 'set null' })
+}, (t) => [
+  index('invitados_comentarios_enlace_idx').on(t.enlaceId),
+  index('invitados_comentarios_revision_idx').on(t.revisionId)
+]);

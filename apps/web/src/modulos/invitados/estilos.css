@@ -1,0 +1,51 @@
+/* ============================================================
+   Invitados en la página del proceso (docs/iniciativas/invitados.md).
+   Solo clases .invitados-*, con los tokens de src/tokens.css y las piezas
+   del shell (tarjeta, tabla, etiqueta…).
+   ============================================================ */
+
+.invitados-titulo { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-8) 0 var(--space-2); }
+.invitados-titulo h2 { margin: 0; }
+.invitados-titulo .invitados-compartir { margin-left: auto; }
+.invitados-intro { max-width: 80ch; margin-top: 0; }
+.invitados-creado p { margin: 0 0 var(--space-2); }
+
+.invitados-version { margin-bottom: var(--space-4); }
+.invitados-version-cabecera { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.invitados-version-cabecera h3 { margin: 0; font-size: var(--font-lg); color: var(--mbc-azul); }
+.invitados-subtitulo {
+  margin: var(--space-4) 0 var(--space-2); font-size: var(--font-xs); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-600);
+}
+.invitados-sin-comentarios { margin: 0; font-size: var(--font-sm); }
+
+/* ---------- Enlaces ---------- */
+.invitados-enlaces { margin-bottom: var(--space-2); }
+.invitados-detalle { display: block; color: var(--gray-600); font-size: var(--font-xs); font-weight: 400; }
+/* .tabla td alinea a la izquierda con la misma especificidad: se gana con la tabla */
+.tabla th.invitados-num, .tabla td.invitados-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ---------- Comentarios ---------- */
+.invitados-comentarios { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.invitados-comentario {
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--gray-150); border-left: 3px solid var(--warning);
+  border-radius: var(--radius-sm); background: var(--white);
+}
+.invitados-comentario-resuelto { border-left-color: var(--gray-200); background: var(--gray-50); }
+.invitados-comentario-resuelto .invitados-comentario-texto { color: var(--gray-600); }
+.invitados-comentario-cabecera { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); font-size: var(--font-sm); }
+.invitados-ancla {
+  display: inline-block; margin: var(--space-2) 0 0; padding: 1px var(--space-2); border-radius: var(--radius-full);
+  background: var(--trace-tint); color: var(--trace-dk); font-size: var(--font-xs); font-weight: 600;
+}
+.invitados-comentario-texto { margin: var(--space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.invitados-comentario-pie { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); font-size: var(--font-sm); }
+.invitados-resuelto { display: inline-flex; align-items: center; gap: var(--space-2); font-weight: 600; color: var(--gray-800); cursor: pointer; }
+
+/* ---------- Diálogo «Compartir con el cliente» ---------- */
+.casilla.invitados-casilla { margin: 0 0 var(--space-2); }
+.invitados-url { display: flex; align-items: center; gap: var(--space-3); margin: var(--space-3) 0 var(--space-4); min-width: 0; }
+.invitados-url code {
+  flex: 1; min-width: 0; padding: var(--space-2) var(--space-3); background: var(--gray-100); border-radius: var(--radius-sm);
+  font-size: var(--font-sm); overflow-wrap: anywhere; user-select: all;
+}
