@@ -358,3 +358,26 @@ export const invitadosComentarios = pgTable('invitados_comentarios', {
   index('invitados_comentarios_enlace_idx').on(t.enlaceId),
   index('invitados_comentarios_revision_idx').on(t.revisionId)
 ]);
+
+// ===== colaboracion =====
+// Presencia por proceso (docs/iniciativas/colaboracion.md, ADR 21): quién lo
+// tiene abierto y si está editando. Es efímera: cada pestaña da un latido y la
+// fila caduca sola si deja de darlo (la API borra las caducadas). Sin histórico.
+
+/** Una pestaña abierta en un proceso: el editor o la página del proceso en el shell. */
+export const presencias = pgTable('presencias', {
+  procesoId: uuid('proceso_id').notNull().references(() => procesos.id, { onDelete: 'cascade' }),
+  usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id, { onDelete: 'cascade' }),
+  /** Identificador aleatorio de la pestaña: la misma persona puede tener abiertos el editor y el shell. */
+  pestana: text('pestana').notNull(),
+  /** 'editor' o 'shell' (lo valida la API). */
+  lugar: text('lugar').notNull(),
+  /** 'viendo' o 'editando' = hay cambios sin guardar (lo valida la API). */
+  estado: text('estado').notNull(),
+  /** Desde cuándo está abierta. */
+  desde: timestamp('desde', { withTimezone: true }).notNull().defaultNow(),
+  ultimoLatido: timestamp('ultimo_latido', { withTimezone: true }).notNull().defaultNow()
+}, (t) => [
+  primaryKey({ columns: [t.procesoId, t.usuarioId, t.pestana] }),
+  index('presencias_ultimo_latido_idx').on(t.ultimoLatido)
+]);

@@ -56,6 +56,10 @@ Permiso: **público** = sin sesión; **usuario** = cualquier sesión válida; **
 | POST | `/api/procesos/:id/revisiones` | escribir | Guarda una revisión nueva |
 | GET | `/api/revisiones/:id` | leer | Una revisión con su contenido |
 | POST | `/api/revisiones/:id/estado` | escribir o aprobar ² | Envía a revisión, aprueba o devuelve |
+| GET | `/api/procesos/:id/presencia` | leer | Quién tiene abierto el proceso y si está editando |
+| PUT | `/api/procesos/:id/presencia` | leer | Latido de presencia de una pestaña (viendo o editando) |
+| DELETE | `/api/procesos/:id/presencia` | leer | Quita la presencia de una pestaña al cerrarla |
+| GET | `/api/procesos/:id/eventos` | leer | Presencia y última revisión en vivo (SSE) |
 | GET | `/api/auditoria` | admin | Últimos eventos de auditoría, con filtros |
 | GET | `/api/ia/estado` | usuario | Modelos disponibles y presupuesto del mes |
 | POST | `/api/ia/generaciones` | escribir | Encola la generación de un proceso desde texto |
@@ -500,6 +504,7 @@ El objeto `revision` de las listas es:
 
 - **Errores:** 400 `PROCESO_INVALIDO`, 400 `PADRE_INVALIDO` (el padre no es de este proceso), 400 `EJECUCION_INVALIDA`, 409 `ARCHIVADO`.
 - **Auditoría:** `revision.alta` con `{ procesoId, numero, conflicto, ejecucionIaId? }`.
+- **En vivo:** dentro de la transacción avisa `NOTIFY procesos_evento` (sale al confirmarla): quien tiene abierto el proceso recibe la revisión nueva por el SSE ([abajo](#presencia-y-eventos-en-vivo-colaboración)).
 
 ### `GET /api/revisiones/:id`
 
@@ -526,6 +531,55 @@ El objeto `revision` de las listas es:
   - 409 `CONCURRENCIA`: otra persona la cambió a la vez.
   - 409 `ARCHIVADO`, 403 `PERMISO`.
 - **Auditoría:** `revision.estado` con `{ de, a }`.
+
+### Presencia y eventos en vivo (colaboración)
+
+[colaboracion/](../../apps/api/src/colaboracion) · [ficha](../iniciativas/colaboracion.md) · [ADR 21](../adr/0021-presencia-y-eventos-por-sse.md). Quién tiene abierto un proceso, si está editando, y aviso en vivo cuando alguien guarda. Todo con permiso **leer** sobre el proceso: sin acceso, 404 como el resto.
+
+- **Presencia:** una fila por pestaña (editor o página del proceso del shell). Cada pestaña da un latido cada 20 s; sin latido durante **60 s**, deja de contar y la borra el siguiente latido de cualquiera. No se audita ni queda histórico.
+- El objeto `presencia` junta las pestañas de cada persona:
+
+```json
+{ "usuarioId": "uuid", "nombre": "Ana Torres", "estado": "editando", "lugares": ["editor", "shell"], "desde": "…", "yo": false }
+```
+
+  `estado` es `editando` si alguna de sus pestañas tiene cambios sin guardar; `yo` marca a quien pregunta. Las listas van por orden de llegada.
+
+| Método y ruta | Cuerpo | Respuesta |
+|---|---|---|
+| `GET /api/procesos/:id/presencia` | — | `{ presencias: [ … ] }` |
+| `PUT /api/procesos/:id/presencia` (latido) | `pestana` (8–64 caracteres `A-Z a-z 0-9 _ -`, la genera la web), `lugar` (`editor` \| `shell`), `estado` (`viendo` \| `editando`, por defecto `viendo`) | `{ estado, presencias, latidoS: 20, caducidadS: 60 }`. `estado` es el que quedó: `editando` solo si tu rol puede **escribir** y el proyecto no está archivado; si no, `viendo`. Crea o renueva la fila y borra las caducadas. Avisa (`NOTIFY procesos_evento`) si la pestaña es nueva o cambió su estado |
+| `DELETE /api/procesos/:id/presencia?pestana=…` | — | 204. Borra solo tu pestaña (la web lo envía con `keepalive` al cerrarla). 400 `VALIDACION` sin `pestana` |
+| `GET /api/procesos/:id/eventos?pestana=…` | — | SSE (abajo) |
+
+**`GET /api/procesos/:id/eventos` — en vivo (SSE):**
+
+- Los errores de acceso (401, 404) llegan como JSON normal, antes de abrir el stream.
+- **Eventos**, cada uno con el estado completo y solo cuando cambia; al conectar llegan los dos:
+  - `presencia`: `{ "presencias": [ … ] }`;
+  - `revision`: `{ "revision": { "id", "numero", "autorId", "autor", "mensaje", "estado", "creadaEn" } | null }`, la última revisión del proceso. Cambia cuando alguien guarda una (o cambia el estado de la última).
+  - `: latido` cuando no hubo cambios en la última espera.
+- **Cuándo:** la API escucha `procesos_evento` (LISTEN/NOTIFY, en la misma conexión que la IA) y, como respaldo, vuelve a leer cada 5 s: así ve también las presencias que caducan sin aviso.
+- **Seguridad:** en cada vuelta comprueba que la sesión sigue viva y que no te quitaron el acceso; si no, cierra el stream (al reconectar recibirás 401 o 404).
+- **Duración:** el servidor cierra la conexión a los 10 minutos y pide `retry: 3000`: el navegador reconecta solo y vuelve a pasar por la sesión. Como cada evento trae el estado completo, reconectar es seguro.
+- Con `?pestana=`, mientras la conexión siga abierta el servidor renueva cada 20 s el latido de esa pestaña (si ya existe): en segundo plano el navegador estrangula los temporizadores.
+
+```text
+retry: 3000
+
+event: presencia
+data: {"presencias":[{"usuarioId":"…","nombre":"Ana Torres","estado":"viendo","lugares":["editor"],"desde":"…","yo":false}]}
+
+event: revision
+data: {"revision":{"id":"…","numero":3,"autorId":"…","autor":"Ana Torres","mensaje":"Borrador en curso","estado":"borrador","creadaEn":"…"}}
+
+: latido
+
+event: revision
+data: {"revision":{"id":"…","numero":4,"autorId":"…","autor":"Luis Pérez","mensaje":"Ajuste de la ficha","estado":"borrador","creadaEn":"…"}}
+```
+
+En la web, el latido y el SSE están en [shell/colaboracion.ts](../../apps/web/src/shell/colaboracion.ts) (`conectarColaboracion`); los usan el editor y la página del proceso.
 
 ## Auditoría
 
@@ -888,7 +942,7 @@ Un proceso completo del que se parte al crear otro (`POST /api/proyectos/:id/pro
 | HTTP | `codigo` | Cuándo sale | Dónde |
 |---|---|---|---|
 | 400 | *(sin código)* | El cuerpo no es JSON válido | cualquier ruta con cuerpo |
-| 400 | `VALIDACION` | El cuerpo no cumple el esquema Zod (`detalles` = lista de `campo: motivo`), o el verbo de la ruta no es válido | cualquier ruta con cuerpo; `PUT /api/catalogos/verbos/:verbo` |
+| 400 | `VALIDACION` | El cuerpo no cumple el esquema Zod (`detalles` = lista de `campo: motivo`), o el verbo de la ruta no es válido, o falta la pestaña | cualquier ruta con cuerpo; `PUT /api/catalogos/verbos/:verbo`; `DELETE /api/procesos/:id/presencia` |
 | 400 | `CLAVE_ACTUAL` | La contraseña actual no coincide | `POST /api/sesion/clave` |
 | 400 | `CLAVE_DEBIL` | La nueva contraseña incumple una regla o es igual a la actual | `POST /api/sesion/clave` |
 | 400 | `PROCESO_INVALIDO` | El contenido no es un proceso válido (`detalles` = errores del esquema) | crear proceso, guardar revisión, análisis de IA |
@@ -960,7 +1014,7 @@ Todas las escrituras relevantes llaman a `registrar()` ([auditoria.ts](../../app
 | `invitados.comentario.alta` | `invitados_comentario` | `{ enlaceId, procesoId, revisionId, nombre, elementoId }` (sin usuario: lo escribe un invitado) | `POST /api/publico/invitados/:token/comentarios` |
 | `invitados.comentario.resolucion` | `invitados_comentario` | `{ procesoId, resuelto }` | `POST /api/invitados/comentarios/:id/resolver` |
 
-No dejan rastro: `POST /api/ia/ejecuciones/:id/descartar` y `POST /api/errores`.
+No dejan rastro: `POST /api/ia/ejecuciones/:id/descartar`, `POST /api/errores` y la presencia (`PUT` y `DELETE /api/procesos/:id/presencia`), que es efímera a propósito ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)).
 
 ## Intermediario de IA (`/ia`)
 

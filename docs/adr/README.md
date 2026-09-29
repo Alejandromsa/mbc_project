@@ -14,6 +14,7 @@ Cada decisión con consecuencias duraderas queda registrada: contexto, decisión
 | [18](0018-repositorio-publico.md) | Repositorio público, sin licencia, con el historial depurado y `main` protegida | Vigente |
 | [19](0019-busqueda-pg-trgm-unaccent.md) | Búsqueda sobre los procesos con `pg_trgm` y `unaccent`, sin IA; función de normalización IMMUTABLE creada a mano en la migración | Vigente |
 | [20](0020-rutas-publicas-con-token.md) | Rutas públicas bajo `/api/publico/`, con token propio y sin sesión (invitados) | Vigente |
+| [21](0021-presencia-y-eventos-por-sse.md) | Presencia por proceso (latido que caduca, sin histórico) y eventos en vivo por SSE con `LISTEN/NOTIFY`, sin WebSocket | Vigente |
 
 Plantilla para una nueva: copiar cualquiera de las anteriores. Una decisión que se sustituye no se borra: se marca «Sustituida por N».
 

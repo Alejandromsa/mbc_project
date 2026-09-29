@@ -152,7 +152,10 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
     - mirar el rango vulnerable y la primera versión corregida (`gh api advisories/<GHSA>`) y compararlos con el rango que pide la última versión de X (`pnpm view X dependencies`);
     - buscar en el código publicado de X si de verdad usa la dependencia. Si no la usa, se quita con `pnpm.overrides` (`"X>dep": "-"`) en lugar de aceptarla.
 
-22n. **Dos trampas al poner la CSP obligatoria.**
+22n. **Un símbolo Unicode como icono se vio como una mancha.** El «✎» delante de «Ana está editando» (barra del editor, colaboración) no está en Montserrat: el navegador lo pintó con una fuente de reserva, borroso y sin forma de lápiz. Las pruebas pasaban; se vio al ampliar la captura. En la misma tarea, un `\\|` dentro de un script pasado por heredoc llegó como `\|` y dejó una tabla Markdown con una columna de más (reincidencia de la 1).
+    → **Regla:** los iconos pequeños de la interfaz se dibujan (SVG en línea o una máscara CSS con `currentColor`), no con caracteres de símbolo. Una captura con un icono nuevo se revisa ampliada. Y la 1 sigue valiendo: nada de heredoc si el contenido lleva `\`.
+
+22o. **Dos trampas al poner la CSP obligatoria.**
     - **Un `eval` capturado también es una violación.** zod prueba `new Function` dentro de un `try` al crear cada esquema. No rompe nada, pero el navegador lo informaba en cada carga del editor y del shell. Solo se vio porque la CSP estuvo primero en modo de solo informe, con los informes recogidos.
     - **`page.evaluate` no está sujeto a `'unsafe-eval'`.** DevTools deja pasar `eval` dentro de lo que ejecuta Playwright. En modo de solo informe, el `new Function` de la prueba de control se informó; en modo obligatorio, ni se bloqueó ni se informó. La prueba parecía demostrar que `eval` estaba prohibido y no demostraba nada.
 
