@@ -50,7 +50,8 @@ test('el administrador ve los clientes, entra en uno y llega a sus procesos', as
   await expect(menu.getByRole('link', { name: 'Portafolio' })).toHaveAttribute('aria-current', 'page');
   // El menú del shell sigue apuntando a sus pantallas, no a rutas dentro del portafolio
   await expect(menu.getByRole('link', { name: 'Proyectos' })).toHaveAttribute('href', '/proyectos/');
-  await expect(menu.getByRole('link', { name: 'Usuarios' })).toHaveAttribute('href', '/proyectos/admin/usuarios');
+  // (dentro del desplegable «Administración», cerrado: se busca también entre lo oculto)
+  await expect(menu.getByRole('link', { name: 'Usuarios', includeHidden: true })).toHaveAttribute('href', '/proyectos/admin/usuarios');
 
   const filas = page.getByRole('table').getByRole('row');
   await expect(filas).toHaveCount(3);   // cabecera + 2 clientes (el archivado no cuenta)

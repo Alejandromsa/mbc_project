@@ -103,7 +103,9 @@ Pulsa «Salir», a la derecha de la cabecera. La página se recarga y no queda e
 | Elemento | Qué hace |
 |---|---|
 | «Proyectos» | Tu lista de proyectos |
-| «Usuarios», «Catálogos», «Auditoría», «IA», «Sistema» | Solo administradores (ver [9](#9-administración)) |
+| «Portafolio» | El estado de los procesos de cada cliente |
+| «Conocimiento» | Buscar entre los procesos ya levantados y compararlos con el marco de referencia |
+| «Administración ▾» | Solo administradores: despliega «Usuarios», «Catálogos», «Auditoría», «IA» y «Sistema» (ver [9](#9-administración)). Un punto rojo avisa de que «Sistema» tiene algo que revisar |
 | «Editor libre» | Abre el editor sin proyecto; el trabajo queda en este navegador |
 | Tu nombre y tu rol | Rol en la organización: Administrador, Consultor o Lector |
 | «Cambiar contraseña» · «Salir» | Ver arriba |
