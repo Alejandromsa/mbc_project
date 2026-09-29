@@ -172,11 +172,11 @@ El servidor decide:
 | Decisión | Cómo |
 |---|---|
 | Prompt | El de `@processiq/ia` para cada tipo (sección 3). En los análisis, el resumen lo calcula el servidor a partir de `contenido`, validado con `migrarProyecto` |
-| Modelo de la generación | El pedido si está en `MODELOS_IA_PERMITIDOS` (si no, 400 `MODELO`). Sin pedir, el primero permitido |
+| Modelo de la generación | El pedido si está en `MODELOS_IA_PERMITIDOS`. Si no lo está, el primero permitido, y la respuesta lo dice en `modeloSustituido: { pedido, usado }`: el editor muestra el aviso en la barra y en el progreso. Sin pedir, el primero permitido |
 | Modelo de los análisis | Siempre `MODELO_IA_ANALISIS` |
 | Esfuerzo, `max_tokens`, inactividad | Los de la tabla de la sección 3 |
 | Tope de texto | Recorta las fuentes a 180 000 caracteres (`MAX_CHARS_FUENTES`, el mismo `MAX_AI_CHARS` del editor) |
-| Si se puede gastar | Comprueba al encolar: clave configurada (409 `IA_NO_CONFIGURADA`), presupuesto mensual de la organización (409 `PRESUPUESTO`) y límite mensual de la persona (409 `LIMITE_USUARIO`) |
+| Si se puede gastar | Comprueba al encolar: clave configurada (409 `IA_NO_CONFIGURADA`), presupuesto mensual de la organización (409 `PRESUPUESTO`) y límite mensual de la persona (409 `LIMITE_USUARIO`). El worker lo vuelve a comprobar antes de cada llamada ([§8.2](#82-presupuesto-y-límite-por-persona)) |
 | Quién puede | Capacidad `escribir` sobre el proceso (propietario o editor; el administrador cuenta como propietario). Proyecto archivado: 409. Sin acceso: 404 |
 
 ### 5.3 Endpoints
@@ -316,12 +316,12 @@ stateDiagram-v2
 ### 6.4 Concurrencia, espera y parada
 
 - `IA_CONCURRENCIA` bucles en paralelo (2 por defecto; 1 en staging). El pool de la base admite hasta `concurrencia + 2` conexiones.
-- Cada bucle: toma una ejecución; si no hay, espera hasta 10 s o hasta un aviso `ia_cola`. Al terminar una, despierta a los demás.
+- Cada bucle: toma una ejecución; si no hay, espera hasta 10 s o hasta un aviso `ia_cola`. Un aviso despierta a **todos** los bucles que esperan (`despertador()` en [avisos.ts](../../apps/api/src/ia/avisos.ts)). Al terminar una, despierta a los demás.
 - **Parada** (`SIGINT` o `SIGTERM`): deja de tomar trabajo, aborta lo que está en curso y lo devuelve a la cola sin contar el intento (se suman los tokens de las llamadas que ya terminaron). Espera hasta 15 s a que acaben los bucles.
 
 ### 6.5 Reintentos
 
-`MAX_INTENTOS = 3`. Tras un fallo, `clasificarErrorIa()` ([especificacion.ts](../../packages/ia/src/especificacion.ts)) decide:
+`MAX_INTENTOS = 3`. Tras un fallo, `clasificarErrorIa()` ([especificacion.ts](../../packages/ia/src/especificacion.ts)) decide. Primero mira la clase que `llamarClaude` marca en el propio error (`claseIa`, con `marcarErrorIa`, sin cambiar el mensaje): los HTTP 429 y 5xx son transitorios y el resto definitivos; a mitad del stream decide el `error.type` de Anthropic. Solo si el error no trae marca, decide por el texto:
 
 | Clase | Errores | Qué pasa |
 |---|---|---|
@@ -389,6 +389,7 @@ Cómo lee la respuesta:
 - Siempre en **streaming** (`stream: true`). El límite es de **inactividad**: se rearma con cada trozo que llega.
 - Solo acumula los deltas de texto (el razonamiento se ignora). Un bloque `fallback` descarta lo recibido: el modelo de respaldo repite la respuesta entera.
 - Tokens: la entrada sale de `message_start` y `message_delta` (incluye la caché de prompts si la hubiera); la salida, de `message_delta`. Llama a `onUsage` antes de lanzar los errores del final de la respuesta, porque una respuesta cortada también se cobra.
+- **Uso de una respuesta cortada a mitad** (cancelación, inactividad, corte de red, apagado del worker): si quien llama pasa `onUsoParcial`, recibe la entrada de `message_start` y la salida de `message_delta` si llegó. Solo lo pasa el worker, que lo suma al coste de la ejecución y lo informa a Pulse (en el log, `parcial: true`); el editor libre no lo pasa y se comporta como el MVP. En la práctica la salida de una respuesta cortada casi nunca se conoce: Anthropic la informa en el `message_delta` final.
 
 Errores que traduce:
 
@@ -547,9 +548,7 @@ Resumen de [runbooks/incidente-ia.md](../runbooks/incidente-ia.md). Mira primero
 
 - **Rutas distintas de las de [arquitectura.md §8](../arquitectura.md).** La tabla «Endpoints de negocio» nombra `POST /api/ia/analisis/pains` y `POST /api/ia/analisis/{tipo}`, y un SSE en `/api/ia/generaciones/{id}/eventos` con `Last-Event-ID`. El código usa `POST /api/ia/analisis` con `tipo` en el cuerpo y `/api/ia/ejecuciones/:id/eventos`, que no usa `Last-Event-ID` porque cada evento lleva el estado completo.
 - **No implementado todavía** (lo prevé la arquitectura): salida estructurada, caché de prompts y `sourceRefs`. Tampoco hay versión de prompt en `ejecuciones_ia`.
-- **Uso no contado en llamadas abortadas.** `llamarClaude` solo informa los tokens (`onUsage`) cuando el stream termina. Si se cancela, vence la inactividad, se corta la conexión o se para el worker a mitad de la respuesta, esos tokens no se suman a la ejecución ni llegan a Pulse, aunque Anthropic los cobre. El consumo registrado puede quedar por debajo del real. Viene del MVP. Por confirmar si se corrige.
-- **El presupuesto se comprueba solo al encolar.** Varias ejecuciones a la vez, o una larga, pueden pasar el tope.
+- **Salida de las respuestas cortadas.** Desde el 28-sep-2026 se suma la entrada de una llamada cortada ([§7](#7-cliente-de-claude-llamarclaude)), pero su salida casi nunca se conoce: el consumo registrado puede quedar algo por debajo del real. Para acercarlo habría que estimar la salida a partir del texto recibido.
 - **Datos personales en `parametros`.** Al terminar una ejecución (completada, fallida o cancelada) se borran el texto y `parametros.roles` (nombres de los participantes). Quedan los nombres de los archivos de las fuentes. Por confirmar con la política de datos pendiente con Legal.
-- **Modelo elegido y permitido.** En modo proyecto, el diálogo sigue ofreciendo Opus 5 y Sonnet 5 con la estimación del navegador. Si el servidor no permite el elegido, se usa el primero permitido sin avisar.
-- **Despertar del worker.** `despertador()` guarda un solo «despertar»: con varios bucles esperando, un aviso `ia_cola` despierta solo al último que se puso a esperar. Los demás tardan hasta 10 s. Afecta a la latencia, no al resultado.
+- **Modelo elegido y permitido.** En modo proyecto, el diálogo ofrece Opus 5 y Sonnet 5 con la estimación del navegador, aunque el servidor permita otros. Si pide uno no permitido, el servidor usa el primero permitido y el editor lo avisa (`modeloSustituido`).
 - **Comentario desactualizado.** La cabecera del intermediario dice que es temporal y que en la fase 2 lo sustituyen los endpoints de negocio. La fase 2 está hecha y el intermediario sigue sirviendo al editor libre.
