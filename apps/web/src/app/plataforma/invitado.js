@@ -42,7 +42,8 @@ const ctx = {
 };
 
 if (token !== null) {
-  // Antes de que arranque el editor (inicio.js corre en DOMContentLoaded, antes que este módulo)
+  // Antes de que arranque el editor: inicio.js registró su init() en DOMContentLoaded
+  // antes que este módulo, así que abrir() corre después, con el editor ya montado.
   borrarVista();
   usarClaveAlmacen(CLAVE_VISTA);
   raiz.classList.add('invitados-modo');
