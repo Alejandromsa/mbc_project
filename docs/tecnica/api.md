@@ -24,7 +24,8 @@ La API está en [apps/api/src](../../apps/api/src) (Hono + Postgres). Todas las 
 14. [Códigos de error](#códigos-de-error)
 15. [Acciones de auditoría](#acciones-de-auditoría)
 16. [Intermediario de IA (`/ia`)](#intermediario-de-ia-ia)
-17. [Observaciones y puntos por confirmar](#observaciones-y-puntos-por-confirmar)
+17. [Módulos de iniciativas](#módulos-de-iniciativas)
+18. [Observaciones y puntos por confirmar](#observaciones-y-puntos-por-confirmar)
 
 ## Resumen de endpoints
 
@@ -82,6 +83,8 @@ Permiso: **público** = sin sesión; **usuario** = cualquier sesión válida; **
 | DELETE | `/api/catalogos/plantillas/:id` | admin | Borra una plantilla |
 | GET | `/api/sistema` | admin | Estado de API, base, worker, IA, copias y errores, con avisos |
 | GET | `/api/sistema/errores/:huella` | admin | Últimas repeticiones de un error |
+| GET | `/api/portafolio/clientes` | usuario | Portafolio: clientes de los proyectos visibles, con su avance |
+| GET | `/api/portafolio/cliente?nombre=` | usuario | Portafolio: un cliente con sus procesos e indicadores |
 
 ¹ También con la contraseña temporal pendiente de cambio (ver [Contraseña temporal](#contraseña-temporal)).
 ² `escribir` para pasar de `borrador` a `en_revision`; `aprobar` para aprobar o devolver.
@@ -972,6 +975,19 @@ Los errores tienen otro formato: `{ "type": "error", "error": { "type": "process
 | 502 | No se pudo contactar con Anthropic, o Anthropic rechazó la clave central |
 
 Los demás errores de Anthropic se reenvían con su estado original.
+
+## Módulos de iniciativas
+
+Cada iniciativa monta sus rutas bajo `/api/<clave>/` ([docs/equipo/nueva-iniciativa.md](../equipo/nueva-iniciativa.md)). Todas exigen sesión y aplican las convenciones de arriba. El detalle de cada una está en su ficha ([registro](../iniciativas/README.md)).
+
+### Portafolio (`/api/portafolio`)
+
+[modulos/portafolio](../../apps/api/src/modulos/portafolio) · [ficha](../iniciativas/portafolio.md). Solo lectura: no escribe nada ni registra auditoría. Ve los proyectos de la organización en los que el usuario es miembro; el admin, todos. `?archivados=1` incluye los proyectos archivados en las dos rutas.
+
+| Método y ruta | Respuesta |
+|---|---|
+| `GET /api/portafolio/clientes` | `{ "clientes": [ { cliente, proyectos, procesos, avance, actualizadoEn } ] }`. Agrupa por el texto `cliente` de los proyectos sin distinguir mayúsculas, tildes ni espacios; `cliente: ""` son los proyectos sin cliente (al final). `avance` cuenta los procesos por estado de su última revisión (aprobada, en revisión, borrador, sin revisiones). |
+| `GET /api/portafolio/cliente?nombre=…` | `{ cliente, resumen, indicadores, proyectos: [ { id, nombre, archivado, procesos: [ { id, nombre, ultimaRevision, indicadores, contenidoInvalido } ] } ] }`. Los indicadores salen del contenido v1 de la última revisión: actividades por tipo, roles, tipo de ejecución, pains y su puntuación, KPIs y hallazgos del linter del Playbook (con los verbos de la organización). 404 `PORTAFOLIO_CLIENTE_NO_ENCONTRADO` si el usuario no ve ningún proyecto de ese cliente, igual que si no existe. |
 
 ## Observaciones y puntos por confirmar
 
