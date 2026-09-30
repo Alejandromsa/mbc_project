@@ -1,11 +1,15 @@
 // Colaboración en tiempo real (ADR 21): el latido de presencia de esta pestaña y
-// los eventos en vivo de un proceso (quién lo tiene abierto y la última revisión).
+// los eventos en vivo de un proceso (quién lo tiene abierto y con qué revisión, la
+// última revisión y el estado de cada una).
 // Lo usan la página del proceso del shell y el editor en modo proyecto
 // (app/plataforma/colaboracion.js). La vista del invitado (?invitado=) no lo usa.
 import { ErrorApi, pedir, type EstadoRevision } from './api';
 
 export type EstadoPresencia = 'viendo' | 'editando';
 export type LugarPresencia = 'editor' | 'shell';
+
+/** Una revisión que alguien tiene abierta en el editor. Con `ultima: false`, ya hay una más nueva. */
+export interface RevisionAbierta { id: string; numero: number; ultima: boolean }
 
 /** Una persona que tiene abierto el proceso (la API junta todas sus pestañas). */
 export interface Presente {
@@ -14,6 +18,8 @@ export interface Presente {
   estado: EstadoPresencia;
   lugares: LugarPresencia[];
   desde: string;
+  /** Revisiones que tiene abiertas en el editor, de la más antigua a la más nueva (vacía si solo está en el shell). */
+  revisiones: RevisionAbierta[];
   /** Es quien mira: el editor y el shell no se muestran a sí mismos. */
   yo: boolean;
 }
@@ -22,6 +28,9 @@ export interface Presente {
 export interface RevisionEnVivo {
   id: string; numero: number; autorId: string; autor: string; mensaje: string; estado: EstadoRevision; creadaEn: string;
 }
+
+/** Estado de una revisión del proceso, tal como llega en el evento `estado` del SSE. */
+export interface EstadoEnVivo { id: string; numero: number; estado: EstadoRevision }
 
 /** Cada cuánto late una pestaña abierta. La API da la presencia por caducada a los 60 s sin latido. */
 export const LATIDO_MS = 20_000;
@@ -42,32 +51,55 @@ function nuevaPestana(): string {
   return Array.from({ length: 4 }, () => Math.random().toString(36).slice(2, 10)).join('');
 }
 
+/** Tras un aviso de revisión, cuánto se espera para ver si esta pestaña abrió otra (p. ej. acaba de guardar). */
+const REVISAR_REVISION_MS = 1500;
+
 /**
- * Empieza a latir y a escuchar los eventos del proceso. `estado` se consulta en
- * cada latido; `alPresencia` y `alRevision` reciben el estado completo al
- * conectar y cada vez que cambia (también tras una reconexión).
+ * Empieza a latir y a escuchar los eventos del proceso. `estado` y `revision` (la
+ * revisión abierta, en el editor) se consultan en cada latido; `alPresencia`,
+ * `alRevision` y `alEstado` reciben el estado completo al conectar y cada vez que
+ * cambia (también tras una reconexión).
  */
 export function conectarColaboracion(o: {
   procesoId: string;
   lugar: LugarPresencia;
   estado?: () => EstadoPresencia;
+  revision?: () => string | null | undefined;
   alPresencia?: (lista: Presente[]) => void;
   alRevision?: (revision: RevisionEnVivo | null) => void;
+  alEstado?: (revisiones: EstadoEnVivo[]) => void;
 }): ConexionColaboracion {
   const pestana = nuevaPestana();
   const base = `/procesos/${q(o.procesoId)}`;
   let activa = false;
   let latido: ReturnType<typeof setInterval> | undefined;
   let reabrir: ReturnType<typeof setTimeout> | undefined;
+  let revisarRevision: ReturnType<typeof setTimeout> | undefined;
   let eventos: EventSource | null = null;
+  let revisionEnviada: string | null = null;
+
+  const revisionAbierta = () => (o.revision ? o.revision() ?? null : null);
 
   function latir() {
     if (!activa) return;
     const estado = o.estado ? o.estado() : 'viendo';
-    pedir('PUT', `${base}/presencia`, { pestana, lugar: o.lugar, estado }).catch((e: unknown) => {
+    const revisionId = revisionAbierta();
+    revisionEnviada = revisionId;
+    pedir('PUT', `${base}/presencia`, { pestana, lugar: o.lugar, estado, revisionId }).catch((e: unknown) => {
       // Sin sesión o sin acceso: se deja de latir y de escuchar (no hay nada que reintentar)
       if (e instanceof ErrorApi && [401, 403, 404].includes(e.estado)) detener();
     });
+  }
+
+  /**
+   * Si esta pestaña pasó a otra revisión (guardó una nueva sin cambiar de estado), late ya:
+   * los demás ven enseguida que tiene la última. El aviso de su propio guardado puede
+   * llegar antes que la respuesta de la API, así que se mira un poco después.
+   */
+  function alAvisoDeRevision() {
+    if (!o.revision) return;
+    clearTimeout(revisarRevision);
+    revisarRevision = setTimeout(() => { if (revisionAbierta() !== revisionEnviada) latir(); }, REVISAR_REVISION_MS);
   }
 
   function abrirEventos() {
@@ -79,6 +111,10 @@ export function conectarColaboracion(o: {
     });
     es.addEventListener('revision', (ev) => {
       try { o.alRevision?.(JSON.parse((ev as MessageEvent<string>).data).revision); } catch { /* evento mal formado */ }
+      alAvisoDeRevision();
+    });
+    es.addEventListener('estado', (ev) => {
+      try { o.alEstado?.(JSON.parse((ev as MessageEvent<string>).data).revisiones); } catch { /* evento mal formado */ }
     });
     // Ante un corte de red, EventSource reconecta solo. Si la respuesta no fue un SSE
     // (API reiniciándose, 401, 404), se cierra del todo: se reintenta más tarde y, si
@@ -103,6 +139,7 @@ export function conectarColaboracion(o: {
     activa = false;
     clearInterval(latido);
     clearTimeout(reabrir);
+    clearTimeout(revisarRevision);
     eventos?.close();
     eventos = null;
   }

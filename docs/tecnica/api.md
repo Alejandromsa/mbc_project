@@ -2,7 +2,7 @@
 
 Referencia completa de la API de la plataforma (`/api/*`): convenciones, permisos, cada endpoint con su cuerpo, su respuesta y sus errores, y los códigos de error.
 
-Actualizado: 28-sep-2026.
+Actualizado: 30-sep-2026.
 
 La API está en [apps/api/src](../../apps/api/src) (Hono + Postgres). Todas las rutas se montan en [app.ts](../../apps/api/src/app.ts). El cliente tipado de la web es [api.ts](../../apps/web/src/shell/api.ts). Este documento describe el código tal como está: si algo cambia allí, cambia aquí.
 
@@ -38,7 +38,11 @@ Permiso: **público** = sin sesión; **usuario** = cualquier sesión válida; **
 | POST | `/api/sesion` | público | Inicia sesión y deja la cookie |
 | GET | `/api/sesion` | usuario ¹ | Devuelve el usuario de la sesión |
 | DELETE | `/api/sesion` | usuario ¹ | Cierra la sesión |
-| POST | `/api/sesion/clave` | usuario ¹ | Cambia la contraseña propia |
+| POST | `/api/sesion/clave` | usuario ¹ | Cambia la contraseña propia (cierra las demás sesiones) |
+| GET | `/api/sesion/lista` | usuario | Mis sesiones vigentes, sin el token ni su hash |
+| DELETE | `/api/sesion/lista/:id` | usuario | Cierra una sesión propia |
+| POST | `/api/sesion/cerrar-otras` | usuario | Cierra todas mis sesiones menos la actual |
+| POST | `/api/sesion/usuarios/:id/cerrar` | admin | Cierra todas las sesiones de una cuenta de la organización |
 | GET | `/api/usuarios` | admin | Lista las cuentas de la organización |
 | POST | `/api/usuarios` | admin | Da de alta una cuenta con contraseña temporal |
 | PATCH | `/api/usuarios/:id` | admin | Cambia nombre, rol o estado de una cuenta |
@@ -56,10 +60,10 @@ Permiso: **público** = sin sesión; **usuario** = cualquier sesión válida; **
 | POST | `/api/procesos/:id/revisiones` | escribir | Guarda una revisión nueva |
 | GET | `/api/revisiones/:id` | leer | Una revisión con su contenido |
 | POST | `/api/revisiones/:id/estado` | escribir o aprobar ² | Envía a revisión, aprueba o devuelve |
-| GET | `/api/procesos/:id/presencia` | leer | Quién tiene abierto el proceso y si está editando |
-| PUT | `/api/procesos/:id/presencia` | leer | Latido de presencia de una pestaña (viendo o editando) |
+| GET | `/api/procesos/:id/presencia` | leer | Quién tiene abierto el proceso, si está editando y qué revisión |
+| PUT | `/api/procesos/:id/presencia` | leer | Latido de presencia de una pestaña (viendo o editando, revisión abierta) |
 | DELETE | `/api/procesos/:id/presencia` | leer | Quita la presencia de una pestaña al cerrarla |
-| GET | `/api/procesos/:id/eventos` | leer | Presencia y última revisión en vivo (SSE) |
+| GET | `/api/procesos/:id/eventos` | leer | Presencia, última revisión y estado de las revisiones, en vivo (SSE) |
 | GET | `/api/auditoria` | admin | Últimos eventos de auditoría, con filtros |
 | GET | `/api/ia/estado` | usuario | Modelos disponibles y presupuesto del mes |
 | POST | `/api/ia/generaciones` | escribir | Encola la generación de un proceso desde texto |
@@ -321,7 +325,47 @@ La web y el editor informan de sus errores inesperados.
 - **Reglas de la nueva** (`problemaConClave` en [seguridad.ts](../../apps/api/src/seguridad.ts)): al menos 10 caracteres, no solo números, no puede contener la parte del correo antes de la `@` (sin distinguir mayúsculas) y debe ser distinta de la actual.
 - **Respuesta:** 204. Quita `debeCambiarClave` y **cierra las demás sesiones** del usuario (la actual sigue).
 - **Errores:** 400 `CLAVE_ACTUAL` (la actual no coincide), 400 `CLAVE_DEBIL` (incumple una regla; el mensaje dice cuál).
-- **Auditoría:** `usuario.cambio_clave`.
+- **Auditoría:** `usuario.cambio_clave` con `{ sesionesCerradas }` (cuántas de las demás seguían vigentes).
+
+### Sesiones abiertas
+
+Cada inicio de sesión crea una sesión nueva; las anteriores (otros navegadores o equipos) siguen vivas hasta que caducan, se cierran aquí o cambia la contraseña. La página «Sesiones» del shell (`/proyectos/sesiones`) usa estas rutas. El objeto `sesion`:
+
+```json
+{ "id": "uuid", "creadaEn": "…", "expiraEn": "…", "ip": "203.0.113.20", "navegador": "Chrome", "sistema": "Windows", "actual": true }
+```
+
+- **Nunca** lleva el token ni su hash, ni el `User-Agent` completo: `navegador` y `sistema` salen de él sin versiones (`resumirAgente` en [rutas/sesion.ts](../../apps/api/src/rutas/sesion.ts)); `null` si no se reconocen. La web los muestra como «Chrome en Windows».
+- `ip` es la que había al entrar (el primer valor de `X-Forwarded-For`, que pone Caddy).
+- Con la contraseña temporal pendiente, estas rutas responden 403 `CAMBIAR_CLAVE` como las demás: no hace falta abrirlas, porque restablecer la contraseña ya cierra todas las sesiones y cambiarla cierra las demás.
+
+#### `GET /api/sesion/lista`
+
+- **Permiso:** usuario.
+- **Respuesta 200:** `{ "sesiones": [ … ] }`: solo las **propias** y **vigentes** (`expira_en > now()`). La actual primero; después, de la más reciente a la más antigua.
+
+#### `DELETE /api/sesion/lista/:id`
+
+- **Permiso:** usuario.
+- Cierra una sesión **propia**: ese navegador recibe 401 en su siguiente petición y la web lo lleva a «Entrar». **Respuesta:** 204.
+- Si es la actual, equivale a salir: borra también la cookie.
+- **Errores:** 404 («Sesión no encontrada.») si no existe, ya se cerró, el id no es un UUID o **es de otra persona** (no se distingue).
+- **Auditoría:** `sesion.cierre_otra` con `{ sesionId }`; si era la actual, `sesion.cierre`.
+
+#### `POST /api/sesion/cerrar-otras`
+
+- **Permiso:** usuario. **Cuerpo:** ninguno.
+- Cierra todas las sesiones propias menos la actual. **Respuesta 200:** `{ "cerradas": n }` (las que seguían vigentes; las caducadas también se borran).
+- **Auditoría:** `sesion.cierre_otras` con `{ cerradas }`.
+
+#### `POST /api/sesion/usuarios/:id/cerrar`
+
+- **Permiso:** admin (403 `PERMISO`). **Cuerpo:** ninguno.
+- Cierra todas las sesiones de una cuenta de **su organización** (perdió un equipo, sospecha de acceso ajeno), sin desactivarla ni tocar su contraseña: puede volver a entrar. Si el administrador se lo aplica a sí mismo, conserva la sesión desde la que lo pide.
+- **Respuesta 200:** `{ "cerradas": n }`.
+- **Errores:** 404 si no existe en la organización o el id no es un UUID.
+- **Auditoría:** `sesion.cierre_admin` sobre la cuenta afectada, con `{ cerradas }`.
+- Vive con las rutas de sesión (y no en `/api/usuarios`) porque actúa sobre la tabla `sesiones`; desactivar una cuenta o restablecer su contraseña ya cierran también sus sesiones.
 
 ## Usuarios
 
@@ -524,6 +568,7 @@ El objeto `revision` de las listas es:
 
 - Una revisión `aprobada` es **inmutable**: para cambiarla, guarda una nueva.
 - **Respuesta 200:** `{ "revision": { "id", "estado" } }`.
+- **Aviso en vivo:** el cambio y el `NOTIFY procesos_evento` van en la misma transacción, como al guardar: quien tiene abierto el proceso recibe al momento el evento `estado` del SSE (y `revision`, si es la última). Si el cambio falla, no sale ningún aviso.
 - **Errores:**
   - 404 si no tienes acceso al proyecto (se comprueba antes que el estado: no se revela en qué estado está).
   - 409 `INMUTABLE`: la revisión ya está aprobada.
@@ -540,26 +585,28 @@ El objeto `revision` de las listas es:
 - El objeto `presencia` junta las pestañas de cada persona:
 
 ```json
-{ "usuarioId": "uuid", "nombre": "Ana Torres", "estado": "editando", "lugares": ["editor", "shell"], "desde": "…", "yo": false }
+{ "usuarioId": "uuid", "nombre": "Ana Torres", "estado": "editando", "lugares": ["editor", "shell"], "desde": "…",
+  "revisiones": [{ "id": "uuid", "numero": 3, "ultima": false }], "yo": false }
 ```
 
-  `estado` es `editando` si alguna de sus pestañas tiene cambios sin guardar; `yo` marca a quien pregunta. Las listas van por orden de llegada.
+  `estado` es `editando` si alguna de sus pestañas tiene cambios sin guardar; `yo` marca a quien pregunta. Las listas van por orden de llegada. `revisiones` son las que tiene abiertas en el editor (sin repetir, de la más antigua a la más nueva; vacía si solo está en la página del proceso): `ultima: false` quiere decir que tiene abierta una versión anterior. El shell lo muestra como «Ana (v3, versión anterior)».
 
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
 | `GET /api/procesos/:id/presencia` | — | `{ presencias: [ … ] }` |
-| `PUT /api/procesos/:id/presencia` (latido) | `pestana` (8–64 caracteres `A-Z a-z 0-9 _ -`, la genera la web), `lugar` (`editor` \| `shell`), `estado` (`viendo` \| `editando`, por defecto `viendo`) | `{ estado, presencias, latidoS: 20, caducidadS: 60 }`. `estado` es el que quedó: `editando` solo si tu rol puede **escribir** y el proyecto no está archivado; si no, `viendo`. Crea o renueva la fila y borra las caducadas. Avisa (`NOTIFY procesos_evento`) si la pestaña es nueva o cambió su estado |
+| `PUT /api/procesos/:id/presencia` (latido) | `pestana` (8–64 caracteres `A-Z a-z 0-9 _ -`, la genera la web), `lugar` (`editor` \| `shell`), `estado` (`viendo` \| `editando`, por defecto `viendo`), `revisionId` (UUID de la revisión abierta en el editor, o `null`; por defecto `null`) | `{ estado, presencias, latidoS: 20, caducidadS: 60 }`. `estado` es el que quedó: `editando` solo si tu rol puede **escribir** y el proyecto no está archivado; si no, `viendo`. Crea o renueva la fila y borra las caducadas. Avisa (`NOTIFY procesos_evento`) si la pestaña es nueva, cambió su estado o abrió otra revisión. 400 `VALIDACION` si `revisionId` no es una revisión de este proceso |
 | `DELETE /api/procesos/:id/presencia?pestana=…` | — | 204. Borra solo tu pestaña (la web lo envía con `keepalive` al cerrarla). 400 `VALIDACION` sin `pestana` |
 | `GET /api/procesos/:id/eventos?pestana=…` | — | SSE (abajo) |
 
 **`GET /api/procesos/:id/eventos` — en vivo (SSE):**
 
 - Los errores de acceso (401, 404) llegan como JSON normal, antes de abrir el stream.
-- **Eventos**, cada uno con el estado completo y solo cuando cambia; al conectar llegan los dos:
-  - `presencia`: `{ "presencias": [ … ] }`;
+- **Eventos**, cada uno con el estado completo y solo cuando cambia; al conectar llegan los tres:
+  - `presencia`: `{ "presencias": [ … ] }`. Cambia también cuando alguien abre otra revisión o cuando la que tiene abierta deja de ser la última;
   - `revision`: `{ "revision": { "id", "numero", "autorId", "autor", "mensaje", "estado", "creadaEn" } | null }`, la última revisión del proceso. Cambia cuando alguien guarda una (o cambia el estado de la última).
+  - `estado`: `{ "revisiones": [{ "id", "numero", "estado" }, …] }`, todas las revisiones del proceso, de la más nueva a la más antigua. Cambia cuando alguna cambia de estado (enviar a revisión, aprobar, devolver), sea o no la última, y cuando hay una nueva.
   - `: latido` cuando no hubo cambios en la última espera.
-- **Cuándo:** la API escucha `procesos_evento` (LISTEN/NOTIFY, en la misma conexión que la IA) y, como respaldo, vuelve a leer cada 5 s: así ve también las presencias que caducan sin aviso.
+- **Cuándo:** la API escucha `procesos_evento` (LISTEN/NOTIFY, en la misma conexión que la IA) y, como respaldo, vuelve a leer cada 5 s: así ve también las presencias que caducan sin aviso. Guardar una revisión, cambiar su estado y los latidos que cambian algo avisan al momento.
 - **Seguridad:** en cada vuelta comprueba que la sesión sigue viva y que no te quitaron el acceso; si no, cierra el stream (al reconectar recibirás 401 o 404).
 - **Duración:** el servidor cierra la conexión a los 10 minutos y pide `retry: 3000`: el navegador reconecta solo y vuelve a pasar por la sesión. Como cada evento trae el estado completo, reconectar es seguro.
 - Con `?pestana=`, mientras la conexión siga abierta el servidor renueva cada 20 s el latido de esa pestaña (si ya existe): en segundo plano el navegador estrangula los temporizadores.
@@ -568,15 +615,24 @@ El objeto `revision` de las listas es:
 retry: 3000
 
 event: presencia
-data: {"presencias":[{"usuarioId":"…","nombre":"Ana Torres","estado":"viendo","lugares":["editor"],"desde":"…","yo":false}]}
+data: {"presencias":[{"usuarioId":"…","nombre":"Ana Torres","estado":"viendo","lugares":["editor"],"desde":"…","revisiones":[{"id":"…","numero":3,"ultima":true}],"yo":false}]}
 
 event: revision
 data: {"revision":{"id":"…","numero":3,"autorId":"…","autor":"Ana Torres","mensaje":"Borrador en curso","estado":"borrador","creadaEn":"…"}}
+
+event: estado
+data: {"revisiones":[{"id":"…","numero":3,"estado":"borrador"},{"id":"…","numero":2,"estado":"en_revision"},{"id":"…","numero":1,"estado":"aprobada"}]}
 
 : latido
 
 event: revision
 data: {"revision":{"id":"…","numero":4,"autorId":"…","autor":"Luis Pérez","mensaje":"Ajuste de la ficha","estado":"borrador","creadaEn":"…"}}
+
+event: estado
+data: {"revisiones":[{"id":"…","numero":4,"estado":"borrador"},{"id":"…","numero":3,"estado":"borrador"},…]}
+
+event: presencia
+data: {"presencias":[{"usuarioId":"…","nombre":"Ana Torres",…,"revisiones":[{"id":"…","numero":3,"ultima":false}],"yo":false}]}
 ```
 
 En la web, el latido y el SSE están en [shell/colaboracion.ts](../../apps/web/src/shell/colaboracion.ts) (`conectarColaboracion`); los usan el editor y la página del proceso.
@@ -942,7 +998,7 @@ Un proceso completo del que se parte al crear otro (`POST /api/proyectos/:id/pro
 | HTTP | `codigo` | Cuándo sale | Dónde |
 |---|---|---|---|
 | 400 | *(sin código)* | El cuerpo no es JSON válido | cualquier ruta con cuerpo |
-| 400 | `VALIDACION` | El cuerpo no cumple el esquema Zod (`detalles` = lista de `campo: motivo`), o el verbo de la ruta no es válido, o falta la pestaña | cualquier ruta con cuerpo; `PUT /api/catalogos/verbos/:verbo`; `DELETE /api/procesos/:id/presencia` |
+| 400 | `VALIDACION` | El cuerpo no cumple el esquema Zod (`detalles` = lista de `campo: motivo`), o el verbo de la ruta no es válido, o falta la pestaña, o la revisión abierta no es de ese proceso | cualquier ruta con cuerpo; `PUT /api/catalogos/verbos/:verbo`; `DELETE` y `PUT /api/procesos/:id/presencia` |
 | 400 | `CLAVE_ACTUAL` | La contraseña actual no coincide | `POST /api/sesion/clave` |
 | 400 | `CLAVE_DEBIL` | La nueva contraseña incumple una regla o es igual a la actual | `POST /api/sesion/clave` |
 | 400 | `PROCESO_INVALIDO` | El contenido no es un proceso válido (`detalles` = errores del esquema) | crear proceso, guardar revisión, análisis de IA |
@@ -981,8 +1037,11 @@ Todas las escrituras relevantes llaman a `registrar()` ([auditoria.ts](../../app
 |---|---|---|---|
 | `sesion.inicio` | `usuario` | — | `POST /api/sesion` |
 | `sesion.fallida` | `usuario` | `{ email }` (sin usuario) | `POST /api/sesion` |
-| `sesion.cierre` | `usuario` | — | `DELETE /api/sesion` |
-| `usuario.cambio_clave` | `usuario` | — | `POST /api/sesion/clave` |
+| `sesion.cierre` | `usuario` | — | `DELETE /api/sesion`; `DELETE /api/sesion/lista/:id` con la sesión actual |
+| `sesion.cierre_otra` | `usuario` | `{ sesionId }` | `DELETE /api/sesion/lista/:id` |
+| `sesion.cierre_otras` | `usuario` | `{ cerradas }` | `POST /api/sesion/cerrar-otras` |
+| `sesion.cierre_admin` | `usuario` (la cuenta afectada) | `{ cerradas }` | `POST /api/sesion/usuarios/:id/cerrar` |
+| `usuario.cambio_clave` | `usuario` | `{ sesionesCerradas }` | `POST /api/sesion/clave` |
 | `usuario.alta` | `usuario` | `{ email, rol }` | `POST /api/usuarios` |
 | `usuario.cambio` | `usuario` | cambios | `PATCH /api/usuarios/:id` |
 | `usuario.restablecer_clave` | `usuario` | — | `POST /api/usuarios/:id/restablecer-clave` |

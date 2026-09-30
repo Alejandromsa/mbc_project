@@ -53,6 +53,7 @@ export function activarColaboracion(o) {
     procesoId: o.procesoId,
     lugar: 'editor',
     estado: estadoLocal,
+    revision: () => (o.base() ? o.base().id : null),
     alPresencia(lista) {
       const mia = lista.find((p) => p.yo);
       if (mia) yoId = mia.usuarioId;

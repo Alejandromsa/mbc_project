@@ -2,7 +2,7 @@
 
 Cómo se protegen hoy las cuentas, las sesiones, los datos y los secretos de la plataforma, qué queda fuera y cómo informar de una vulnerabilidad.
 
-Actualizado: 29-sep-2026.
+Actualizado: 30-sep-2026.
 
 Este documento describe el código tal como está. La seguridad objetivo está en [arquitectura.md §9](../arquitectura.md#9-seguridad). Si algo cambia en el código, cambia aquí.
 
@@ -32,6 +32,7 @@ Este documento describe el código tal como está. La seguridad objetivo está e
 |---|---|---|
 | Robo de contraseñas si se filtra la base | scrypt con sal por usuario | [seguridad.ts](../../apps/api/src/seguridad.ts) |
 | Robo de sesiones si se filtra la base | En la base solo está el SHA-256 del token | [seguridad.ts](../../apps/api/src/seguridad.ts), [app.ts](../../apps/api/src/app.ts) |
+| Sesión olvidada en otro equipo o robada | Cada persona ve sus sesiones y las cierra; cambiar la contraseña cierra las demás; el administrador cierra las de una cuenta | [rutas/sesion.ts](../../apps/api/src/rutas/sesion.ts), [§4](#4-sesión) |
 | Fuerza bruta en «Entrar» | 10 fallos en 15 minutos, por correo y por IP | [rutas/sesion.ts](../../apps/api/src/rutas/sesion.ts) |
 | CSRF | `Origin` obligatorio en las escrituras y cookie `SameSite=Lax` | [app.ts](../../apps/api/src/app.ts) |
 | Acceso a proyectos ajenos | Rol de organización + rol de proyecto en cada ruta; 404 si no hay acceso | [permisos.ts](../../apps/api/src/permisos.ts) |
@@ -110,7 +111,8 @@ Al cambiar la contraseña, la API (`problemaConClave` en [seguridad.ts](../../ap
 | Primer administrador | `node dist/cli.js crear-usuario --email … --nombre … --rol admin`, dentro del contenedor de la API ([cli.ts](../../apps/api/src/cli.ts)) | Contraseña temporal en la salida |
 | Alta | Administrador, en la plataforma (`POST /api/usuarios`) | Contraseña temporal en la respuesta |
 | Restablecer | Administrador en la plataforma, o `cli.js restablecer-clave --email …` | Nueva temporal y **se cierran todas sus sesiones** |
-| Desactivar | Administrador (`PATCH /api/usuarios/:id` con `activo: false`) | **Se borran sus sesiones** en el acto; además, cada petición comprueba `activo` |
+| Desactivar | Administrador (`PATCH /api/usuarios/:id` con `activo: false`) | **Se borran sus sesiones** en el acto; además, cada petición comprueba `activo`. Reactivarla no las devuelve: hay que volver a entrar |
+| Cerrar sus sesiones | Administrador, en «Usuarios» → «Cerrar sesiones» (`POST /api/sesion/usuarios/:id/cerrar`) | Se borran todas sus sesiones; la cuenta sigue activa y con la misma contraseña (para un equipo perdido o una sospecha; si la contraseña pudo filtrarse, mejor restablecerla) |
 | Autobloqueo | La API impide que un administrador se quite el rol o se desactive a sí mismo | `409 AUTOBLOQUEO` |
 
 No hay recuperación de contraseña por correo: no hay servidor de correo. Una contraseña olvidada la restablece un administrador.
@@ -126,10 +128,15 @@ No hay recuperación de contraseña por correo: no hay servidor de correo. Una c
 | Caducidad | `HORAS_SESION` (12 h por defecto). Es fija: la actividad no la alarga |
 | Validación | En cada petición: el hash existe, no ha caducado y la cuenta está activa |
 | Cerrar sesión | `DELETE /api/sesion` borra la fila y la cookie. La web recarga la página para no dejar datos en memoria ([lección 17](../lecciones-aprendidas.md)) |
-| Cambiar la contraseña | Cierra las **demás** sesiones del usuario |
-| Cerrar todas las sesiones | Ver [rotacion-secretos.md](../runbooks/rotacion-secretos.md) |
+| Ver y cerrar las propias | Página «Sesiones» del menú del usuario (`/proyectos/sesiones`): navegador y sistema (sin versiones), IP, inicio y caducidad de cada sesión vigente, con la actual marcada. Se cierra una (`DELETE /api/sesion/lista/:id`) o todas menos la actual (`POST /api/sesion/cerrar-otras`). La API **nunca** devuelve el token, su hash ni el `User-Agent` completo, y la sesión de otra persona responde 404 |
+| Cambiar la contraseña | Cierra las **demás** sesiones del usuario (la auditoría guarda cuántas) |
+| Desactivar la cuenta | Cierra **todas** sus sesiones ([§3](#alta-restablecimiento-y-desactivación)) |
+| Cerrar las de una cuenta | Administrador, «Usuarios» → «Cerrar sesiones»: todas las de esa cuenta, sin desactivarla |
+| Cerrar todas las sesiones del servidor | Ver [rotacion-secretos.md](../runbooks/rotacion-secretos.md) |
 
-Cada inicio de sesión crea una sesión nueva con un token nuevo. Las sesiones anteriores del mismo usuario (otros navegadores) siguen vivas hasta que caducan.
+Cada inicio de sesión crea una sesión nueva con un token nuevo. Las sesiones anteriores del mismo usuario (otros navegadores) siguen vivas hasta que caducan, pero ya **no son invisibles**: la persona las ve en «Sesiones» y las cierra, y cada cierre queda en la auditoría (`sesion.cierre_otra`, `sesion.cierre_otras`, `sesion.cierre_admin`). Una sesión cerrada responde 401 en su siguiente petición (también el SSE de colaboración, que comprueba la sesión en cada vuelta) y la web lleva a «Entrar».
+
+Con la contraseña temporal pendiente, «Sesiones» no está disponible (403 `CAMBIAR_CLAVE`, como todo salvo cambiarla): no hace falta, porque el restablecimiento ya cerró todas las sesiones de la cuenta y cambiar la contraseña cierra las demás.
 
 ## 5. Protección CSRF
 
@@ -193,7 +200,7 @@ Reglas:
 - **Organización.** Las consultas filtran por la organización de quien pide. Un miembro nuevo tiene que ser una cuenta activa de la misma organización.
 - **Último propietario.** Un proyecto no puede quedarse sin propietario (`409 ULTIMO_PROPIETARIO`).
 - **Revisiones.** Una revisión `aprobada` es inmutable (`409 INMUTABLE`). El cambio de estado se hace con una condición sobre el estado anterior, para que dos aprobaciones simultáneas no se pisen.
-- **Solo administradores:** `/api/usuarios`, `/api/auditoria`, `/api/sistema`, `/api/ia/consumo` y las escrituras de `/api/catalogos`.
+- **Solo administradores:** `/api/usuarios`, `/api/auditoria`, `/api/sistema`, `/api/ia/consumo`, las escrituras de `/api/catalogos` y `POST /api/sesion/usuarios/:id/cerrar` (cerrar las sesiones de una cuenta de su organización).
 - **Cualquier sesión:** `/api/directorio` (id, nombre y correo de las cuentas activas, para elegir miembros), la lectura de catálogos y `/api/ia/estado`.
 - El shell tiene una copia de las capacidades ([shell/permisos.ts](../../apps/web/src/shell/permisos.ts)) solo para mostrar u ocultar botones. **La autoridad es siempre la API.**
 
@@ -207,8 +214,8 @@ La organización es la del autor. Sin autor (una entrada fallida, la línea de c
 
 | Grupo | Acciones | Detalle guardado |
 |---|---|---|
-| Sesión | `sesion.inicio`, `sesion.fallida`, `sesion.cierre` | En un fallo, el correo que se intentó |
-| Usuarios | `usuario.alta`, `usuario.cambio`, `usuario.cambio_clave`, `usuario.restablecer_clave` | Correo y rol en el alta; los campos cambiados |
+| Sesión | `sesion.inicio`, `sesion.fallida`, `sesion.cierre`, `sesion.cierre_otra`, `sesion.cierre_otras`, `sesion.cierre_admin` | En un fallo, el correo que se intentó; en los cierres, la sesión cerrada o cuántas |
+| Usuarios | `usuario.alta`, `usuario.cambio`, `usuario.cambio_clave`, `usuario.restablecer_clave` | Correo y rol en el alta; los campos cambiados; al cambiar la contraseña, cuántas sesiones se cerraron |
 | Proyectos | `proyecto.alta`, `proyecto.cambio`, `proyecto.miembro`, `proyecto.baja_miembro` | Nombre, cambios, usuario y rol |
 | Procesos y revisiones | `proceso.alta`, `proceso.cambio`, `revision.alta`, `revision.estado` | Número, conflicto, estado anterior y nuevo |
 | IA | `ia.generacion`, `ia.analisis`, `ia.cancelacion` | Ejecución, modelo, caracteres y **nombres** de las fuentes (no su texto) |
@@ -420,6 +427,7 @@ Límites conocidos:
 | Prueba | Qué comprueba |
 |---|---|
 | [sesion.test.ts](../../apps/api/src/sesion.test.ts) | scrypt; reglas de contraseña; cookie `HttpOnly`/`Secure`/`SameSite`; 401 sin cookie; mensaje genérico; salir invalida; CSRF por `Origin`; bloqueo tras 10 fallos; contraseña temporal; alta y desactivación |
+| [sesiones.test.ts](../../apps/api/src/sesiones.test.ts) | La lista de sesiones solo trae las propias y vigentes, sin token ni hash; cerrar una propia (la ajena, 404) y todas menos la actual; cambiar la contraseña y desactivar la cuenta cierran las demás; el administrador cierra las de una cuenta de su organización (consultor 403, otra organización 404); auditoría de cada cierre |
 | [proyectos.test.ts](../../apps/api/src/proyectos.test.ts) | 404 sin acceso; solo el propietario administra; el lector no crea proyectos; revisor no escribe y editor no aprueba; archivados; auditoría; directorio sin datos sensibles |
 | [auditoria.test.ts](../../apps/api/src/auditoria.test.ts) | Con dos organizaciones, cada administrador ve solo la suya (también con filtros); entradas fallidas; la línea de comandos queda auditada; la migración rellena la organización de las filas anteriores |
 | [ia.test.ts](../../apps/api/src/ia.test.ts) (API) | Permisos, modelo permitido, IA sin configurar, proyecto archivado y presupuesto |
@@ -428,6 +436,7 @@ Límites conocidos:
 | [index.test.ts](../../apps/intermediario/src/index.test.ts) (intermediario) | `/health` sin secretos; orígenes; código; modelos; JSON inválido; topes; 401 → 502 |
 | [invitados.test.ts](../../apps/api/src/modulos/invitados/invitados.test.ts) | Permisos para crear, listar y revocar enlaces; token válido, caducado, revocado, inventado y de un proyecto archivado (el mismo 404); el invitado no llega a otra revisión; las rutas públicas no ven la sesión y exigen `Origin`; límites de uso; auditoría |
 | E2E ([plataforma.spec.mjs](../../pruebas/e2e/plataforma.spec.mjs), [ia.spec.mjs](../../pruebas/e2e/ia.spec.mjs)) | Entrar y contraseña temporal en el navegador; permisos por rol; quien solo lee no usa la IA |
+| E2E ([sesiones.spec.mjs](../../pruebas/e2e/sesiones.spec.mjs)) | La misma persona en dos navegadores: desde uno cierra la otra sesión y el otro vuelve a «Entrar»; cambiar la contraseña cierra las demás; el administrador cierra las de una cuenta |
 | E2E ([csp.spec.mjs](../../pruebas/e2e/csp.spec.mjs)) | Cabeceras iguales a las del Caddyfile; editor y shell sin violaciones de la CSP; la CSP bloquea otros orígenes, scripts en línea y `eval`; Permissions-Policy (micrófono sí, cámara y ubicación no); Montserrat desde `/fonts/`. Toda la E2E corre con la CSP y falla si alguna prueba la viola |
 
 Más detalle en [pruebas.md](pruebas.md).
@@ -444,7 +453,7 @@ Más detalle en [pruebas.md](pruebas.md).
 | Redirección de HTTP a HTTPS | No hay: el puerto 80 es de IIS | Ver [servidor-local.md](../runbooks/servidor-local.md#problemas-conocidos) si se libera |
 | Antivirus de archivos | No aplica hoy: los documentos no se suben. Solo se suben imágenes de temas PPTX (PNG o JPEG en data URI, máx. ~1,5 MB, solo administradores) | ClamAV en el worker cuando se guarden originales |
 | Límite de uso por persona y por endpoint | Solo en «Entrar», `/api/errores` y `/api/publico/`, y en memoria | Contadores en Postgres |
-| Sesiones | Sin caducidad por inactividad; entrar no cierra las sesiones anteriores. Las filas caducadas las purga el worker cada hora | — |
+| Sesiones | Sin caducidad por inactividad ni tope de sesiones simultáneas, y nadie recibe aviso de un inicio de sesión nuevo. Entrar no cierra las anteriores, pero se ven y se cierran en «Sesiones» ([§4](#4-sesión)). Las filas caducadas las purga el worker cada hora | Aviso de inicio de sesión nuevo cuando haya correo o webhook |
 | Auditoría | Sin política de retención; la base no impide editar o borrar filas; las exportaciones no se auditan | — |
 | «Sistema» | Es del servidor entero: con varias organizaciones, cada administrador vería los errores (y el correo de quien los tuvo) de todas | Rol de operación del servidor cuando haya más de una organización |
 | Copias de seguridad | Sin cifrar y en el mismo PC | Copiarlas fuera del equipo; PITR en la nube |

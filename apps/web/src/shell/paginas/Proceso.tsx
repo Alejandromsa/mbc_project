@@ -22,7 +22,7 @@ export function Proceso({ id }: { id: string }) {
   const [plantillaDe, setPlantillaDe] = useState<Revision | null>(null);
   const [plantillaCreada, setPlantillaCreada] = useState<string | null>(null);
   const esAdmin = useUsuario().rol === 'admin';
-  const presentes = usePresencia(id, !!consulta.data, consulta.data?.revisiones[0]);
+  const presentes = usePresencia(id, consulta.data?.revisiones);
 
   const cambiarEstado = useMutation({
     mutationFn: ({ revision, estado }: { revision: string; estado: EstadoRevision }) => api.cambiarEstado(revision, estado),
@@ -101,26 +101,30 @@ export function Proceso({ id }: { id: string }) {
   );
 }
 
+/** Id y estado de cada revisión, en el orden de la API (de la más nueva a la más antigua). */
+const firmaEstados = (lista: readonly { id: string; estado: EstadoRevision }[]) => lista.map((r) => `${r.id}:${r.estado}`).join(',');
+
 /**
  * Colaboración (ADR 21): esta página da su latido como «viendo» y escucha el proceso.
- * Devuelve quién más lo tiene abierto; cuando alguien guarda una revisión (o cambia
- * el estado de la última), vuelve a pedir el proceso y la tabla se actualiza sola.
+ * Devuelve quién más lo tiene abierto; cuando alguien guarda una revisión o cambia el
+ * estado de cualquiera (enviar a revisión, aprobar, devolver), la API avisa al momento
+ * (evento `estado`), se vuelve a pedir el proceso y la tabla se actualiza sola.
  */
-function usePresencia(procesoId: string, cargado: boolean, ultima: Revision | undefined): Presente[] {
+function usePresencia(procesoId: string, revisiones: Revision[] | undefined): Presente[] {
   const cliente = useQueryClient();
   const [presentes, setPresentes] = useState<Presente[]>([]);
   // Lo que muestra la tabla ahora (null = aún no se cargó: la consulta ya traerá lo último)
   const mostrada = useRef<string | null>(null);
-  mostrada.current = cargado ? (ultima ? `${ultima.id}:${ultima.estado}` : '') : null;
+  mostrada.current = revisiones ? firmaEstados(revisiones) : null;
+  const cargado = !!revisiones;
   useEffect(() => {
     if (!cargado) return;
     const conexion = conectarColaboracion({
       procesoId,
       lugar: 'shell',
       alPresencia: (lista) => setPresentes(lista.filter((p) => !p.yo)),
-      alRevision: (r) => {
-        const llega = r ? `${r.id}:${r.estado}` : '';
-        if (mostrada.current !== null && llega !== mostrada.current) cliente.invalidateQueries({ queryKey: ['proceso', procesoId] });
+      alEstado: (lista) => {
+        if (mostrada.current !== null && firmaEstados(lista) !== mostrada.current) cliente.invalidateQueries({ queryKey: ['proceso', procesoId] });
       }
     });
     return () => conexion.cerrar();
@@ -134,6 +138,13 @@ function dondeEsta(p: Presente, t: TraductorShell): string {
   return p.lugares.includes('editor') ? t('proceso.dondeEditor') : t('proceso.dondeShell');
 }
 
+/** « (v3)», « (v2, versión anterior)» o nada si no tiene ninguna revisión abierta en el editor. */
+function enVersion(p: Presente, t: TraductorShell): string {
+  if (!p.revisiones.length) return '';
+  const versiones = p.revisiones.map((r) => t(r.ultima ? 'proceso.versionAbierta' : 'proceso.versionAbiertaAnterior', { n: r.numero })).join(' · ');
+  return ' ' + t('proceso.enVersion', { versiones });
+}
+
 function QuienLoTieneAbierto({ presentes }: { presentes: Presente[] }) {
   const t = useT();
   return (
@@ -145,9 +156,10 @@ function QuienLoTieneAbierto({ presentes }: { presentes: Presente[] }) {
             const edita = p.estado === 'editando';
             const donde = dondeEsta(p, t);
             const datos = { iniciales: iniciales(p.nombre), nombre: p.nombre };
+            const version = enVersion(p, t);
             return (
-              <span key={p.usuarioId} title={edita ? t('proceso.presenciaEditando', { nombre: p.nombre, donde }) : t('proceso.presenciaViendo', { nombre: p.nombre, donde })}>
-                <Etiqueta tono={edita ? 'aviso' : 'neutro'}>{edita ? t('proceso.presenteEditando', datos) : t('proceso.presente', datos)}</Etiqueta>{' '}
+              <span key={p.usuarioId} title={(edita ? t('proceso.presenciaEditando', { nombre: p.nombre, donde }) : t('proceso.presenciaViendo', { nombre: p.nombre, donde })) + version}>
+                <Etiqueta tono={edita ? 'aviso' : 'neutro'}>{(edita ? t('proceso.presenteEditando', datos) : t('proceso.presente', datos)) + version}</Etiqueta>{' '}
               </span>
             );
           })}

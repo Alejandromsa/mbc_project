@@ -17,6 +17,7 @@ import { CambiarClave, Entrar } from './paginas/Acceso';
 import { Proceso } from './paginas/Proceso';
 import { Proyecto } from './paginas/Proyecto';
 import { Proyectos } from './paginas/Proyectos';
+import { Sesiones } from './paginas/Sesiones';
 import { CLAVE_SESION, ConSesion } from './sesion';
 import './estilos.css';
 import { RutasPortafolio } from '../modulos/portafolio';
@@ -82,6 +83,7 @@ createRoot(document.getElementById('raiz')!).render(
         <Switch>
           <Route path="/entrar" component={Entrar} />
           <Route path="/clave"><ConSesion permitirClaveTemporal><CambiarClave /></ConSesion></Route>
+          <Route path="/sesiones"><ConSesion><Sesiones /></ConSesion></Route>
           <Route path="/"><ConSesion><Proyectos /></ConSesion></Route>
           <Route path="/importar"><ConSesion><Importar /></ConSesion></Route>
           <Route path="/p/:id">{(p) => <ConSesion><Proyecto key={p.id} id={p.id} /></ConSesion>}</Route>

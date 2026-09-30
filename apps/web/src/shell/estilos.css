@@ -62,6 +62,25 @@ code { font-family: var(--font-mono); font-size: var(--font-sm); }
 .usuario a { color: var(--gray-700); }
 .usuario-nombre { display: flex; flex-direction: column; text-align: right; font-weight: 600; color: var(--gray-900); }
 .usuario-nombre small { font-weight: 400; color: var(--gray-600); }
+/* Menú del usuario: su nombre abre «Cambiar contraseña» y «Sesiones» («Salir» queda al lado) */
+.menu-usuario { position: relative; }
+.menu-usuario > summary {
+  list-style: none; cursor: pointer; user-select: none; display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1) var(--space-2); border-radius: var(--radius-sm);
+}
+.menu-usuario > summary::-webkit-details-marker { display: none; }
+.menu-usuario > summary::after { content: '▾'; font-size: var(--font-xs); color: var(--gray-600); }
+.menu-usuario > summary:hover, .menu-usuario[open] > summary { background: var(--gray-100); }
+.menu-usuario.activo > summary { background: var(--trace-tint); }
+.menu-usuario-lista {
+  position: absolute; top: calc(100% + var(--space-1)); right: 0; z-index: 20; min-width: 190px;
+  display: flex; flex-direction: column; gap: 2px; padding: var(--space-2);
+  background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+  font-size: var(--font-md);
+}
+.menu-usuario-lista a { padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); text-decoration: none; font-weight: 500; }
+.menu-usuario-lista a:hover { background: var(--gray-100); color: var(--mbc-azul); }
+.menu-usuario-lista a.activo { background: var(--trace-tint); color: var(--trace-dk); }
 /* «ES / EN»: idioma del shell (i18n.ts) */
 .idioma { display: inline-flex; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0; }
 .idioma button {

@@ -376,7 +376,9 @@ export const presencias = pgTable('presencias', {
   estado: text('estado').notNull(),
   /** Desde cuándo está abierta. */
   desde: timestamp('desde', { withTimezone: true }).notNull().defaultNow(),
-  ultimoLatido: timestamp('ultimo_latido', { withTimezone: true }).notNull().defaultNow()
+  ultimoLatido: timestamp('ultimo_latido', { withTimezone: true }).notNull().defaultNow(),
+  /** Revisión que tiene abierta el editor (de este mismo proceso; lo comprueba la API). Nula en el shell o sin revisiones. */
+  revisionId: uuid('revision_id').references(() => revisiones.id, { onDelete: 'set null' })
 }, (t) => [
   primaryKey({ columns: [t.procesoId, t.usuarioId, t.pestana] }),
   index('presencias_ultimo_latido_idx').on(t.ultimoLatido)

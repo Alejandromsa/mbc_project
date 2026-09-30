@@ -30,7 +30,7 @@ Lo que ya había: una sola instancia de la API (Hono sobre Node) detrás de Cadd
 
 ## Consecuencias
 - Cada SSE abierto hace unas cinco consultas pequeñas por vuelta (sesión, acceso, presencia, última revisión) cada 5 s y con cada aviso de su proceso. Con decenas de personas es poco; si crece mucho, se puede comprobar el acceso con menos frecuencia.
-- Un cambio de estado de la última revisión (enviar a revisión, aprobar) no avisa con `NOTIFY`: llega en el sondeo de 5 s.
+- ~~Un cambio de estado de la última revisión (enviar a revisión, aprobar) no avisa con `NOTIFY`: llega en el sondeo de 5 s.~~ Desde el 29-sep-2026 el cambio de estado también hace `NOTIFY` dentro de su transacción, y el SSE envía un tercer evento, `estado` (id, número y estado de cada revisión), con la misma regla: estado completo y solo cuando cambia. La presencia lleva además la revisión que cada uno tiene abierta en el editor (`presencias.revision_id`). Ver [api.md](../tecnica/api.md#presencia-y-eventos-en-vivo-colaboración).
 - Por HTTP/1.1 el navegador abre como mucho 6 conexiones por origen; cada pestaña con un proceso abierto usa una (dos si además sigue una generación de IA). En producción Caddy sirve HTTP/2 y no hay límite práctico.
 - En las E2E, la página del proceso del shell cuenta como presencia: quien pasa por ella aparece en «Ahora lo tiene(n) abierto» y en la barra del editor de los demás.
 - La base para la edición simultánea queda puesta (canal por proceso, presencia), pero esa decisión es otra ADR.

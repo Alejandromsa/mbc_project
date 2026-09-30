@@ -5,7 +5,7 @@ import { Link } from 'wouter';
 import { api, type RolOrganizacion, type UsuarioAdmin } from '../api';
 import { useT, type TraductorShell } from '../i18n';
 import { useUsuario } from '../sesion';
-import { Boton, Campo, Cargando, ClaveTemporal, Dialogo, ErrorDe, Etiqueta, Selector, Vacio, useTitulo } from '../ui';
+import { Aviso, Boton, Campo, Cargando, ClaveTemporal, Dialogo, ErrorDe, Etiqueta, Selector, Vacio, useTitulo } from '../ui';
 
 const opcionesRol = (t: TraductorShell) =>
   (['admin', 'consultor', 'lector'] as RolOrganizacion[]).map((r) => ({ valor: r, texto: t.rolOrganizacion(r) }));
@@ -28,6 +28,13 @@ export function Usuarios() {
     mutationFn: (u: UsuarioAdmin) => api.restablecerClave(u.id).then((r) => ({ ...r, para: u.email })),
     onSuccess: (r) => { setClave({ para: r.para, clave: r.claveTemporal }); refrescar(); }
   });
+  // Cerrar todas las sesiones de una cuenta (perdió un equipo, sospecha…): la cuenta sigue activa
+  const [sesionesCerradas, setSesionesCerradas] = useState<{ n: number; nombre: string } | null>(null);
+  const cerrarSesiones = useMutation({
+    mutationFn: (u: UsuarioAdmin) => api.cerrarSesionesDe(u.id).then((r) => ({ n: r.cerradas, nombre: u.nombre })),
+    onMutate: () => setSesionesCerradas(null),
+    onSuccess: setSesionesCerradas
+  });
 
   return (
     <>
@@ -38,9 +45,11 @@ export function Usuarios() {
         </div>
         <Boton variante="primario" onClick={() => setCreando(true)}>{t('usuarios.nuevo')}</Boton>
       </div>
-      <ErrorDe error={cambiar.error ?? restablecer.error} />
+      <ErrorDe error={cambiar.error ?? restablecer.error ?? cerrarSesiones.error} />
+      {sesionesCerradas && <Aviso tipo="ok">{t('usuarios.sesionesCerradas', sesionesCerradas)}</Aviso>}
       {consulta.isPending ? <Cargando /> : consulta.isError ? <ErrorDe error={consulta.error} /> : (
-        <table className="tabla">
+        // Compacta: con «Cerrar sesiones», tres acciones por fila; a 1280 px la tabla normal se salía 150 px
+        <table className="tabla tabla-compacta">
           <thead>
             <tr>
               <th>{t('comun.nombre')}</th><th>{t('comun.correo')}</th><th>{t('comun.rol')}</th><th>{t('comun.estado')}</th>
@@ -69,6 +78,12 @@ export function Usuarios() {
                           onClick={() => { if (confirm(t('usuarios.restablecerConfirmar', { nombre: u.nombre }))) restablecer.mutate(u); }}>
                           {t('usuarios.restablecer')}
                         </Boton>
+                        {u.activo && (
+                          <Boton variante="sutil" disabled={cerrarSesiones.isPending}
+                            onClick={() => { if (confirm(t('usuarios.cerrarSesionesConfirmar', { nombre: u.nombre }))) cerrarSesiones.mutate(u); }}>
+                            {t('usuarios.cerrarSesiones')}
+                          </Boton>
+                        )}
                         <Boton variante={u.activo ? 'peligro' : 'sutil'} disabled={cambiar.isPending}
                           onClick={() => cambiar.mutate({ id: u.id, cambios: { activo: !u.activo } })}>
                           {u.activo ? t('usuarios.desactivar') : t('usuarios.reactivar')}
