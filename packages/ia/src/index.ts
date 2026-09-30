@@ -14,3 +14,9 @@ export {
   promptGeneracion, timeoutGeneracion, resumenProcesoParaIa, promptTarea, combinarFuentes, interpretarPains,
   type OpcionesGeneracion, type ProcesoParaIa, type Fuente, type PainIa, type HipotesisSector, type PainsInterpretados
 } from './construccion.js';
+export {
+  LETRAS_RACI, MATRICES_IA, MAX_ROLES_RACI, MAX_TOKENS_MATRIZ, PROMPT_MATRICES, TIPOS_ACTIVIDAD_RACI, TIPOS_MATRIZ_IA,
+  actividadesRaci, esTipoMatrizIa, matrizDeTarea, pedirMatrizIa, promptMatriz, promptReparacionMatriz, sistemaReparacionMatriz, validarMatrizIa,
+  type ContextoMatriz, type LetraRaci, type LlamarIa, type MatrizDef, type MatrizIa, type MatrizRaciIa, type SipocIa, type TipoMatrizIa,
+  type ValidacionMatriz
+} from './matrices.js';
