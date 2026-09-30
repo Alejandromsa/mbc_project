@@ -13,12 +13,21 @@
   color: rgba(255, 255, 255, 0.62);
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   line-height: 1;
-  padding: 6px 7px;
+  padding: 6px 5px;
 }
+/* Por debajo de 1360 px la cabecera se compacta un poco para que el selector no le quite
+   el sitio al nombre del proceso (lección 22q: medido a 1024, 1180, 1280 y 1440 px) */
+@media (max-width: 1360px) {
+  .app-header:has(.piq-idioma) { gap: 12px; padding-left: 16px; padding-right: 16px; }
+  .app-header:has(.piq-idioma) .header-actions { gap: 5px; }
+  .app-header:has(.piq-idioma) .process-meta-inline { margin-left: 8px; }
+}
+/* En la vista del invitado (sin acciones en la cabecera) va directamente en la cabecera, a la derecha */
+html.invitados-modo .app-header > .piq-idioma { margin-left: auto; }
 .piq-idioma button + button { border-left: 1px solid rgba(255, 255, 255, 0.14); }
 .piq-idioma button:hover:not([aria-pressed="true"]) { background: rgba(255, 255, 255, 0.10); color: #fff; }
 .piq-idioma button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.16); color: #fff; cursor: default; }

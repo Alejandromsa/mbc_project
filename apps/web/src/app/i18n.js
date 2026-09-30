@@ -204,9 +204,13 @@ window.addEventListener('storage', (e) => {
 
 // Antes que init() (inicio.js registra el suyo después: este módulo se evalúa antes):
 // así el editor ya pinta en su idioma. En español solo se añade el selector.
+// El selector va al final de las acciones de la cabecera; en la vista del invitado, que
+// oculta esas acciones, directamente en la cabecera.
 document.addEventListener('DOMContentLoaded', () => {
   const cabecera = document.querySelector('.app-header');
-  if (cabecera) cabecera.appendChild(crearSelector());
+  const acciones = cabecera && cabecera.querySelector('.header-actions');
+  const destino = document.documentElement.classList.contains('invitados-modo') ? cabecera : (acciones || cabecera);
+  if (destino) destino.appendChild(crearSelector());
   if (actual === 'en') {
     aplicarHtml();
     document.documentElement.lang = 'en';
