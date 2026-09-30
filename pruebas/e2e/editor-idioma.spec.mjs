@@ -29,25 +29,27 @@ test('los diccionarios del editor: en.js tiene todas las claves de es.js, con la
 // Contenedores con datos o catálogos (industrias, KPIs, el lienzo): no son textos de la interfaz
 const DATOS = ['canvas', 'processIndustry', 'processMacro', 'kpiFilterIndustry', 'kpiList', 'propExecType', 'painCategory'];
 /** Textos de index.html que son iguales en los dos idiomas (marcas, siglas, teclas, formatos). */
-const IGUALES = new Set(['M', 'ProcessIQ', 'As-Is', 'To-Be', 'BPMN 2.0 · Bizagi/Camunda', 'PPTX · MBC', 'Data', '▱ Data', 'Props',
+const IGUALES = new Set(['M', 'MBC', 'ProcessIQ', 'As-Is', 'To-Be', 'BPMN 2.0 · Bizagi/Camunda', 'PPTX · MBC', 'Data', '▱ Data', 'Props',
   'Pains', 'Pain points', 'KPIs', 'Sim', 'Lint', 'Ctrl/⌘', 'Z', 'Y', 'F', 'C', 'Del', 'Esc', 'Zoom 100%', 'USR-27', '⚡ Error', 'SLA',
-  'BVA — Business Value Added', 'NVA — No Value Added', 'PR-DU-COM-02', '100%', '−', '＋', 'ES', 'EN', 'Español', 'English', 'x', '✕']);
+  'BVA — Business Value Added', 'NVA — No Value Added', 'PR-DU-COM-02', 'ES', 'EN', 'Español', 'English', 'x',
+  '🗄 Event Log (Process Mining)', 'event logs', 'event log', 'resource', 'process discovery']);
 
 /** Todos los textos y atributos visibles de la página, con su ruta (sin el SVG del lienzo). */
 function volcado(page) {
   return page.evaluate((datos) => {
     const out = [];
-    const rec = (el, ruta) => {
+    const rec = (el, ruta, dato) => {
       if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE') return;
       const aqui = ruta + '>' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '');
-      for (const a of ['title', 'placeholder', 'aria-label', 'data-title', 'alt']) if (el.hasAttribute(a)) out.push([aqui + '@' + a, el.getAttribute(a), datos.includes(el.id)]);
+      const esDato = dato || datos.includes(el.id);
+      for (const a of ['title', 'placeholder', 'aria-label', 'data-title', 'alt']) if (el.hasAttribute(a)) out.push([aqui + '@' + a, el.getAttribute(a), esDato]);
       let i = 0;
       for (const n of el.childNodes) {
-        if (n.nodeType === 3 && n.nodeValue.trim()) out.push([aqui + '#' + i++, n.nodeValue, datos.includes(el.id)]);
-        else if (n.nodeType === 1 && n.id !== 'canvas') rec(n, aqui);
+        if (n.nodeType === 3 && n.nodeValue.trim()) out.push([aqui + '#' + i++, n.nodeValue, esDato]);
+        else if (n.nodeType === 1 && n.id !== 'canvas') rec(n, aqui, esDato);
       }
     };
-    rec(document.body, 'body');
+    rec(document.body, 'body', false);
     out.push(['title', document.title, false], ['lang', document.documentElement.lang, false]);
     return out;
   }, DATOS);
@@ -132,7 +134,8 @@ test.describe('editor libre', () => {
     await expect(page.locator('.canvas-statusbar')).toContainText('0 nodes');
     const ingles = await volcado(page);
     const mapa = new Map(antes.map(([ruta, valor]) => [ruta, valor]));
-    const sinTraducir = ingles.filter(([ruta, valor, dato]) => !dato && mapa.get(ruta) === valor && !IGUALES.has(valor.trim()) && ruta !== 'lang')
+    // Lo que sigue igual tras pasar a inglés: solo datos, textos sin letras (·, ?, 1…) y los de IGUALES
+    const sinTraducir = ingles.filter(([ruta, valor, dato]) => !dato && mapa.get(ruta) === valor && /\p{L}/u.test(valor) && !IGUALES.has(valor.trim()) && ruta !== 'lang')
       .map(([ruta, valor]) => `${ruta} = ${JSON.stringify(valor)}`);
     expect(sinTraducir).toEqual([]);
     await sinDesbordes(page);

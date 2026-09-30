@@ -1,5 +1,6 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { SHAPE_DEFAULTS, state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { ingestarDescripcion } from '../ingesta/flujo.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { getNode } from '../lienzo/interaccion.js';
@@ -124,36 +125,26 @@ function generateProcessFromDescription(desc) {
   persist();
   autoLayout();  // ← aplica top-to-bottom MBB
   render();
-  copilotPost('ai',
-    `He generado un proceso as-is con **${created.length} actividades** basado en patrones APQC PCF + playbook MBB.\n\n` +
-    `Sugerencias inmediatas:\n` +
-    `• Completa los **responsables** y **sistemas soporte** en cada actividad.\n` +
-    `• Captura **pain points** (handoffs, esperas, reprocesos) — son el insumo del diagnóstico.\n` +
-    `• Revisa la pestaña **KPIs** para vincular indicadores sectoriales.\n\n` +
-    `¿Quieres que detecte pains típicos del sector?`);
+  copilotPost('ai', tr('heur.generado', { n: created.length }));
 }
 
 function detectPainsMock() {
-  if (state.nodes.length === 0) { copilotPost('ai', 'No hay un diagrama aún. Genera o dibuja un proceso primero.'); return; }
+  if (state.nodes.length === 0) { copilotPost('ai', tr('heur.sinDiagrama')); return; }
   const handoffs = countHandoffs();
   const decisions = state.nodes.filter(n => n.type === 'decision').length;
   const manual = state.nodes.filter(n => n.type === 'task' && !n.system).length;
 
-  let msg = `**Diagnóstico automático del as-is**\n\n`;
-  msg += `• **${handoffs} handoff(s)** detectados entre roles distintos. Cada handoff agrega ~10-15% de lead time y riesgo de pérdida de información.\n`;
-  msg += `• **${decisions} punto(s) de decisión**. Si carecen de criterios documentados, son fuente de variabilidad e inequidad.\n`;
-  msg += `• **${manual} actividad(es) sin sistema soporte** — candidatas a automatización (RPA / workflow).\n\n`;
-  msg += `**Pain points típicos del sector ${state.meta.industry || '(define industria)'}:**\n`;
+  let msg = tr('heur.diagnostico', { handoffs, decisiones: decisions, manual, industria: state.meta.industry || tr('heur.defineIndustria') });
   if (state.meta.industry === 'Banca') {
-    msg += `• Reproceso por documentación incompleta del cliente.\n• Tiempos de respuesta heterogéneos según canal.\n• Validaciones manuales duplicadas entre frontline y back office.`;
+    msg += tr('heur.banca');
   } else if (state.meta.industry === 'Retail') {
-    msg += `• Quiebres de stock por baja sincronización tienda-CD.\n• Devoluciones sin trazabilidad financiera.\n• Promociones ejecutadas con desfase entre canales.`;
+    msg += tr('heur.retail');
   } else if (state.meta.industry === 'Manufactura') {
-    msg += `• Paradas no planificadas por mantenimiento reactivo.\n• Inventario en proceso sobre-dimensionado.\n• Calidad detectada al final de línea, no en estación.`;
+    msg += tr('heur.manufactura');
   } else if (state.meta.industry === 'Sector Público') {
-    msg += `• Trámites con múltiples ventanillas (one-stop-shop ausente).\n• Documentación física que duplica registros digitales.\n• Plazos TUPA incumplidos por handoffs inter-áreas.`;
+    msg += tr('heur.publico');
   } else {
-    msg += `• Define la industria del proceso para sugerencias específicas.`;
+    msg += tr('heur.sinIndustria');
   }
   copilotPost('ai', msg);
 }
@@ -172,39 +163,29 @@ function suggestKpisMock() {
   const mac = state.meta.macroprocess;
   let kpis = window.KPI_LIBRARY.filter(k => (k.industry === ind || k.industry === 'Transversal') && (!mac || k.macroprocess === mac)).slice(0, 5);
   if (kpis.length === 0) kpis = window.KPI_LIBRARY.slice(0, 5);
-  let msg = `**KPIs recomendados** para ${ind || 'tu proceso'}${mac ? ' (' + mac + ')' : ''}:\n\n`;
+  let msg = tr('heur.kpis', { para: ind || tr('heur.tuProceso'), macro: mac ? ' (' + mac + ')' : '' });
   kpis.forEach(k => {
     msg += `• **${k.name}** (${k.unit}) — benchmark: ${k.benchmark}\n`;
   });
-  msg += `\nRevisa la pestaña **KPIs** para ver la librería completa y hacer click en cada uno para agregarlo al diagnóstico.`;
+  msg += tr('heur.kpisPie');
   copilotPost('ai', msg);
 }
 
 function proposeToBeMock() {
-  if (state.nodes.length === 0) { copilotPost('ai', 'Necesito un diagrama as-is para proponer el to-be.'); return; }
+  if (state.nodes.length === 0) { copilotPost('ai', tr('heur.sinAsIs')); return; }
   const manual = state.nodes.filter(n => n.type === 'task' && !n.system);
   const handoffs = countHandoffs();
   let totalPains = 0;
   state.nodes.forEach(n => totalPains += (n.pains?.length || 0));
 
-  let msg = `**Propuesta de reingeniería (to-be)**\n\n`;
-  msg += `Lectura del as-is: ${state.nodes.length} actividades, ${handoffs} handoffs entre roles, ${manual.length} sin sistema, ${totalPains} pains capturados.\n\n`;
-  msg += `**Palancas sugeridas:**\n`;
-  msg += `1. **Automatización RPA** en las ${manual.length} actividades sin sistema soporte → ahorro estimado 0.3-0.5 FTE por actividad de alto volumen.\n`;
-  msg += `2. **Eliminar handoffs** mediante célula multifuncional o workflow orquestado → reducción 20-30% en lead time.\n`;
-  msg += `3. **Self-service / canal digital** en las actividades de captura → reducción 40-60% en errores de origen.\n`;
-  msg += `4. **Reglas de decisión codificadas** (DMN / motor de reglas) en los puntos de gateway → consistencia y trazabilidad.\n`;
-  msg += `5. **KPIs en tiempo real** con dashboard único → ciclos de mejora mensuales en lugar de trimestrales.\n\n`;
-  msg += `**Beneficios estimados** (rango referencia industria):\n`;
-  msg += `• Lead time: -35% a -50%\n• FTE liberados: 15-25% de la dotación actual\n• Calidad (errores): -60%\n• CSAT/NPS: +10 a +20 puntos\n\n`;
-  msg += `Dime "dibuja el to-be" si quieres que genere la versión optimizada en un nuevo lienzo.`;
+  const msg = tr('heur.tobe', { n: state.nodes.length, handoffs, manual: manual.length, pains: totalPains });
   copilotPost('ai', msg);
 }
 
 function execSummaryMock() {
-  const name = state.meta.name || '[Nombre del proceso]';
-  const ind = state.meta.industry || '[Industria]';
-  const mac = state.meta.macroprocess || '[Macroproceso]';
+  const name = state.meta.name || tr('heur.nombreVacio');
+  const ind = state.meta.industry || tr('heur.industriaVacia');
+  const mac = state.meta.macroprocess || tr('heur.macroVacio');
   const nodes = state.nodes.length;
   const handoffs = countHandoffs();
   let painsTotal = 0, painsCrit = 0;
@@ -213,27 +194,7 @@ function execSummaryMock() {
     if (p.severity >= 4) painsCrit++;
   }));
 
-  const msg =
-`**RESUMEN EJECUTIVO — DIAGNÓSTICO DE PROCESO**
-
-**Proceso:** ${name}
-**Industria / Macroproceso:** ${ind} · ${mac}
-
-**Hallazgos clave:**
-• El proceso comprende ${nodes} actividades con ${handoffs} handoffs inter-rol.
-• Se identificaron ${painsTotal} pain points (${painsCrit} críticos, severidad ≥ 4).
-• Existe oportunidad de automatización en actividades sin sistema soporte.
-
-**Recomendaciones priorizadas:**
-1. Quick wins (0-3 meses): estandarización de criterios de decisión + eliminación de controles duplicados.
-2. Mediano plazo (3-9 meses): automatización RPA/IDP en actividades manuales de alto volumen.
-3. Estructural (9-18 meses): rediseño organizacional hacia células multifuncionales + dashboard en tiempo real.
-
-**Impacto estimado:**
-Lead time -40%, FTE liberados 15-25%, mejora de CSAT/NPS doble dígito.
-
-**Próximo paso sugerido:**
-Validar hallazgos con sponsor, priorizar oportunidades en matriz impacto-esfuerzo, y construir business case.`;
+  const msg = tr('heur.resumen', { nombre: name, industria: ind, macro: mac, n: nodes, handoffs, pains: painsTotal, criticos: painsCrit });
 
   copilotPost('ai', msg);
 }
@@ -243,13 +204,13 @@ function mockCopilotResponse(prompt) {
   const cmd = tryNlCommand(prompt);
   if (cmd !== null) return cmd;
   const p = prompt.toLowerCase();
-  if (p.includes('hola') || p.includes('buenos') || p.includes('buenas')) return '¡Hola! ¿En qué proceso te ayudo hoy?';
-  if (p.includes('genera') || p.includes('levanta') || p.includes('dibuja')) { ingestarDescripcion(prompt); return 'Interpretando tu descripción con IA…'; }
+  if (p.includes('hola') || p.includes('buenos') || p.includes('buenas')) return tr('heur.hola');
+  if (p.includes('genera') || p.includes('levanta') || p.includes('dibuja')) { ingestarDescripcion(prompt); return tr('heur.interpretando'); }
   if (p.includes('pain') || p.includes('dolor')) { detectPainsMock(); return ''; }
   if (p.includes('kpi') || p.includes('indicador')) { suggestKpisMock(); return ''; }
   if (p.includes('to-be') || p.includes('tobe') || p.includes('reingenier')) { proposeToBeMock(); return ''; }
   if (p.includes('resumen') || p.includes('ejecutivo')) { execSummaryMock(); return ''; }
-  return `Entiendo tu pedido. En el MVP el copiloto trabaja con plantillas locales — al conectar Claude API en v1 daré respuestas contextualizadas a tu diagrama, industria y entregables previos del área.\n\nPrueba con las acciones rápidas arriba: generar, detectar pains, sugerir KPIs, to-be, o resumen ejecutivo.`;
+  return tr('heur.generico');
 }
 
 export { countHandoffs, detectPainsMock, execSummaryMock, mockCopilotResponse, proposeToBeMock, suggestKpisMock };
