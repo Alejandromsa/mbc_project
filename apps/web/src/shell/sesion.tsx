@@ -57,13 +57,8 @@ export function ConSesion({ children, soloAdmin = false, permitirClaveTemporal =
   );
 }
 
-/**
- * Pantallas de administración en un desplegable: así la cabecera no crece con
- * cada módulo de iniciativa (con Portafolio y Conocimiento ya no cabía a 1280 px).
- * Se cierra al elegir una pantalla, al pulsar fuera o con Escape.
- */
-function MenuAdministracion({ aviso }: { aviso: boolean }) {
-  const t = useT();
+/** Un desplegable `<details>` de la cabecera: se cierra al elegir una pantalla, al pulsar fuera o con Escape. */
+function useDesplegable() {
   const [ubicacion] = useLocation();
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => { if (menu.current) menu.current.open = false; }, [ubicacion]);
@@ -77,6 +72,17 @@ function MenuAdministracion({ aviso }: { aviso: boolean }) {
     document.addEventListener('keydown', cerrar);
     return () => { document.removeEventListener('click', cerrar); document.removeEventListener('keydown', cerrar); };
   }, []);
+  return { menu, ubicacion };
+}
+
+/**
+ * Pantallas de administración en un desplegable: así la cabecera no crece con
+ * cada módulo de iniciativa (con Portafolio y Conocimiento ya no cabía a 1280 px).
+ * Se cierra al elegir una pantalla, al pulsar fuera o con Escape.
+ */
+function MenuAdministracion({ aviso }: { aviso: boolean }) {
+  const t = useT();
+  const { menu, ubicacion } = useDesplegable();
   const activo = ubicacion.startsWith('/admin/');
   return (
     <details ref={menu} className={`menu-admin${activo ? ' activo' : ''}`}>
@@ -87,6 +93,28 @@ function MenuAdministracion({ aviso }: { aviso: boolean }) {
         <EnlaceMenu href="/admin/auditoria">{t('menu.auditoria')}</EnlaceMenu>
         <EnlaceMenu href="/admin/ia">{t('menu.ia')}</EnlaceMenu>
         <EnlaceMenu href="/admin/sistema" aviso={aviso}>{t('menu.sistema')}</EnlaceMenu>
+      </div>
+    </details>
+  );
+}
+
+/**
+ * Menú del usuario: su nombre abre «Cambiar contraseña» y «Sesiones»; «Salir» queda a
+ * la vista, al lado. Con esos dos enlaces sueltos la cabecera ya no cabía a 1100 px
+ * (lección 22q). Con la contraseña temporal pendiente no hay menú: solo el nombre.
+ */
+function MenuUsuario({ usuario }: { usuario: Usuario }) {
+  const t = useT();
+  const { menu, ubicacion } = useDesplegable();
+  const nombre = <span className="usuario-nombre" title={usuario.email}>{usuario.nombre}<small>{t.rolOrganizacion(usuario.rol)}</small></span>;
+  if (usuario.debeCambiarClave) return nombre;
+  const activo = ubicacion === '/clave' || ubicacion === '/sesiones';
+  return (
+    <details ref={menu} className={`menu-usuario${activo ? ' activo' : ''}`}>
+      <summary>{nombre}</summary>
+      <div className="menu-usuario-lista">
+        <EnlaceMenu href="/clave">{t('menu.cambiarClave')}</EnlaceMenu>
+        <EnlaceMenu href="/sesiones">{t('menu.sesiones')}</EnlaceMenu>
       </div>
     </details>
   );
@@ -137,9 +165,8 @@ function Marco({ usuario, children }: { usuario: Usuario; children: ReactNode })
           </nav>
         )}
         <div className="usuario">
-          <span className="usuario-nombre" title={usuario.email}>{usuario.nombre}<small>{t.rolOrganizacion(usuario.rol)}</small></span>
+          <MenuUsuario usuario={usuario} />
           <SelectorIdioma />
-          {!usuario.debeCambiarClave && <Link href="/clave">{t('menu.cambiarClave')}</Link>}
           <button type="button" className="enlace" onClick={() => salir.mutate()} disabled={salir.isPending}>{t('menu.salir')}</button>
         </div>
       </header>

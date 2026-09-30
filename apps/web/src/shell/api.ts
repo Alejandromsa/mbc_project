@@ -13,6 +13,12 @@ export interface UsuarioAdmin extends Usuario {
   activo: boolean; creadoEn: string; ultimoAcceso: string | null;
 }
 export interface Persona { id: string; nombre: string; email: string }
+/** Una sesión propia abierta (GET /api/sesion/lista). Navegador y sistema salen del User-Agent, sin versiones. */
+export interface SesionAbierta {
+  id: string; creadaEn: string; expiraEn: string; ip: string | null; navegador: string | null; sistema: string | null;
+  /** Es la de este navegador. */
+  actual: boolean;
+}
 
 export interface Proyecto {
   id: string; nombre: string; cliente: string; descripcion: string; archivado: boolean; creadoEn: string; rol: RolProyecto;
@@ -140,6 +146,11 @@ export const api = {
   entrar: (email: string, clave: string) => pedir<{ usuario: Usuario }>('POST', '/sesion', { email, clave }),
   salir: () => pedir<void>('DELETE', '/sesion'),
   cambiarClave: (actual: string, nueva: string) => pedir<void>('POST', '/sesion/clave', { actual, nueva }),
+  sesiones: () => pedir<{ sesiones: SesionAbierta[] }>('GET', '/sesion/lista'),
+  cerrarSesion: (id: string) => pedir<void>('DELETE', `/sesion/lista/${q(id)}`),
+  cerrarOtrasSesiones: () => pedir<{ cerradas: number }>('POST', '/sesion/cerrar-otras'),
+  /** Administración: cierra todas las sesiones de una cuenta. */
+  cerrarSesionesDe: (usuarioId: string) => pedir<{ cerradas: number }>('POST', `/sesion/usuarios/${q(usuarioId)}/cerrar`),
 
   // Proyectos
   proyectos: () => pedir<{ proyectos: Proyecto[] }>('GET', '/proyectos'),

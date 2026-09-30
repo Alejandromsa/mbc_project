@@ -484,7 +484,7 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 [plataforma/colaboracion.js](../../apps/web/src/app/plataforma/colaboracion.js), sobre [shell/colaboracion.ts](../../apps/web/src/shell/colaboracion.ts) ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md), [ficha](../iniciativas/colaboracion.md)).
 
 - **Cuándo:** `abrir()` la activa al terminar de abrir el proceso (`activarPresencia()`). Sin proyecto no existe, y con `?invitado=` no hace nada: la vista del invitado no da latidos ni abre el SSE.
-- **Latido:** `conectarColaboracion` genera un identificador de pestaña y hace `PUT /api/procesos/:id/presencia` al abrir, cada 20 s, al volver a la pestaña y cada vez que `pintarBarra()` ve que cambió el estado: `editando` mientras hay cambios sin guardar (`ctx.sucio`), `viendo` si no. Al cerrar la pestaña (`pagehide`), `DELETE …/presencia` con `keepalive`. Un 401, 403 o 404 en el latido lo detiene todo.
+- **Latido:** `conectarColaboracion` genera un identificador de pestaña y hace `PUT /api/procesos/:id/presencia` al abrir, cada 20 s, al volver a la pestaña y cada vez que `pintarBarra()` ve que cambió el estado: `editando` mientras hay cambios sin guardar (`ctx.sucio`), `viendo` si no. Lleva también la revisión abierta (`revisionId` = `ctx.base.id`), para que los demás vean qué versión tiene cada uno. Si la pestaña pasa a otra revisión sin cambiar de estado (guarda una nueva sin cambios pendientes), `conectarColaboracion` lo nota poco después del aviso de revisión del SSE y late enseguida. Al cerrar la pestaña (`pagehide`), `DELETE …/presencia` con `keepalive`. Un 401, 403 o 404 en el latido lo detiene todo.
 - **Eventos:** `EventSource` sobre `/api/procesos/:id/eventos?pestana=…`. Si el SSE se cierra del todo (p. ej. un 502 mientras reinicia la API), se vuelve a abrir a los 10 s.
 - **Barra:** entre el nombre y «Cambios sin guardar», los avatares (iniciales, un color por persona) de quien más tiene el proceso abierto, hasta 4 y «+N». Quien edita lleva un anillo ámbar y, al lado, «Ana está editando» o, si también tienes cambios, «Ana también está editando». Es un aviso suave: no bloquea nada.
 - **Revisión nueva:** si llega una revisión con número mayor que la última conocida (`ctx.ultima`), la barra pasa a decir «la última es la vN» y sale un aviso («Ana guardó la v4: «mensaje».») con dos botones:
@@ -511,7 +511,7 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 | [navegacion.ts](../../apps/web/src/shell/navegacion.ts) | `useIrA()` y `useVolver()` |
 | [observabilidad.ts](../../apps/web/src/shell/observabilidad.ts) | `reportarError()` y `capturarErrores()` |
 | [importacion.ts](../../apps/web/src/shell/importacion.ts) | Lectura del editor libre y de JSON exportados |
-| [colaboracion.ts](../../apps/web/src/shell/colaboracion.ts) | Latido de presencia y SSE de un proceso (`conectarColaboracion`), iniciales y textos; lo usan la página del proceso y el editor ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)) |
+| [colaboracion.ts](../../apps/web/src/shell/colaboracion.ts) | Latido de presencia (con la revisión abierta) y SSE de un proceso (`conectarColaboracion`: presencia, última revisión y estado de cada revisión), iniciales y textos; lo usan la página del proceso y el editor ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)) |
 | [estilos.css](../../apps/web/src/shell/estilos.css) | Estilos del shell (importa `tokens.css`) |
 | [paginas/](../../apps/web/src/shell/paginas/) | Una pantalla por archivo |
 
@@ -523,10 +523,11 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 |---|---|---|
 | `/proyectos/entrar` | `Entrar` ([Acceso.tsx](../../apps/web/src/shell/paginas/Acceso.tsx)) | Cualquiera. Con sesión abierta, sigue a `volver` |
 | `/proyectos/clave` | `CambiarClave` ([Acceso.tsx](../../apps/web/src/shell/paginas/Acceso.tsx)) | Con sesión, también con contraseña temporal |
+| `/proyectos/sesiones` | `Sesiones` ([Sesiones.tsx](../../apps/web/src/shell/paginas/Sesiones.tsx)) | Con sesión. Mis sesiones vigentes («Chrome en Windows», IP, inicio, caducidad; la actual marcada) con «Cerrar» en cada una y «Cerrar las demás sesiones» |
 | `/proyectos/` | `Proyectos` ([Proyectos.tsx](../../apps/web/src/shell/paginas/Proyectos.tsx)) | Con sesión. El administrador ve todos los de la organización; el resto, los suyos. «Nuevo proyecto»: todos menos el rol de organización `lector` |
 | `/proyectos/importar` | `Importar` ([Importar.tsx](../../apps/web/src/shell/paginas/Importar.tsx)) | Con sesión. Solo ofrece proyectos donde puedes escribir y no archivados |
 | `/proyectos/p/:id` | `Proyecto` ([Proyecto.tsx](../../apps/web/src/shell/paginas/Proyecto.tsx)) | Miembros del proyecto y administradores (si no, la API responde 404). «Nuevo proceso» (vacío, desde una plantilla o desde un JSON): `escribir`; ajustes y miembros: `administrar` |
-| `/proyectos/proceso/:id` | `Proceso` ([Proceso.tsx](../../apps/web/src/shell/paginas/Proceso.tsx)) | Igual. Renombrar y «Enviar a revisión»: `escribir`; «Aprobar» y «Devolver»: `aprobar`; «Guardar como plantilla»: administradores. Muestra quién más lo tiene abierto («Ahora lo tiene abierto: AT · Ana Torres, editando») y la lista de revisiones se actualiza sola (sección 5.5) |
+| `/proyectos/proceso/:id` | `Proceso` ([Proceso.tsx](../../apps/web/src/shell/paginas/Proceso.tsx)) | Igual. Renombrar y «Enviar a revisión»: `escribir`; «Aprobar» y «Devolver»: `aprobar`; «Guardar como plantilla»: administradores. Muestra quién más lo tiene abierto y qué versión tiene en el editor («Ahora lo tiene abierto: AT · Ana Torres, editando (v3)»; si ya no es la última, «(v2, versión anterior)»), y la lista de revisiones se actualiza sola (sección 5.5) |
 | `/proyectos/admin/usuarios` | `Usuarios` ([Admin.tsx](../../apps/web/src/shell/paginas/Admin.tsx)) | Administradores |
 | `/proyectos/admin/catalogos` | `Catalogos` ([Catalogos.tsx](../../apps/web/src/shell/paginas/Catalogos.tsx)): KPIs, verbos, temas PPTX y plantillas de proceso | Administradores |
 | `/proyectos/admin/auditoria` | `Auditoria` ([Admin.tsx](../../apps/web/src/shell/paginas/Admin.tsx)) | Administradores |
@@ -558,6 +559,8 @@ Un proyecto archivado es de solo lectura: el shell oculta las acciones de `escri
 - `useIrA()` navega con el router dentro de `/proyectos`. Fuera (por ejemplo, volver al editor con `/?proceso=…`) hace una carga completa.
 - «Salir» llama a `DELETE /api/sesion` y recarga en `/proyectos/entrar`, para no dejar en memoria datos del usuario anterior.
 - Menú del marco: Proyectos, y para administradores Usuarios, Catálogos, Auditoría, IA y Sistema (con un punto rojo si `GET /api/sistema` trae avisos de nivel `error`; se consulta cada 60 s). Siempre hay un enlace «Editor libre» a `/` y, junto al nombre, el selector de idioma «ES / EN» (sección 5.10).
+- **Menú del usuario:** el nombre (con el rol debajo) es un desplegable (`MenuUsuario`, un `<details>` que se cierra como «Administración») con «Cambiar contraseña» y «Sesiones»; «Salir» queda a la vista, al lado. Con la contraseña temporal pendiente no hay desplegable. Como enlaces sueltos, a 1100 px la cabecera del administrador se salía 58 px (lección 22q); con el desplegable cabe desde 1024 px en los dos idiomas.
+- Si otra persona (o uno mismo desde otro navegador) cierra la sesión, la página sigue a la vista hasta la siguiente consulta a la API: entonces llega el 401 y la guardia lleva a «Entrar», con `volver` a donde estaba.
 
 ### 5.4 Cliente de la API y `ErrorApi`
 
@@ -586,7 +589,7 @@ Un solo `QueryClient` en [main.tsx](../../apps/web/src/shell/main.tsx):
 
 Refrescos periódicos: «Sistema» cada 15 s (y cada 60 s para el punto rojo del menú), «Consumo de IA» cada 15 s.
 
-En vivo: la página del proceso da su latido de presencia (como `viendo`, lugar `shell`) y escucha el SSE del proceso (`usePresencia`). Cuando la última revisión que llega no es la que muestra la tabla (otra versión o su estado), invalida `['proceso', id]` y la lista se actualiza sola. Al salir de la página, la presencia se borra.
+En vivo: la página del proceso da su latido de presencia (como `viendo`, lugar `shell`, sin revisión) y escucha el SSE del proceso (`usePresencia`). Cuando el evento `estado` (id y estado de cada revisión) no coincide con lo que muestra la tabla (una versión nueva, o cualquiera que cambió de estado, sea o no la última), invalida `['proceso', id]` y la lista se actualiza sola. Guardar y cambiar de estado avisan por `NOTIFY`, así que llega al momento, no con el sondeo de 5 s. Al salir de la página, la presencia se borra.
 
 ### 5.6 Componentes (`ui.tsx`)
 
@@ -632,7 +635,8 @@ La pantalla «Proyecto» también permite crear un proceso a partir de un JSON e
 
 | Pantalla | Qué hace |
 |---|---|
-| Usuarios | Alta con contraseña temporal, cambio de rol, activar o desactivar, restablecer contraseña |
+| Usuarios | Alta con contraseña temporal, cambio de rol, activar o desactivar, restablecer contraseña y «Cerrar sesiones» (todas las de esa cuenta, con confirmación; no se ofrece sobre uno mismo ni sobre una cuenta desactivada). Tabla compacta: con tres acciones por fila, la normal se salía 150 px a 1280 |
+| Sesiones | Ver `/proyectos/sesiones` (sección 5.2) |
 | Auditoría | Últimos 200 eventos, filtrables por entidad |
 | Catálogos | KPIs, verbos del Playbook y temas PPTX de cliente (se crean duplicando MBC o BBVA) |
 | Consumo de IA | Ver [ia.md](ia.md) |

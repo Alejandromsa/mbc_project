@@ -66,6 +66,7 @@ export const en = {
   'menu.editorLibre': 'Standalone editor',
   'menu.editorLibreTitulo': 'The editor without a project (work is saved in this browser). The editor is in Spanish.',
   'menu.cambiarClave': 'Change password',
+  'menu.sesiones': 'Sessions',
   'menu.salir': 'Sign out',
   'menu.problemasSistema': 'There are issues: check “System”',
   'menu.problemasPantalla': 'There are issues: check this screen',
@@ -89,6 +90,28 @@ export const en = {
   'clave.noCoinciden': 'The two new passwords do not match.',
   'clave.guardar': 'Save password',
   'claveTemporal.texto': 'Temporary password for <strong>{para}</strong>. It is shown only this once: share it through a secure channel. They will be asked to change it the first time they sign in.',
+
+  // ---------------------------------------------------------------- Open sessions
+  'sesiones.titulo': 'Sessions',
+  'sesiones.intro': 'The browsers where your account is signed in right now. If you don’t recognize one, sign that session out and change your password.',
+  'sesiones.navegador': 'Browser',
+  'sesiones.ip': 'IP',
+  'sesiones.inicio': 'Signed in',
+  'sesiones.caduca': 'Expires',
+  'sesiones.navegadorEn': '{navegador} on {sistema}',
+  'sesiones.desconocido': 'Unknown browser',
+  'sesiones.estaSesion': 'This session',
+  'sesiones.cerrar': 'Sign out',
+  'sesiones.cerrarDe': 'Sign out the session on {navegador}',
+  'sesiones.cerrarOtras': 'Sign out all other sessions',
+  'sesiones.soloEsta': 'You have no other open sessions.',
+  'sesiones.cerrada': 'Session signed out: that browser will have to sign in again.',
+  'sesiones.cerradas': {
+    cero: 'There were no other open sessions.',
+    uno: '{n} session signed out: that browser will have to sign in again.',
+    otros: '{n} sessions signed out: those browsers will have to sign in again.'
+  },
+  'sesiones.nota': 'Each session expires on its own after a few hours. Changing your password signs out all the others.',
 
   // ---------------------------------------------------------------- Projects
   'proyectos.titulo': 'Projects',
@@ -168,6 +191,9 @@ export const en = {
   'proceso.dondeShell': 'on the process page',
   'proceso.presente': '{iniciales} · {nombre}',
   'proceso.presenteEditando': '{iniciales} · {nombre}, editing',
+  'proceso.enVersion': '({versiones})',
+  'proceso.versionAbierta': 'v{n}',
+  'proceso.versionAbiertaAnterior': 'v{n}, older version',
   'proceso.ramificadaTitulo': 'Saved from a version that was no longer the latest',
   'proceso.aPartirDe': 'based on v{n}',
   'proceso.enviarRevision': 'Submit for review',
@@ -220,6 +246,13 @@ export const en = {
   'usuarios.restablecer': 'Reset password',
   'usuarios.desactivar': 'Deactivate',
   'usuarios.reactivar': 'Reactivate',
+  'usuarios.cerrarSesiones': 'Sign out sessions',
+  'usuarios.cerrarSesionesConfirmar': 'Sign out all of {nombre}’s sessions? They will have to sign in again on every browser. The account stays active.',
+  'usuarios.sesionesCerradas': {
+    cero: '{nombre} had no open sessions.',
+    uno: '{n} session of {nombre} signed out.',
+    otros: '{n} sessions of {nombre} signed out.'
+  },
   'usuarios.nombreApellido': 'Full name',
   'usuarios.explicacionRoles': 'Consultant: creates projects. Viewer: only takes part where invited. Administrator: also manages users and sees every project.',
   'usuarios.crear': 'Create account',
