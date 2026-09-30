@@ -179,6 +179,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22t. **Una medición salió idéntica a la de referencia porque el editor deshizo el cambio.** Para medir con `quality()` un BPMN importado con las coordenadas de su dibujo, cambié `x`/`y` en `processiq.v1`, puse `lanes: null` y recargué. Dio exactamente lo mismo que el auto-layout: al arrancar, si hay nodos y no hay carriles, `inicio.js` vuelve a aplicar el auto-layout y pisa las coordenadas. Con los carriles presentes (lista vacía), las coordenadas del dibujo dieron 8 flechas sobre cajas.
     → **Regla:** en una comparación, un resultado idéntico al de la otra variante es sospechoso hasta demostrar que la variante se aplicó (una captura, o leer las coordenadas después). Para medir un estado guardado a mano, conservar `lanes` en lo guardado.
 
+22u. **Abrir un análisis del copiloto no es de solo lectura.** La E2E del editor en inglés comparaba el informe Word exportado en los dos idiomas y salió distinto: entre una exportación y la otra, la prueba había abierto la matriz RACI y la había cancelado. `generateRaci()` guarda `state._raci` al abrir el diálogo, y el Word incluye la matriz. Parecía que la traducción cambiaba un entregable; era la prueba.
+    → **Regla:** para comparar exportaciones entre dos variantes, se exporta en el mismo estado exacto: justo después de cargar el proceso y antes de cualquier acción del copiloto, simulador o análisis (RACI, SIPOC, cuello de botella, What-If también escriben en `state`). Si difieren, mirar primero qué acción intermedia tocó el proceso.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.
