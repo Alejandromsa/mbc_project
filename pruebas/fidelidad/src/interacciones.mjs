@@ -292,7 +292,7 @@ export async function capturarGeneracionIa(page, peticiones) {
 
 /**
  * Tareas cuya petición cambia a propósito: con IA, la RACI y el SIPOC piden la matriz
- * editable en JSON (divergencia D11). Las prueba divergencias.spec.mjs, que además
+ * editable en JSON (divergencia D12). Las prueba divergencias.spec.mjs, que además
  * compara con el MVP la petición del informe en texto al que caen si la matriz falla.
  */
 export const TAREAS_IA_DIVERGENTES = ['raci', 'sipoc'];

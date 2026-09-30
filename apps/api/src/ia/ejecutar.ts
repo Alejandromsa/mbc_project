@@ -78,7 +78,7 @@ async function analizar(llamar: Llamar, e: EjecucionIa): Promise<unknown> {
     const respuesta = await llamar(e.texto ?? '', { system: PROMPT_PAINS, effort: 'high', maxTokens: 8000 });
     return { datos: extraerJson(respuesta) };
   }
-  // RACI y SIPOC como matriz editable (D11): validada contra el proceso y con una reparación.
+  // RACI y SIPOC como matriz editable (D12): validada contra el proceso y con una reparación.
   // Si no se consigue, la ejecución falla (error definitivo) y el editor pide el informe en texto.
   if (esTipoMatrizIa(e.tarea)) {
     const p = e.parametros as { actividades?: string[] } | null;

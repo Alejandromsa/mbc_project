@@ -1,5 +1,5 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1. RACI y SIPOC
-// piden además la matriz editable (divergencia D11).
+// piden además la matriz editable (divergencia D12).
 import { ROL_ANALISTA, TAREAS_IA, actividadesRaci, matrizDeTarea, pedirMatrizIa, promptTarea } from '@processiq/ia';
 import { cargarRaciIa } from '../analitica/raci.js';
 import { cargarSipocIa } from '../analitica/sipoc.js';
@@ -23,7 +23,7 @@ async function runAiTask(kind) {
   const t = AI_TASKS[kind];
   if (!t) return false;
   if (state.nodes.length === 0) { alert(tr('ia.sinProceso')); return true; }
-  // D11: RACI y SIPOC llegan como matriz editable; el informe en texto queda de respaldo
+  // D12: RACI y SIPOC llegan como matriz editable; el informe en texto queda de respaldo
   const matriz = matrizDeTarea(kind);
   if (matriz && (matriz !== 'matriz-raci' || actividadesRaci(state.nodes).length)) return matrizIa(kind, t, matriz);
   return informeIa(kind, t);

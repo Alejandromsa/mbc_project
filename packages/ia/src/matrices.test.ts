@@ -1,4 +1,4 @@
-// Matrices RACI y SIPOC con IA (divergencia D11): esquema, validación contra el
+// Matrices RACI y SIPOC con IA (divergencia D12): esquema, validación contra el
 // proceso, reparación y errores. La IA se simula con un `llamar` falso.
 import { describe, expect, it, vi } from 'vitest';
 import {

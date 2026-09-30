@@ -341,7 +341,7 @@ describe('IA en el servidor', () => {
     }
   });
 
-  it('análisis: RACI y SIPOC como matriz editable, validada contra el proceso y con una reparación (D11)', async () => {
+  it('análisis: RACI y SIPOC como matriz editable, validada contra el proceso y con una reparación (D12)', async () => {
     const { c, proceso } = await equipo();
     const analizar = (tipo: string, contenido: unknown = EXPORT_MVP, quien = c.ana) =>
       quien.post('/api/ia/analisis', { procesoId: proceso.id, tipo, contenido });

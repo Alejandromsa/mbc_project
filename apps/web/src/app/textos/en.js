@@ -676,7 +676,7 @@ export const en = {
   'sipoc.sinProceso': 'Generate or draw a process first.',
   'sipoc.pista': 'SIPOC prefilled from the diagram (roles, data nodes). Edit it freely. It will be included in the PPTX.',
   'sipoc.guardado': 'SIPOC saved. It will be exported with the PPTX.',
-  // RACI and SIPOC with AI as editable matrices (divergence D11)
+  // RACI and SIPOC with AI as editable matrices (divergence D12)
   'matriz.armando': '_{tarea}: building the editable matrix with AI…_',
   'matriz.alInforme': '_The editable matrix could not be built ({error}). Asking for the text report instead._',
   'matriz.sinResultado': 'the server did not return the matrix',

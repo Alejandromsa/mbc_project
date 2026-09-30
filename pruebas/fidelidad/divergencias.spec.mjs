@@ -379,7 +379,7 @@ test('D10: un BPMN de otra herramienta conserva carriles y subprocesos; un XML q
   await nueva.ctx.close();
 });
 
-// D11: con IA, «Generar matriz RACI» y «Generar SIPOC» traen la matriz editable (JSON validado,
+// D12: con IA, «Generar matriz RACI» y «Generar SIPOC» traen la matriz editable (JSON validado,
 // con una reparación) en lugar del informe en Markdown del MVP. La IA se simula como en la
 // fidelidad (prepararIa); este `responder` contesta además las peticiones de matriz.
 const SISTEMA_MATRICES = 'Devuelves EXCLUSIVAMENTE un objeto JSON válido, con la forma exacta que pide la tarea';
@@ -444,7 +444,7 @@ async function informeDelMvp(browser, tarea) {
   return r;
 }
 
-test('D11: con IA, la RACI y el SIPOC se cargan en su matriz editable y van al PPTX (el MVP daba un informe en texto)', async ({ browser }) => {
+test('D12: con IA, la RACI y el SIPOC se cargan en su matriz editable y van al PPTX (el MVP daba un informe en texto)', async ({ browser }) => {
   // MVP, con la misma IA simulada: una petición del informe en Markdown y ninguna matriz
   const mvp = { raci: await informeDelMvp(browser, 'raci'), sipoc: await informeDelMvp(browser, 'sipoc') };
   for (const r of Object.values(mvp)) {
@@ -518,7 +518,7 @@ test('D11: con IA, la RACI y el SIPOC se cargan en su matriz editable y van al P
   await nueva.ctx.close();
 });
 
-test('D11: si la matriz no se puede reparar, cae al informe en texto del MVP (la misma petición y el mismo mensaje)', async ({ browser }) => {
+test('D12: si la matriz no se puede reparar, cae al informe en texto del MVP (la misma petición y el mismo mensaje)', async ({ browser }) => {
   for (const tarea of ['raci', 'sipoc']) {
     // La IA de la fidelidad contesta Markdown a todo: ni la matriz ni su reparación son JSON
     const mvp = await informeDelMvp(browser, tarea);

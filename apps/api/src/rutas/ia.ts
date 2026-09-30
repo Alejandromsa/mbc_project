@@ -36,7 +36,7 @@ const GeneracionEsquema = z.object({
 
 const AnalisisEsquema = z.object({
   procesoId: z.string().uuid(),
-  /** 'pains', una tarea del copiloto (suggest-kpis, raci…) o una matriz (matriz-raci, matriz-sipoc: JSON editable, D11). */
+  /** 'pains', una tarea del copiloto (suggest-kpis, raci…) o una matriz (matriz-raci, matriz-sipoc: JSON editable, D12). */
   // Object.hasOwn: 'constructor' o 'toString' no son tareas aunque existan en el prototipo
   tipo: z.string().refine((t) => t === 'pains' || Object.hasOwn(TAREAS_IA, t) || esTipoMatrizIa(t), 'Análisis desconocido.'),
   /** El proceso tal como está en el editor (se valida con el esquema del dominio). */

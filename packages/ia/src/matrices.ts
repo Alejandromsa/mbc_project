@@ -1,4 +1,4 @@
-// Matrices del copiloto con IA (divergencia D11, docs/fase1-divergencias.md).
+// Matrices del copiloto con IA (divergencia D12, docs/fase1-divergencias.md).
 //
 // La RACI y el SIPOC llegan como JSON con la forma exacta de las matrices
 // editables del editor (state._raci y state._sipoc), las mismas que usan el

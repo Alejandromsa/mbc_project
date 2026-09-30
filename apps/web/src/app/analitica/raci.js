@@ -1,5 +1,5 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1. La matriz que
-// propone la IA (divergencia D11) se carga en el mismo diálogo editable.
+// propone la IA (divergencia D12) se carga en el mismo diálogo editable.
 import { copilotPost } from '../copiloto/copiloto.js';
 import { $ } from '../dom.js';
 import { state } from '../estado.js';

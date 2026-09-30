@@ -51,7 +51,7 @@ export const ROL_ANALISTA = 'Eres un consultor senior de procesos de negocio (es
  * Tareas analíticas del copiloto con IA. `etiqueta` es lo que se ve en el chat y en
  * «Consumo de IA», nunca en la petición: lleva sus tildes (divergencia D9). Los
  * `prompt` siguen byte a byte como en el MVP. RACI y SIPOC piden además la matriz
- * editable (matrices.ts, divergencia D11) y usan este informe solo si falla.
+ * editable (matrices.ts, divergencia D12) y usan este informe solo si falla.
  */
 export const TAREAS_IA: Readonly<Record<string, TareaIa>> = {
   'suggest-kpis': {
