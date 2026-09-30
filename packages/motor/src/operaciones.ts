@@ -6,9 +6,21 @@ import { EXECUTION_TYPES, FORMAS_POR_DEFECTO, type Arista, type DefinicionTipoEj
 type Formas = Readonly<Record<string, FormaPorDefecto>>;
 
 /**
+ * Compuerta de convergencia: junta ramas y no decide nada. Es la que crea
+ * `insertarCompuertasConvergencia` (`_merge`) o cualquier exclusiva con varias
+ * entradas y una sola salida.
+ */
+export function esConvergencia(d: Nodo, edges: readonly Arista[]): boolean {
+  if (edges.filter((e) => e.from === d.id).length !== 1) return false;
+  return d._merge === true || edges.filter((e) => e.to === d.id).length >= 2;
+}
+
+/**
  * Cada compuerta exclusiva con una sola salida recibe una rama "No" hacia un
  * fin "Caso no procede" nuevo (en su mismo carril); las dos primeras salidas
- * sin etiqueta se rotulan "Sí" y "No". Las paralelas e inclusivas no se tocan.
+ * sin etiqueta se rotulan "Sí" y "No". Las paralelas e inclusivas no se tocan,
+ * ni las de convergencia (`esConvergencia`): una convergencia no es una
+ * decisión. El MVP también les inventaba la rama "No" (divergencia D11).
  * @returns el siguiente id libre
  */
 export function asegurarRamasDeDecision(nodes: Nodo[], edges: Arista[], siguienteId: number, formas: Formas = FORMAS_POR_DEFECTO): number {
@@ -16,6 +28,7 @@ export function asegurarRamasDeDecision(nodes: Nodo[], edges: Arista[], siguient
     if (d.gatewayType === 'parallel' || d.gatewayType === 'inclusive') return;
     const outs = edges.filter((e) => e.from === d.id);
     if (outs.length === 0) return; // huérfana: la validación lo señala
+    if (esConvergencia(d, edges)) return;
     if (outs.length === 1) {
       if (!outs[0]!.label || !outs[0]!.label.trim()) outs[0]!.label = 'Sí';
       // Siempre un fin nuevo dedicado: queda en rank+1 de su decisión y en su carril

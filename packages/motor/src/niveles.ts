@@ -190,9 +190,10 @@ export function proyectarNivel(full: ModeloProceso, nivel: number, ctx: Contexto
   }
   const formas = ctx.formas ?? FORMAS_POR_DEFECTO;
   const conNivel = full.nodes.filter((n) => n.nivel);
+  const explicita = conNivel.length > full.nodes.length * 0.5;
   let grupos: Nodo[] = [], grupoDe: Record<string, string> = {};
-  if (conNivel.length > full.nodes.length * 0.5) {
-    // Jerarquía explícita de la IA
+  if (explicita) {
+    // Jerarquía explícita: la de la IA o la de los subprocesos de un BPMN importado
     const visibles: Record<string, boolean> = {};
     full.nodes.forEach((n) => { if ((n.nivel || 3) <= nivel) visibles[n.id] = true; });
     full.nodes.forEach((n) => {
@@ -208,6 +209,36 @@ export function proyectarNivel(full: ModeloProceso, nivel: number, ctx: Contexto
     grupos = r.grupos; grupoDe = r.grupoDe;
   }
 
+  let p = plegar(full, grupoDe, grupos);
+  if (nivel !== 1) return p;
+  // Una etapa que cruza actores no cabe en el carril de ninguno: un solo carril, el del proceso
+  p.nodes.forEach((n) => { n.owner = ctx.macroproceso; n.role = ''; });
+  const r = colapsarGatewaysDegenerados(p.nodes, p.edges);
+  if (!explicita || r.nodes.length <= EJEC_MAX_CAJAS) return r;
+
+  // Con la jerarquía explícita, el nivel superior puede ser largo (un BPMN con
+  // subprocesos, una IA que marca muchos pasos como de nivel 1): el techo de
+  // cajas se aplica igual que con las etapas deducidas, agrupando en etapas lo
+  // que ya se ve en el Ejecutivo. Cada nodo del modelo va a la etapa de su
+  // representante. No lo hacía el MVP (divergencia D12).
+  const et = etapasEjecutivas(p.nodes, p.edges, EJEC_MAX_CAJAS, formas);
+  if (!et.grupos.length) return r;
+  const grupoFinal: Record<string, string> = {};
+  full.nodes.forEach((n) => {
+    const visible = grupoDe[n.id] || n.id;
+    const destino = et.grupoDe[visible] || visible;
+    if (destino !== n.id) grupoFinal[n.id] = destino;
+  });
+  p = plegar(full, grupoFinal, et.grupos);
+  p.nodes.forEach((n) => { n.owner = ctx.macroproceso; n.role = ''; });
+  return colapsarGatewaysDegenerados(p.nodes, p.edges);
+}
+
+/**
+ * Pliega el modelo completo: cada nodo va a su representante (`grupoDe`, o él
+ * mismo), que es un nodo del modelo o uno de `grupos`. Copias: no modifica el modelo.
+ */
+function plegar(full: ModeloProceso, grupoDe: Readonly<Record<string, string>>, grupos: readonly Nodo[]): ModeloProceso {
   const repr = (id: string) => grupoDe[id] || id;
   const nodes: Nodo[] = [], puestos: Record<string, boolean> = {};
   full.nodes.forEach((n) => {
@@ -228,8 +259,5 @@ export function proyectarNivel(full: ModeloProceso, nivel: number, ctx: Contexto
     vistas[k] = true;
     edges.push({ ...e, id: 'v_' + e.id, from: a, to: b });
   });
-  if (nivel !== 1) return { nodes, edges };
-  // Una etapa que cruza actores no cabe en el carril de ninguno: un solo carril, el del proceso
-  nodes.forEach((n) => { n.owner = ctx.macroproceso; n.role = ''; });
-  return colapsarGatewaysDegenerados(nodes, edges);
+  return { nodes, edges };
 }
