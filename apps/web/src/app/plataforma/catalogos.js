@@ -8,6 +8,7 @@
 import { KPI_LIBRARY, VERBS_ALLOWED, VERBS_FORBIDDEN } from '@processiq/dominio';
 import { TEMAS_PPTX } from '@processiq/exportar';
 import { exportPptx } from '../exportar/pptx.js';
+import { alCambiarIdioma, tr } from '../i18n.js';
 import { renderKpiLibrary } from '../paneles/kpis.js';
 import { runLinter } from '../validacion/lint.js';
 
@@ -21,6 +22,10 @@ function reemplazarObjeto(destino, nuevo) {
   Object.assign(destino, nuevo);
 }
 
+// Al cambiar de idioma se vuelven a crear los botones (clonados del de BBVA, ya traducido)
+let temasDeLaOrganizacion = [];
+alCambiarIdioma(() => { if (temasDeLaOrganizacion.length) botonesDeTemas(temasDeLaOrganizacion); });
+
 /** Botones del menú Exportar para los temas de cliente de la organización. */
 function botonesDeTemas(temas) {
   document.querySelectorAll('button[data-tema-organizacion]').forEach((b) => b.remove());
@@ -33,8 +38,8 @@ function botonesDeTemas(temas) {
     b.dataset.temaOrganizacion = t.clave;
     const hint = b.querySelector('.export-hint');
     b.textContent = '';
-    b.append(referencia.querySelector('svg').cloneNode(true), ' PPTX · cliente ' + t.nombre + ' ');
-    if (hint) { hint.textContent = 'tema de la organización'; b.append(hint); }
+    b.append(referencia.querySelector('svg').cloneNode(true), ' ' + tr('catalogos.pptxCliente', { nombre: t.nombre }) + ' ');
+    if (hint) { hint.textContent = tr('catalogos.temaOrganizacion'); b.append(hint); }
     b.addEventListener('click', () => {
       document.dispatchEvent(new MouseEvent('click'));   // cierra el menú, como los botones de siempre
       exportPptx(t.clave);
@@ -49,6 +54,7 @@ export function aplicarCatalogos(catalogos) {
   reemplazarLista(VERBS_ALLOWED, catalogos.verbos.permitidos);
   reemplazarObjeto(VERBS_FORBIDDEN, catalogos.verbos.prohibidos);
   catalogos.temas.forEach((t) => { TEMAS_PPTX[t.clave] = t.definicion; });
+  temasDeLaOrganizacion = catalogos.temas;
   botonesDeTemas(catalogos.temas);
   renderKpiLibrary();
   runLinter();

@@ -13,17 +13,23 @@
 // - un clic en un elemento del diagrama ancla a él el comentario que se escribe.
 import { apiPublicaInvitados } from '../../modulos/invitados/api';
 import { ErrorApi } from '../../shell/api';
-import { fecha } from '../../shell/formato';
+import { fecha as fechaEnIdioma } from '../../shell/formato';
+import { mensajeDeError } from '../../shell/mensajes';
 import { $ } from '../dom.js';
 import { normalizeFicha, state, usarClaveAlmacen } from '../estado.js';
 import { openFichaPreview } from '../exportar/ficha.js';
 import { resetHistory } from '../historial.js';
+import { alCambiarIdioma, idioma, tr } from '../i18n.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { actualizarSelectorNivel } from '../layout/niveles.js';
 import { render } from '../lienzo/render.js';
 import { maybeFitOnLoad, setZoom } from '../lienzo/zoom.js';
 import { updateViewUi } from '../vistas/comparador.js';
 import '../../modulos/invitados/vista.css';
+
+// Fechas y errores de la API en el idioma del editor (en español, los de siempre)
+const fecha = (iso) => fechaEnIdioma(iso, idioma());
+const mensajeError = (e, porDefecto) => (idioma() === 'es' ? ((e && e.message) || porDefecto) : mensajeDeError(e, 'en', porDefecto));
 
 const token = new URLSearchParams(location.search).get('invitado');
 const CLAVE_VISTA = 'processiq.invitados.vista';
@@ -187,11 +193,11 @@ function mostrarError(e) {
   }
   tarjeta.textContent = '';
   const h = document.createElement('h1');
-  h.textContent = noValido ? 'Este enlace ya no está disponible' : 'No se pudo abrir la revisión';
+  h.textContent = noValido ? tr('invitado.noDisponible') : tr('invitado.noAbierta');
   const p = document.createElement('p');
   p.textContent = noValido
-    ? 'Puede que haya caducado o que lo hayan revocado. Pide un enlace nuevo a quien te lo envió.'
-    : (e && e.message) || 'Inténtalo de nuevo en unos minutos.';
+    ? tr('invitado.caducado')
+    : mensajeError(e, tr('invitado.reintentarLuego'));
   tarjeta.append(h, p);
   if (noValido && ctx.datos) {
     // Revocado o caducado mientras estaba abierto: tampoco se sigue mostrando
@@ -202,7 +208,7 @@ function mostrarError(e) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'invitados-boton invitados-boton-principal';
-    b.textContent = 'Reintentar';
+    b.textContent = tr('invitado.reintentar');
     b.addEventListener('click', () => { tarjeta.remove(); abrir(); });
     tarjeta.appendChild(b);
   }
@@ -219,11 +225,11 @@ function pintarBarra() {
     barra = document.createElement('div');
     barra.className = 'invitados-barra';
     barra.setAttribute('role', 'region');
-    barra.setAttribute('aria-label', 'Revisión compartida');
     const marca = $('.app-header .brand');
     if (marca) marca.after(barra); else document.body.prepend(barra);
   }
   barra.hidden = false;
+  barra.setAttribute('aria-label', tr('invitado.barraAria'));
   barra.textContent = '';
   const texto = document.createElement('div');
   texto.className = 'invitados-barra-texto';
@@ -233,18 +239,18 @@ function pintarBarra() {
   detalle.className = 'invitados-barra-detalle';
   texto.append(titulo, detalle);
   barra.appendChild(texto);
-  if (!ctx.datos) { titulo.textContent = 'Abriendo la revisión compartida…'; return; }
+  if (!ctx.datos) { titulo.textContent = tr('invitado.abriendo'); return; }
 
   const { proceso, revision, enlace } = ctx.datos;
   const nombre = document.createElement('strong');
   nombre.textContent = proceso.nombre;
-  titulo.append(nombre, ` · versión ${revision.numero}`);
-  detalle.textContent = `Solo lectura · compartida con ${enlace.destinatario} · disponible hasta el ${fecha(enlace.caducaEn)}`;
+  titulo.append(nombre, tr('invitado.version', { n: revision.numero }));
+  detalle.textContent = tr('invitado.detalle', { para: enlace.destinatario, fecha: fecha(enlace.caducaEn) });
 
   const ficha = document.createElement('button');
   ficha.type = 'button';
   ficha.className = 'btn btn-ghost';
-  ficha.textContent = 'Ficha del proceso';
+  ficha.textContent = tr('invitado.ficha');
   ficha.addEventListener('click', () => openFichaPreview());
   barra.appendChild(ficha);
   if (enlace.admiteComentarios) {
@@ -262,7 +268,7 @@ function pintarBarra() {
 function pintarBotonComentarios() {
   const b = barra && barra.querySelector('[data-ref="comentarios"]');
   if (!b) return;
-  b.textContent = ctx.comentarios.length ? `Comentarios (${ctx.comentarios.length})` : 'Comentarios';
+  b.textContent = ctx.comentarios.length ? tr('invitado.comentariosN', { n: ctx.comentarios.length }) : tr('invitado.comentarios');
   b.setAttribute('aria-expanded', String(raiz.classList.contains('invitados-panel-abierto')));
 }
 
@@ -288,22 +294,21 @@ function crearPanel() {
   cab.className = 'invitados-panel-cabecera';
   const h = document.createElement('h2');
   h.id = 'invitadosTitulo';
-  h.textContent = 'Comentarios';
+  refs.titulo = h;
   const cerrar = document.createElement('button');
   cerrar.type = 'button';
   cerrar.className = 'invitados-cerrar';
-  cerrar.setAttribute('aria-label', 'Cerrar los comentarios');
+  refs.cerrar = cerrar;
   cerrar.textContent = '×';
   cerrar.addEventListener('click', () => abrirPanel(false));
   cab.append(h, cerrar);
 
   const ayuda = document.createElement('p');
   ayuda.className = 'invitados-ayuda';
-  ayuda.textContent = 'Escribe lo que quieras que el equipo revise. Para comentar un paso concreto, haz clic en él en el diagrama.';
+  refs.ayuda = ayuda;
 
   refs.lista = document.createElement('ol');
   refs.lista.className = 'invitados-lista';
-  refs.lista.setAttribute('aria-label', 'Tus comentarios');
 
   const form = document.createElement('form');
   form.className = 'invitados-form';
@@ -314,8 +319,8 @@ function crearPanel() {
   refs.aviso.className = 'invitados-aviso';
   refs.aviso.setAttribute('role', 'status');
   refs.aviso.hidden = true;
-  refs.nombre = campo(form, 'input', 'Tu nombre', { maxLength: 120, autocomplete: 'name' });
-  refs.texto = campo(form, 'textarea', 'Comentario', { maxLength: 4000, rows: 4 });
+  refs.nombre = campo(form, 'input', 'invitado.tuNombre', { maxLength: 120, autocomplete: 'name' });
+  refs.texto = campo(form, 'textarea', 'invitado.comentario', { maxLength: 4000, rows: 4 });
   refs.error = document.createElement('p');
   refs.error.className = 'invitados-error-campo';
   refs.error.setAttribute('role', 'alert');
@@ -323,22 +328,40 @@ function crearPanel() {
   refs.enviar = document.createElement('button');
   refs.enviar.type = 'submit';
   refs.enviar.className = 'invitados-boton invitados-boton-principal';
-  refs.enviar.textContent = 'Enviar comentario';
   form.prepend(refs.ancla);
   form.append(refs.error, refs.enviar);
   form.addEventListener('submit', (e) => { e.preventDefault(); enviar(); });
 
   panel.append(cab, ayuda, refs.lista, refs.aviso, form);
   ($('.app-main') || document.body).appendChild(panel);
+  textosPanel();
   pintarLista();
   pintarAncla();
 }
 
-function campo(form, etiqueta, texto, props) {
+/** Textos fijos del panel de comentarios, en el idioma actual. */
+function textosPanel() {
+  refs.titulo.textContent = tr('invitado.comentarios');
+  refs.cerrar.setAttribute('aria-label', tr('invitado.cerrarComentarios'));
+  refs.ayuda.textContent = tr('invitado.ayuda');
+  refs.lista.setAttribute('aria-label', tr('invitado.tusComentarios'));
+  for (const s of panel.querySelectorAll('[data-texto]')) s.textContent = tr(s.dataset.texto);
+  if (!ctx.enviando) refs.enviar.textContent = tr('invitado.enviar');
+}
+
+// Al cambiar de idioma: la barra, el panel y la lista (los comentarios son de quien los escribió)
+alCambiarIdioma(() => {
+  if (token === null || !barra || barra.hidden) return;
+  pintarBarra();
+  if (panel) { textosPanel(); pintarLista(); pintarAncla(); }
+});
+
+function campo(form, etiqueta, clave, props) {
   const label = document.createElement('label');
   label.className = 'invitados-campo';
   const span = document.createElement('span');
-  span.textContent = texto;
+  span.dataset.texto = clave;
+  span.textContent = tr(clave);
   const el = document.createElement(etiqueta);
   Object.assign(el, props);
   label.append(span, el);
@@ -352,7 +375,7 @@ function pintarLista() {
   if (!ctx.comentarios.length) {
     const li = document.createElement('li');
     li.className = 'invitados-vacio';
-    li.textContent = 'Todavía no has dejado comentarios en esta versión.';
+    li.textContent = tr('invitado.sinComentarios');
     refs.lista.appendChild(li);
   }
   for (const c of ctx.comentarios) {
@@ -370,8 +393,8 @@ function pintarLista() {
       const sobre = document.createElement('button');
       sobre.type = 'button';
       sobre.className = 'invitados-item-ancla';
-      sobre.textContent = `Sobre «${c.elementoEtiqueta || c.elementoId}»`;
-      sobre.title = 'Ver en el diagrama';
+      sobre.textContent = tr('invitado.sobre', { elemento: c.elementoEtiqueta || c.elementoId });
+      sobre.title = tr('invitado.verEnDiagrama');
       sobre.addEventListener('click', () => enfocar(c.elementoId));
       li.appendChild(sobre);
     }
@@ -382,7 +405,7 @@ function pintarLista() {
     if (c.resuelto) {
       const r = document.createElement('span');
       r.className = 'invitados-item-estado';
-      r.textContent = 'El equipo lo marcó como resuelto';
+      r.textContent = tr('invitado.resuelto');
       li.appendChild(r);
     }
     refs.lista.appendChild(li);
@@ -395,17 +418,17 @@ function pintarAncla() {
   refs.ancla.textContent = '';
   if (!ctx.ancla) {
     refs.ancla.classList.remove('invitados-ancla-elegida');
-    refs.ancla.textContent = 'Comentario sobre el proceso en general';
+    refs.ancla.textContent = tr('invitado.general');
     return;
   }
   refs.ancla.classList.add('invitados-ancla-elegida');
   const t = document.createElement('span');
-  t.textContent = `Sobre «${ctx.ancla.etiqueta || ctx.ancla.id}»${ctx.ancla.vista === 'tobe' ? ' (To-Be)' : ''}`;
+  t.textContent = tr('invitado.sobre', { elemento: ctx.ancla.etiqueta || ctx.ancla.id }) + (ctx.ancla.vista === 'tobe' ? ' (To-Be)' : '');
   const quitar = document.createElement('button');
   quitar.type = 'button';
   quitar.className = 'invitados-quitar';
-  quitar.textContent = 'Quitar';
-  quitar.setAttribute('aria-label', 'Comentar el proceso en general');
+  quitar.textContent = tr('invitado.quitar');
+  quitar.setAttribute('aria-label', tr('invitado.quitarAria'));
   quitar.addEventListener('click', () => { ctx.ancla = null; senalar(null); pintarAncla(); });
   refs.ancla.append(t, quitar);
 }
@@ -426,7 +449,7 @@ function alPulsarElemento(grupo) {
   if (!ctx.validos[vista].has(n.id)) {
     ctx.ancla = null;
     pintarAncla();
-    avisar('Ese paso se generó al cambiar el nivel de detalle y no está en la versión compartida: vuelve al nivel inicial para comentarlo.');
+    avisar(tr('invitado.pasoGenerado'));
     return;
   }
   avisar('');
@@ -445,7 +468,7 @@ function senalar(id) {
 function enfocar(id) {
   const i = state.nodes.findIndex((n) => n.id === id);
   senalar(id);
-  if (i < 0) { avisar('Ese elemento no está en la vista o el nivel de detalle que tienes abierto.'); return; }
+  if (i < 0) { avisar(tr('invitado.noEnVista')); return; }
   avisar('');
   const n = state.nodes[i];
   const zona = $('#canvasWrapper');
@@ -457,12 +480,12 @@ async function enviar() {
   if (ctx.enviando) return;
   const nombre = refs.nombre.value.trim();
   const texto = refs.texto.value.trim();
-  const faltan = [!nombre && 'tu nombre', !texto && 'el comentario'].filter(Boolean);
-  if (faltan.length) { mostrarErrorCampo(`Escribe ${faltan.join(' y ')}.`); (nombre ? refs.texto : refs.nombre).focus(); return; }
+  const faltan = [!nombre && tr('invitado.faltaNombre'), !texto && tr('invitado.faltaComentario')].filter(Boolean);
+  if (faltan.length) { mostrarErrorCampo(tr('invitado.escribe', { que: faltan.join(tr('invitado.y')) })); (nombre ? refs.texto : refs.nombre).focus(); return; }
   mostrarErrorCampo('');
   ctx.enviando = true;
   refs.enviar.disabled = true;
-  refs.enviar.textContent = 'Enviando…';
+  refs.enviar.textContent = tr('invitado.enviando');
   try {
     const { comentario } = await apiPublicaInvitados.comentar(token, {
       nombre, texto, elementoId: ctx.ancla ? ctx.ancla.id : null, vista: ctx.ancla ? ctx.ancla.vista : null
@@ -473,14 +496,14 @@ async function enviar() {
     senalar(null);
     pintarAncla();
     pintarLista();
-    avisar('Comentario enviado. El equipo lo verá junto a esta versión.');
+    avisar(tr('invitado.enviado'));
   } catch (e) {
     if (e instanceof ErrorApi && e.estado === 404) { mostrarError(e); return; }
-    mostrarErrorCampo((e && e.message) || 'No se pudo enviar el comentario.');
+    mostrarErrorCampo(mensajeError(e, tr('invitado.noEnviado')));
   } finally {
     ctx.enviando = false;
     refs.enviar.disabled = false;
-    refs.enviar.textContent = 'Enviar comentario';
+    refs.enviar.textContent = tr('invitado.enviar');
   }
 }
 

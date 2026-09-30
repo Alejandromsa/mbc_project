@@ -2,6 +2,7 @@
 // completo (divergencia D7 en docs/fase1-divergencias.md).
 import { $, canvas } from '../dom.js';
 import { normalizeFicha, state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { render } from '../lienzo/render.js';
 import { renderKpiLibrary } from '../paneles/kpis.js';
@@ -77,7 +78,7 @@ function importJson(e) {
       persist();
       // Sin carriles guardados, se calculan (como al abrir datos de una versión vieja)
       if (completo && state.nodes.length > 0 && !state._lanes) autoLayout(); else render();
-    } catch (err) { alert('Archivo JSON inválido.'); }
+    } catch (err) { alert(tr('exportar.jsonInvalido')); }
   };
   reader.readAsText(f);
   e.target.value = '';

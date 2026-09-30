@@ -2,17 +2,19 @@
 import { construirProcesoBasico, interpretarTexto } from '@processiq/documentos';
 import { copilotPost } from '../copiloto/copiloto.js';
 import { SHAPE_DEFAULTS, state } from '../estado.js';
+import { traducirDe, tr } from '../i18n.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { render } from '../lienzo/render.js';
 import { maybeFitOnLoad } from '../lienzo/zoom.js';
 import { activateTab } from '../paneles/cajon.js';
 import { persist } from '../persistencia.js';
 import { ensureDecisionBranches } from '../proceso/operaciones.js';
+import { ETIQUETAS_FUENTE_EN } from '../textos/en.js';
 
 function buildProcessFromText(text, source) {
   const detectadas = interpretarTexto(text);
   if (detectadas.length === 0) {
-    alert('No pude extraer actividades del texto. Intenta separar por puntos o bullets.');
+    alert(tr('basico.sinActividades'));
     return;
   }
   // Sin IA, un documento largo generaría cientos de nodos: se recorta a 60 y se avisa.
@@ -30,11 +32,8 @@ function buildProcessFromText(text, source) {
   maybeFitOnLoad();   // encuadra el proceso generado desde notas/audio si desborda
   activateTab('copilot');
   copilotPost('ai',
-    `He construido el flujograma desde la fuente **${source}**.\n\n` +
-    `Detecté **${r.actividades} actividades** (+ inicio/fin).\n` +
-    `Patrones aplicados: actividades con verbos en infinitivo/imperativo, gateways de decisión por condicionales ("si", "cuando", "en caso").\n\n` +
-    `Revisa, ajusta etiquetas y completa responsables. Cuando termines pídeme: *"detecta pains"* o *"sugiere KPIs"*.` +
-    (truncatedAt ? `\n\n⚠️ **El documento era muy largo** (${truncatedAt} actividades detectadas). Me quedé con las primeras ${r.actividades} para que el diagrama siga siendo legible.\n\n**Recomendación:** configura la **IA (⚙ en la cabecera)** — interpreta el documento completo y arma el flujo real con roles y decisiones, en vez de esta extracción por palabras clave.` : ''));
+    tr('basico.construido', { fuente: traducirDe(ETIQUETAS_FUENTE_EN, source), n: r.actividades }) +
+    (truncatedAt ? tr('basico.recortado', { total: truncatedAt, n: r.actividades }) : ''));
 }
 
 export { buildProcessFromText };

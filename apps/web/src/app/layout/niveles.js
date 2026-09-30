@@ -2,7 +2,9 @@
 import { NIVELES, esHito, proyectarNivel as proyectar } from '@processiq/motor';
 import { copilotPost } from '../copiloto/copiloto.js';
 import { SHAPE_DEFAULTS, state } from '../estado.js';
+import { traducirDe, tr } from '../i18n.js';
 import { render } from '../lienzo/render.js';
+import { NIVELES_EN } from '../textos/en.js';
 import { invalidarRutas } from '../lienzo/ruteo.js';
 import { autoLayout } from './auto-layout.js';
 
@@ -92,9 +94,8 @@ function cablearSelectorNivel() {
     const r = aplicarNivel(n);
     if (r) {
       const nv = NIVELES.find(x => x.id === n);
-      copilotPost('ai', '**Vista ' + nv.nombre.toLowerCase() + '.** ' + nv.desc +
-        '. Quedan **' + r.nodos + ' pasos** de ' + state._modeloCompleto.nodes.length +
-        '. El proceso completo sigue guardado: cambiar de vista no pierde nada ni vuelve a llamar a la IA.');
+      const nvEn = traducirDe(NIVELES_EN, nv, nv.id);
+      copilotPost('ai', tr('nivel.vista', { nombre: nvEn.nombre.toLowerCase(), desc: nvEn.desc, n: r.nodos, total: state._modeloCompleto.nodes.length }));
     }
   });
 }
@@ -109,7 +110,7 @@ function actualizarSelectorNivel() {
   const info = document.getElementById('nivelInfo');
   if (info) {
     const full = state._modeloCompleto;
-    info.textContent = full ? (state.nodes.length + ' de ' + full.nodes.length + ' pasos') : '';
+    info.textContent = full ? tr('nivel.info', { n: state.nodes.length, total: full.nodes.length }) : '';
   }
 }
 

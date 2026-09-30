@@ -8,7 +8,15 @@
 //   quién está editando: es un aviso suave, no bloquea nada.
 // - Si alguien guarda una revisión nueva, lo avisa con «Cargar la nueva versión» y
 //   «Seguir con la mía».
-import { conectarColaboracion, dondeEsta, iniciales, nombreCorto } from '../../shell/colaboracion';
+import { conectarColaboracion, dondeEsta as dondeEstaEs, iniciales, nombreCorto } from '../../shell/colaboracion';
+import { enIngles, tr } from '../i18n.js';
+
+/** Dónde tiene alguien abierto el proceso; en español, el texto del shell. */
+function dondeEsta(p) {
+  if (!enIngles()) return dondeEstaEs(p);
+  if (p.lugares.includes('editor') && p.lugares.includes('shell')) return tr('colab.dondeAmbos');
+  return p.lugares.includes('editor') ? tr('colab.dondeEditor') : tr('colab.dondeShell');
+}
 
 /** Avatares a la vista; el resto se resume en «+N». */
 const MAX_AVATARES = 4;
@@ -25,14 +33,15 @@ function colorDe(usuarioId) {
 function enumerar(personas) {
   const n = personas.map((p) => nombreCorto(p.nombre));
   if (n.length === 1) return n[0];
-  if (n.length === 2) return `${n[0]} y ${n[1]}`;
-  return `${n[0]} y ${n.length - 1} más`;
+  if (n.length === 2) return tr('colab.dos', { a: n[0], b: n[1] });
+  return tr('colab.varios', { a: n[0], n: n.length - 1 });
 }
 
 /**
  * o: {
  *   procesoId, contenedor (elemento de la barra para los avatares),
- *   sucio(), guardando(), base() -> { id, numero } | null, ultima() -> { id, numero } | null,
+ *   sucio(), guardando(), base() -> { id, numero, estado } | null, ultima() -> { id, numero } | null,
+ *   alEstadoBase(estado)  cambió el estado de la revisión abierta (evento `estado` del SSE),
  *   alRevisionNueva(revision)  la barra pasa a decir «la última es la vN»,
  *   cargarRevision(id, descartar)  abre esa revisión (descartar = borra antes el borrador local),
  *   avisar(tipo, texto, detalles, enlace, acciones) -> cerrar,  preguntar({ titulo, texto, si, no }) -> boolean
@@ -63,6 +72,13 @@ export function activarColaboracion(o) {
     alRevision(revision) {
       ultimaRecibida = revision;
       revisar();
+    },
+    // Estado de todas las revisiones: si cambió el de la abierta (enviada a revisión, aprobada,
+    // devuelta), la barra lo dice al momento
+    alEstado(revisiones) {
+      const base = o.base();
+      const suya = base && (revisiones || []).find((r) => r.id === base.id);
+      if (suya && suya.estado !== base.estado && o.alEstadoBase) o.alEstadoBase(suya.estado);
     }
   });
 
@@ -79,13 +95,13 @@ export function activarColaboracion(o) {
   }
 
   function avisarRevision(r) {
-    const que = yoId && r.autorId === yoId ? `Guardaste la v${r.numero} desde otra pestaña` : `${r.autor} guardó la v${r.numero}`;
+    const que = yoId && r.autorId === yoId ? tr('colab.guardasteOtra', { n: r.numero }) : tr('colab.guardo', { autor: r.autor, n: r.numero });
     const base = o.base();
     let texto = `${que}${r.mensaje ? `: «${r.mensaje}»` : ''}.`;
-    if (o.sucio()) texto += ` Tienes cambios sin guardar${base ? ` sobre la v${base.numero}` : ''}: si cargas la nueva versión, se perderán.`;
+    if (o.sucio()) texto += ' ' + (base ? tr('colab.tusCambiosSobre', { n: base.numero }) : tr('colab.tusCambios'));
     cerrarAviso = o.avisar(o.sucio() ? 'atencion' : 'info', texto, [], null, [
-      { texto: 'Cargar la nueva versión', principal: true, alPulsar: () => cargar(r) },
-      { texto: 'Seguir con la mía', alPulsar: seguir }
+      { texto: tr('colab.cargarNueva'), principal: true, alPulsar: () => cargar(r) },
+      { texto: tr('colab.seguirMia'), alPulsar: seguir }
     ]);
   }
 
@@ -99,11 +115,11 @@ export function activarColaboracion(o) {
     if (o.sucio()) {
       const base = o.base();
       descartar = await o.preguntar({
-        titulo: 'Tienes cambios sin guardar',
-        texto: `Si cargas la v${r.numero}, se perderán los cambios que hiciste${base ? ` sobre la v${base.numero}` : ''}. ` +
-          'Si prefieres conservarlos, sigue con la tuya y guárdala como una versión nueva: quedará marcada como conflicto y podrás revisar las dos en el proyecto.',
-        si: `Cargar la v${r.numero} y descartar mis cambios`,
-        no: 'Seguir con la mía'
+        titulo: tr('proyecto.tienesCambios'),
+        texto: (base ? tr('colab.perderasSobre', { n: r.numero, base: base.numero }) : tr('colab.perderas', { n: r.numero })) + ' ' +
+          tr('colab.conservarlos'),
+        si: tr('colab.cargarYDescartar', { n: r.numero }),
+        no: tr('colab.seguirMia')
       });
       if (!descartar) { seguir(); return; }
     }
@@ -121,13 +137,13 @@ export function activarColaboracion(o) {
     if (!otros.length) return;
     const lista = document.createElement('ul');
     lista.className = 'piq-presencia-lista';
-    lista.setAttribute('aria-label', 'También tienen abierto este proceso');
+    lista.setAttribute('aria-label', tr('colab.tambien'));
     otros.slice(0, MAX_AVATARES).forEach((p) => {
       const li = document.createElement('li');
       li.className = `piq-avatar piq-avatar-c${colorDe(p.usuarioId)}`;
       if (p.estado === 'editando') li.classList.add('piq-avatar-editando');
       li.textContent = iniciales(p.nombre);
-      li.title = `${p.nombre}: ${p.estado === 'editando' ? 'editando' : 'viendo'} ${dondeEsta(p)}`;
+      li.title = tr(p.estado === 'editando' ? 'colab.editandoEn' : 'colab.viendoEn', { nombre: p.nombre, donde: dondeEsta(p) });
       li.setAttribute('aria-label', li.title);
       lista.appendChild(li);
     });
@@ -144,9 +160,9 @@ export function activarColaboracion(o) {
       const aviso = document.createElement('span');
       aviso.className = 'piq-presencia-editando';
       aviso.setAttribute('role', 'status');
-      const verbo = editan.length === 1 ? 'está editando' : 'están editando';
-      aviso.textContent = `${enumerar(editan)} ${o.sucio() ? `también ${verbo}` : verbo}`;
-      aviso.title = 'No se bloquea nada: si los dos guardan, la segunda versión quedará marcada como conflicto y se podrán revisar ambas en el proyecto.';
+      const clave = (editan.length === 1 ? 'colab.estaEditando' : 'colab.estanEditando') + (o.sucio() ? 'Tambien' : '');
+      aviso.textContent = tr(clave, { quien: enumerar(editan) });
+      aviso.title = tr('colab.sinBloqueo');
       cont.appendChild(aviso);
     }
   }

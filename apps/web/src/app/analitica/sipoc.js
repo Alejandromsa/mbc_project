@@ -1,6 +1,7 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { copilotPost } from '../copiloto/copiloto.js';
 import { state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { persist } from '../persistencia.js';
 import { openModal } from '../ui/modal.js';
 import { escapeHtml } from '../util.js';
@@ -9,7 +10,7 @@ import { escapeHtml } from '../util.js';
 // SIPOC (modal)
 // ============================================================
 function generateSipoc() {
-  if (state.nodes.length === 0) { copilotPost('ai', 'Genera o dibuja un proceso primero.'); return; }
+  if (state.nodes.length === 0) { copilotPost('ai', tr('sipoc.sinProceso')); return; }
   const dataNodes = state.nodes.filter(n => n.type === 'data' || n.type === 'document');
   const startNode = state.nodes.find(n => n.type === 'start');
   const endNode = state.nodes.find(n => n.type === 'end');
@@ -36,14 +37,14 @@ function generateSipoc() {
           <td><textarea data-sipoc="customers" rows="4" style="width:100%;border:1px solid #ddd;border-radius:3px;padding:4px">${escapeHtml(s.customers)}</textarea></td>
         </tr></tbody>
       </table>
-      <p class="panel-hint" style="margin-top:8px">SIPOC pre-llenado desde el diagrama (roles, data nodes). Edita libremente. Se incluirá en el PPTX.</p>`;
+      <p class="panel-hint" style="margin-top:8px">${tr('sipoc.pista')}</p>`;
 
-  openModal('SIPOC · ' + (state.meta.name || 'Proceso'), html, () => {
+  openModal('SIPOC · ' + (state.meta.name || tr('raci.proceso')), html, () => {
     document.querySelectorAll('[data-sipoc]').forEach(ta => {
       state._sipoc[ta.dataset.sipoc] = ta.value;
     });
     persist();
-    copilotPost('ai', 'SIPOC guardado. Se exportará junto al PPTX.');
+    copilotPost('ai', tr('sipoc.guardado'));
   });
 }
 

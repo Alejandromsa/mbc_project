@@ -4,6 +4,7 @@ import { runSimulation } from '../analitica/simulador.js';
 import { $ } from '../dom.js';
 import { SHAPE_DEFAULTS, normalizeFicha, state } from '../estado.js';
 import { resetState } from '../historial.js';
+import { locale, tr } from '../i18n.js';
 import { MAX_AI_CHARS, ingestAbort } from '../ingesta/formatos.js';
 import { sourcesList } from '../ingesta/fuentes.js';
 import { autoLayout } from '../layout/auto-layout.js';
@@ -34,7 +35,7 @@ async function aiBuildProcess(sourceText, sourceLabel, statusFn, opts) {
     remota.alGenerar(r.ejecucionId, sourceLabel, vista);
     return r.spec;
   }
-  setStatus('⏳ Interpretando con IA… (puede tardar unos segundos)');
+  setStatus(tr('ia.interpretando'));
   const prompt = promptGeneracion(sourceText, sourceLabel, {
     roles: opts && opts.roles, vista: opts && opts.vista,
     variasFuentes: sourcesList().length > 1, maxChars: MAX_AI_CHARS
@@ -43,7 +44,7 @@ async function aiBuildProcess(sourceText, sourceLabel, statusFn, opts) {
   // de inactividad crece con el largo del prompt (techo 3 min).
   const timeoutMs = timeoutGeneracion(prompt);
   const raw = await callClaude(prompt, { system: AI_SYSTEM, effort: 'medium', maxTokens: GEN_MAX_TOKENS, timeoutMs,
-    onProgress: (n) => setStatus('Recibiendo el proceso de la IA… ' + n.toLocaleString('es-PE') + ' caracteres'),
+    onProgress: (n) => setStatus(tr('ia.recibiendo', { n: n.toLocaleString(locale()) })),
     onUsage: (u) => {
       const coste = { fecha: new Date().toISOString(), modelo: u.modelo, nivel: (opts && opts.vista) || 2,
         chars: prompt.length + AI_SYSTEM.length, entrada: u.entrada, salida: u.salida, usd: usd(u.entrada, u.salida, u.modelo) };
@@ -56,7 +57,7 @@ async function aiBuildProcess(sourceText, sourceLabel, statusFn, opts) {
 }
 
 function buildProcessFromAiSpec(spec, sourceLabel) {
-  if (!spec || !Array.isArray(spec.nodes) || !spec.nodes.length) throw new Error('La IA no devolvió un proceso con actividades.');
+  if (!spec || !Array.isArray(spec.nodes) || !spec.nodes.length) throw new Error(tr('ia.sinActividades'));
   resetState();
   const m = spec.meta || {};
   state.meta = { name: m.name || sourceLabel || 'Proceso (IA)', industry: m.industry || '', macroprocess: m.macroprocess || '', client: m.client || '', owner: '' };

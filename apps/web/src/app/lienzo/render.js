@@ -1,6 +1,7 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { $, canvas, canvasHint, edgesLayer, laneHeadersLayer, nodesLayer, swimlanesLayer } from '../dom.js';
 import { state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { abrirPanel, cerrarPanel } from '../paneles/cajon.js';
 import { renderPains } from '../paneles/pains.js';
 import { renderProperties } from '../paneles/propiedades.js';
@@ -145,7 +146,7 @@ function render() {
     });
     path.addEventListener('dblclick', ev => {
       ev.stopPropagation();
-      const v = prompt('Etiqueta de la conexión (ej. "Sí", "No", "Aprobado", o frecuencia):', e.label || '');
+      const v = prompt(tr('lienzo.etiquetaConexionEj'), e.label || '');
       if (v !== null) { e.label = v.trim(); persist(); render(); }
     });
     // Capa invisible más ancha para facilitar el click (hit area)
@@ -163,7 +164,7 @@ function render() {
     });
     hit.addEventListener('dblclick', ev => {
       ev.stopPropagation();
-      const v = prompt('Etiqueta de la conexión:', e.label || '');
+      const v = prompt(tr('lienzo.etiquetaConexion'), e.label || '');
       if (v !== null) { e.label = v.trim(); persist(); render(); }
     });
     edgesLayer.appendChild(hit);
@@ -510,7 +511,7 @@ function render() {
     g.addEventListener('dblclick', ev => {
       ev.stopPropagation();
       // Edición rápida de etiqueta del nodo
-      const v = prompt('Etiqueta del nodo:', n.label || '');
+      const v = prompt(tr('lienzo.etiquetaNodo'), n.label || '');
       if (v !== null) { n.label = v.trim(); persist(); render(); }
     });
 
@@ -548,8 +549,8 @@ function render() {
   if (gridBg) { gridBg.setAttribute('width', needW); gridBg.setAttribute('height', needH); }
 
   // Status
-  $('#statusNodes').textContent = `${state.nodes.length} nodos`;
-  $('#statusEdges').textContent = `${state.edges.length} conexiones`;
+  $('#statusNodes').textContent = tr('estado.nodos', { n: state.nodes.length });
+  $('#statusEdges').textContent = tr('estado.conexiones', { n: state.edges.length });
 
   renderProperties();
   renderPains();

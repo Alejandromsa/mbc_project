@@ -1,6 +1,7 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { $, $$ } from '../dom.js';
 import { state } from '../estado.js';
+import { alCambiarIdioma } from '../i18n.js';
 import { saveUiState } from '../ui/preferencias.js';
 import { renderFichaTab } from './ficha.js';
 
@@ -34,10 +35,17 @@ function abrirPanel(name, auto) {
   $$('.tab-panel').forEach(p => p.classList.toggle('active', p.dataset.panel === name));
   const t = $('.tab[data-tab="' + name + '"]');
   const titulo = $('#drawerTitle');
-  if (t && titulo) titulo.textContent = t.dataset.title || t.textContent.trim();
+  if (t && titulo) { titulo.textContent = t.dataset.title || t.textContent.trim(); tituloPuesto = true; }
   if (name === 'ficha') renderFichaTab();
   saveUiState();
 }
+// El título del cajón sale del data-title de la pestaña (textos/html.js lo traduce):
+// al cambiar de idioma se vuelve a tomar de la pestaña activa.
+let tituloPuesto = false;
+alCambiarIdioma(() => {
+  const t = $('.tab[data-tab].active'), titulo = $('#drawerTitle');
+  if (tituloPuesto && t && titulo) titulo.textContent = t.dataset.title || t.textContent.trim();
+});
 function cerrarPanel() {
   document.body.classList.remove('panel-open');
   state._panelAuto = false;

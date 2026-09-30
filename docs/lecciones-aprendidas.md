@@ -182,6 +182,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22u. **Un `node -e "…"` con comillas invertidas borró texto sin fallar.** Para añadir comentarios con `` `ultima: false` `` a `shell/colaboracion.ts` usé un `node -e` entre comillas dobles. Bash ejecutó como comando lo que iba entre comillas invertidas (`ultima:: command not found`), lo sustituyó por nada y el script siguió: el comentario quedó «Con  = ya hay una más nueva». El typecheck pasaba; se vio por el error perdido entre la salida.
     → **Regla:** la 1 vale también para `` ` `` y `$`: dentro de comillas dobles (y en un heredoc sin comillas) la shell los interpreta. Un cambio que lleve comillas invertidas o `$` (plantillas de JS, Markdown con código) se hace con la herramienta de edición o con un script escrito a un archivo, y se revisa con `git diff`.
 
+22v. **Abrir un análisis del copiloto no es de solo lectura.** La E2E del editor en inglés comparaba el informe Word exportado en los dos idiomas y salió distinto: entre una exportación y la otra, la prueba había abierto la matriz RACI y la había cancelado. `generateRaci()` guarda `state._raci` al abrir el diálogo, y el Word incluye la matriz. Parecía que la traducción cambiaba un entregable; era la prueba.
+    → **Regla:** para comparar exportaciones entre dos variantes, se exporta en el mismo estado exacto: justo después de cargar el proceso y antes de cualquier acción del copiloto, simulador o análisis (RACI, SIPOC, cuello de botella, What-If también escriben en `state`). Si difieren, mirar primero qué acción intermedia tocó el proceso.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.

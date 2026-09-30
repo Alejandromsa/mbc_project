@@ -1,8 +1,8 @@
 // Idioma del shell de punta a punta: por defecto español (aunque el navegador
 // esté en inglés); se cambia a inglés con «ES / EN», se recorren acceso,
 // proyectos, un proyecto, un proceso, Portafolio, Conocimiento y Administración;
-// la preferencia sobrevive a la recarga, la sigue otra pestaña y el editor sigue
-// en español. Al final se vuelve a español.
+// la preferencia sobrevive a la recarga, la sigue otra pestaña y el editor la
+// sigue (abre en inglés). Al final se vuelve a español.
 import { expect, test } from '@playwright/test';
 import { CLAVE, correo, reiniciarDatos } from './src/entorno.mjs';
 
@@ -13,7 +13,7 @@ test.use({ locale: 'en-US' });
 const menu = (page) => page.getByRole('navigation', { name: 'Sections' });
 const fechaEnIngles = /[A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M/;
 
-test('el shell se usa en inglés y vuelve a español; la preferencia persiste y el editor sigue en español', async ({ page, context }) => {
+test('el shell se usa en inglés y vuelve a español; la preferencia persiste y el editor la sigue', async ({ page, context }) => {
   // 1. Por defecto, español
   await page.goto('/proyectos/entrar');
   await expect(page.locator('html')).toHaveAttribute('lang', 'es');
@@ -85,11 +85,11 @@ test('el shell se usa en inglés y vuelve a español; la preferencia persiste y 
   await expect(page.getByRole('region', { name: 'Client review' })).toContainText('No version of this process has been shared yet.');
   await page.screenshot({ path: 'resultados/idioma-proceso.png', fullPage: true });
 
-  // El editor no se traduce: abre en español aunque el shell esté en inglés
+  // El editor sigue el idioma de la plataforma: abre en inglés (editor-idioma.spec.mjs lo recorre)
   await page.getByRole('link', { name: 'Open the latest version in the editor' }).click();
   await expect(page).toHaveURL(/\/\?proceso=/);
-  await expect(page.locator('.piq-proyecto')).toContainText('v3 · Borrador');
-  await expect(page.locator('html')).toHaveAttribute('lang', 'es');
+  await expect(page.locator('.piq-proyecto')).toContainText('v3 · Draft');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'Revisions', level: 2 })).toBeVisible();
 

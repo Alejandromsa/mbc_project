@@ -2,7 +2,7 @@
 
 Qué hay en `apps/web`: el editor de procesos y el shell de proyectos, cómo se construyen y se sirven, y cómo trabaja el editor dentro de un proyecto.
 
-**Actualizado:** 29-sep-2026.
+**Actualizado:** 30-sep-2026.
 
 ---
 
@@ -18,7 +18,7 @@ Qué hay en `apps/web`: el editor de procesos y el shell de proyectos, cómo se 
 - **Sin parámetros**, el editor es el del MVP: guarda en el navegador y no habla con la API. Lo comprueban las pruebas de fidelidad y la última prueba E2E.
 - **Con `?proceso=` o `?revision=`**, el editor entra en **modo proyecto** (sección 4): abre y guarda revisiones en la API.
 - **Con `?invitado=<token>`**, el editor abre en **modo lectura** la revisión compartida con ese enlace, sin sesión ([invitado.js](../../apps/web/src/app/plataforma/invitado.js), [ADR 20](../adr/0020-rutas-publicas-con-token.md)): modo «Presentar», «Ficha del proceso» y un panel de comentarios; un clic en un elemento ancla el comentario. No lee ni escribe `processiq.v1`.
-- El editor reutiliza piezas del shell: el cliente de la API ([api.ts](../../apps/web/src/shell/api.ts)), los textos de estados y roles y las fechas ([formato.ts](../../apps/web/src/shell/formato.ts), siempre en español), los permisos ([permisos.ts](../../apps/web/src/shell/permisos.ts)) y el registro de errores ([observabilidad.ts](../../apps/web/src/shell/observabilidad.ts)). El shell no importa nada del editor.
+- El editor reutiliza piezas del shell: el cliente de la API ([api.ts](../../apps/web/src/shell/api.ts)), los textos de estados y roles y las fechas ([formato.ts](../../apps/web/src/shell/formato.ts), en el idioma del editor), los permisos ([permisos.ts](../../apps/web/src/shell/permisos.ts)) y el registro de errores ([observabilidad.ts](../../apps/web/src/shell/observabilidad.ts)). El shell no importa nada del editor.
 
 ```mermaid
 flowchart LR
@@ -176,7 +176,7 @@ Claves del navegador (todas reservadas en [iniciativas/README.md](../iniciativas
 | `processiq.ai` | Editor | Modo de IA, código de equipo o clave propia, URL del intermediario, modelo |
 | `processiq.ia.costes` | Editor | Últimas 20 ejecuciones de IA, para calibrar la estimación de coste |
 | `processiq.importacion.descartado` | Shell | Fecha del guardado cuya importación se rechazó |
-| `processiq.idioma` | Shell | Idioma elegido: `es` o `en`. Sin ella, español (sección 5.10) |
+| `processiq.idioma` | Shell y editor | Idioma elegido: `es` o `en`. Sin ella, español (secciones 5.10 y 5.11) |
 | `processiq.invitados.vista` | Vista del invitado (`?invitado=`) | Copia de la revisión compartida mientras está abierta; se borra al salir |
 
 ### 3.4 `window.ProcessIQ`: el gancho de pruebas
@@ -347,6 +347,7 @@ Detalle en [ia.md](ia.md).
 | [ui/presentacion.js](../../apps/web/src/app/ui/presentacion.js) | Modo presentación |
 | [ui/onboarding.js](../../apps/web/src/app/ui/onboarding.js) | Botones del estado vacío |
 | [ui/movil.js](../../apps/web/src/app/ui/movil.js) | Aviso en pantallas estrechas |
+| [i18n.js](../../apps/web/src/app/i18n.js) | Idioma del editor: `tr()`, selector «ES / EN» y traducción del HTML estático (sección 5.11). Diccionarios en [textos/](../../apps/web/src/app/textos/) |
 
 #### Plataforma
 
@@ -486,6 +487,7 @@ Solo en modo proyecto, los errores no controlados del editor se informan a `POST
 - **Latido:** `conectarColaboracion` genera un identificador de pestaña y hace `PUT /api/procesos/:id/presencia` al abrir, cada 20 s, al volver a la pestaña y cada vez que `pintarBarra()` ve que cambió el estado: `editando` mientras hay cambios sin guardar (`ctx.sucio`), `viendo` si no. Lleva también la revisión abierta (`revisionId` = `ctx.base.id`), para que los demás vean qué versión tiene cada uno. Si la pestaña pasa a otra revisión sin cambiar de estado (guarda una nueva sin cambios pendientes), `conectarColaboracion` lo nota poco después del aviso de revisión del SSE y late enseguida. Al cerrar la pestaña (`pagehide`), `DELETE …/presencia` con `keepalive`. Un 401, 403 o 404 en el latido lo detiene todo.
 - **Eventos:** `EventSource` sobre `/api/procesos/:id/eventos?pestana=…`. Si el SSE se cierra del todo (p. ej. un 502 mientras reinicia la API), se vuelve a abrir a los 10 s.
 - **Barra:** entre el nombre y «Cambios sin guardar», los avatares (iniciales, un color por persona) de quien más tiene el proceso abierto, hasta 4 y «+N». Quien edita lleva un anillo ámbar y, al lado, «Ana está editando» o, si también tienes cambios, «Ana también está editando». Es un aviso suave: no bloquea nada.
+- **Estado de la revisión abierta:** el evento `estado` del SSE trae el de todas las revisiones (`alEstado`); si cambia el de la abierta (enviada a revisión, aprobada, devuelta), `proyecto.js` actualiza `ctx.base.estado` y la barra lo dice al momento («v3 · En revisión»).
 - **Revisión nueva:** si llega una revisión con número mayor que la última conocida (`ctx.ultima`), la barra pasa a decir «la última es la vN» y sale un aviso («Ana guardó la v4: «mensaje».») con dos botones:
   - **«Cargar la nueva versión»:** recarga el editor con `/?revision=<nueva>`, el mismo camino de apertura (sección 4.2). Con cambios sin guardar, antes pregunta; si se aceptan perder, borra el borrador local (`processiq.proceso.<id>` y `….base`) para que no se ofrezca recuperarlo, y no pide confirmar al salir.
   - **«Seguir con la mía»:** cierra el aviso. Al guardar, el diálogo recuerda que la última es otra y la API marca el conflicto (sección 4.4).
@@ -643,7 +645,7 @@ La pantalla «Proyecto» también permite crear un proceso a partir de un JSON e
 
 ### 5.10 Idioma: español e inglés
 
-El shell y las pantallas de los módulos (`/proyectos/…`) están en español y en inglés. **El editor (`/`) sigue en español**, también la vista del invitado: está cubierto byte a byte por la fidelidad y se traducirá aparte. Sin dependencias: [i18n.ts](../../apps/web/src/shell/i18n.ts) tiene unas 200 líneas.
+El shell y las pantallas de los módulos (`/proyectos/…`) están en español y en inglés; el editor (`/`), también la vista del invitado, desde la ola 4 (sección 5.11). Sin dependencias: [i18n.ts](../../apps/web/src/shell/i18n.ts) tiene unas 200 líneas.
 
 **Idioma elegido**
 
@@ -653,7 +655,7 @@ El shell y las pantallas de los módulos (`/proyectos/…`) están en español y
 | Dónde se guarda | `localStorage['processiq.idioma']` (`es` o `en`), en este navegador. Otra pestaña abierta lo sigue sin recargar (evento `storage`) |
 | Por defecto | **Español, aunque el navegador esté en inglés.** Es el idioma del equipo, de los procesos y de las pruebas: las E2E y los consultores cuentan con él. El inglés se elige a mano una vez |
 | `<html lang>` | `main.tsx` llama a `aplicarIdioma()` al arrancar y `cambiarIdioma()` lo actualiza. El HTML servido dice `es` hasta que carga el JavaScript |
-| Qué no cambia | Los datos (nombres de procesos, mensajes de revisión, catálogos de KPIs y verbos, textos de la ficha), que están en español; los textos del editor; la API |
+| Qué no cambia | Los datos (nombres de procesos, mensajes de revisión, catálogos de KPIs y verbos, textos de la ficha), que están en español; la API |
 
 **Diccionarios**
 
@@ -674,9 +676,36 @@ El shell y las pantallas de los módulos (`/proyectos/…`) están en español y
 
 **Un módulo nuevo** crea su `textos.ts` con `definirTextos(es, en)` y usa su `useT()` en sus pantallas. Su entrada del menú (`sesion.tsx`) usa una clave `menu.<clave>` que se añade al final del bloque «Cabecera y menú» de `textos/es.ts` y de `textos/en.ts`: son puntos de registro, como `sesion.tsx`.
 
-**Enlaces al editor.** Los textos que llevan al editor («Editor libre», «Abrir en el editor», «Abrir la última versión en el editor»…) se traducen en el shell. En inglés, `EnlaceEditor` les pone un `title` que avisa de que el editor abre en español; «Ver como el cliente» (invitados) avisa igual de la vista del invitado. Donde el shell nombra un menú del editor, lo cita en español con la traducción: “Exportar → JSON” (Export → JSON).
+**Enlaces al editor.** Los textos que llevan al editor («Editor libre», «Abrir en el editor», «Abrir la última versión en el editor»…) se traducen en el shell. En inglés, `EnlaceEditor` les pone un `title` que avisa de que el editor abre en español; «Ver como el cliente» (invitados) avisa igual de la vista del invitado. Donde el shell nombra un menú del editor, lo cita en español con la traducción: “Exportar → JSON” (Export → JSON). **Pendiente del núcleo:** desde la ola 4 el editor sigue el idioma de la plataforma, así que ese aviso y las citas en español ya no hacen falta (pendientes §4).
 
 **Pruebas.** [idioma.spec.mjs](../../pruebas/e2e/idioma.spec.mjs) arranca con el navegador en inglés y comprueba que el shell sale en español; cambia a inglés y recorre acceso (con un error de la API traducido), proyectos, un proyecto, un proceso, el editor (que sigue en español), Portafolio, Conocimiento y Administración; recarga, vuelve a español y recarga otra vez. Las demás E2E corren en español sin cambios.
+
+### 5.11 El editor en español e inglés
+
+El editor (`/`, también en modo proyecto y la vista del invitado) usa el **mismo idioma que la plataforma**: lee y escribe `processiq.idioma` y sigue sus cambios entre pestañas (evento `storage`), sin recargar. Por defecto, español. El selector «ES / EN» va al final de las acciones de la cabecera (en la vista del invitado, a la derecha de la cabecera); por debajo de 1360 px la cabecera se compacta un poco para dejar sitio al nombre del proceso.
+
+**El español no cambia ni un byte.** Es lo que la fidelidad compara con el MVP (37/37 sin tocar tolerancias). Por eso:
+
+- [app/i18n.js](../../apps/web/src/app/i18n.js) exporta `tr('clave', { variables })` (no `t`: el código portado usa `t` como variable local en decenas de sitios). El diccionario español, [textos/es.js](../../apps/web/src/app/textos/es.js), es la fuente de verdad: el texto que había, byte a byte. `{x}` se sustituye con `String(valor)`, igual que la concatenación a la que reemplaza; los números se formatean donde antes (`toLocaleString(locale())`, que en español sigue siendo `'es-PE'`).
+- **El HTML estático** de `index.html` no lleva atributos: [textos/html.js](../../apps/web/src/app/textos/html.js) es una tabla `[selector, dónde, clave]` (`texto`: el primer nodo de texto propio; `html`: el `innerHTML` de un párrafo con marcas; `attr:title`, `attr:placeholder`…). Solo se aplica al pasar a inglés, guardando el valor exacto; al volver a español se restaura. **En español no se toca el DOM** (salvo añadir el selector). Si el JS ya reescribió un elemento, la tabla no lo toca y lo repinta su módulo.
+- Al cambiar de idioma, cada módulo vuelve a pintar lo suyo con `alCambiarIdioma(f)`: barra de estado, propiedades, pains, validaciones, KPIs, nivel, fuentes, modo de IA, saludo del copiloto, indicador To-Be, botón Presentar, botones del diálogo genérico, barra del proyecto, avatares, temas PPTX de la organización y la vista del invitado. Los mensajes ya escritos del copiloto y los avisos a la vista se quedan en su idioma.
+- Lo que viene en español de los paquetes (hallazgos del linter, niveles, tareas de IA, errores del cliente de IA, de la lectura de documentos y del BPMN, avisos de la importación BPMN, progreso) se traduce en la app con mapas y patrones de [textos/en.js](../../apps/web/src/app/textos/en.js) (`traducirDe`, `traducirError`), como `mensajes.ts` del shell: los paquetes no cambian. Los tipos de ejecución y las categorías de pain points usan los mismos términos que el shell. Estados, roles y fechas de la barra del proyecto salen de `formato.ts` en el idioma del editor, y los errores de la API, de `mensajes.ts`.
+
+**Qué no se traduce** (documentado en `i18n.js`):
+
+| Qué | Por qué |
+|---|---|
+| Exportaciones: PPTX, Word, Ficha (también su vista previa), BPMN, SVG/PNG y JSON | Entregables para el cliente; se comparan byte a byte. La E2E exporta el mismo proceso en los dos idiomas y comprueba que Word, BPMN y las láminas del PPTX son idénticos |
+| El lienzo | Es el diagrama que se exporta (carriles, títulos de eventos, «⛔ CUELLO») |
+| Prompts y respuestas de la IA | El prompt es el del servidor o del paquete; lo que responde la IA se muestra tal cual |
+| Ejemplos (`ejemplos/`): nombres, descripciones y procesos | Datos de demostración en español |
+| Catálogos: KPIs, verbos del Playbook, industrias, macroprocesos | Datos de la organización. El linter y las sugerencias de verbos siguen en español porque las actividades se escriben en español |
+| Lo que el editor escribe dentro del proceso | Etiquetas de nodos nuevos, ramas Sí/No, «Autoservicio:», valores por defecto del SIPOC, sugerencias de rol de la transcripción y la etiqueta de la fuente que va al prompt: son datos (en los mensajes, la etiqueta se muestra traducida) |
+| Comandos del copiloto en lenguaje natural | El intérprete entiende español («agregar X después de Y»); el `placeholder` en inglés lo dice |
+
+**Pruebas.** [editor-idioma.spec.mjs](../../pruebas/e2e/editor-idioma.spec.mjs): que `en.js` tenga todas las claves de `es.js` con las mismas variables y que cada texto de `html.js` sea, exacto, el de `index.html`; que al pasar a inglés no quede ningún texto de `index.html` sin traducir (salvo una lista de iguales: siglas, marcas, teclas); que al volver a español el volcado de textos sea idéntico; exportaciones idénticas en los dos idiomas; que persiste al recargar y lo siguen el shell y el editor abierto; sin desbordes a 1024–1440 px; y, en modo proyecto, la barra, «Guardar revisión», el aviso de guardado y la vista del invitado en inglés.
+
+**Un texto nuevo en el editor** va en `es.js` y `en.js` con la misma clave y variables, y se usa con `tr()`; si está en `index.html`, además una fila en `html.js`. Si lo repinta el JS, que su módulo lo vuelva a pintar en `alCambiarIdioma`.
 
 ---
 

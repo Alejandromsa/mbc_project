@@ -3,6 +3,7 @@ import { $ } from './dom.js';
 import { avisarCambio } from './cambios.js';
 import { STORAGE_KEY, normalizeFicha, state } from './estado.js';
 import { recordHistory } from './historial.js';
+import { tr } from './i18n.js';
 import { updateViewUi } from './vistas/comparador.js';
 
 // =================== PERSISTENCE ===================
@@ -12,11 +13,11 @@ function showSaving() {
   const el = $('#statusSaved');
   if (!el) return;
   el.classList.add('saving');
-  el.innerHTML = '<span class="dot"></span>Guardando';
+  el.innerHTML = '<span class="dot"></span>' + tr('estado.guardando');
   clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
     el.classList.remove('saving');
-    el.innerHTML = '<span class="dot"></span>Guardado';
+    el.innerHTML = '<span class="dot"></span>' + tr('estado.guardado');
   }, 350);
 }
 
@@ -45,7 +46,7 @@ function persist() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
     showSaving();
   } catch (e) {
-    $('#statusSaved').innerHTML = '<span class="dot" style="background:var(--danger)"></span>Error al guardar';
+    $('#statusSaved').innerHTML = '<span class="dot" style="background:var(--danger)"></span>' + tr('estado.errorGuardar');
   }
   recordHistory();
   avisarCambio();

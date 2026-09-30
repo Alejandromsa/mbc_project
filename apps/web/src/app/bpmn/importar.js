@@ -4,10 +4,12 @@ import { runSimulation } from '../analitica/simulador.js';
 import { $ } from '../dom.js';
 import { SHAPE_DEFAULTS, emptyFicha, state } from '../estado.js';
 import { resetState } from '../historial.js';
+import { traducirDe, tr } from '../i18n.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { actualizarSelectorNivel, fijarModeloCompleto } from '../layout/niveles.js';
 import { persist } from '../persistencia.js';
 import { ensureDecisionBranches } from '../proceso/operaciones.js';
+import { AVISOS_BPMN_EN } from '../textos/en.js';
 
 function importBpmnXml(xmlString) {
   // Se lee antes de reiniciar: un XML inválido (o que no es BPMN) lanza sin tocar el proceso abierto.
@@ -46,12 +48,12 @@ function importBpmnXml(xmlString) {
 function detalleImportBpmn(res) {
   const NL = String.fromCharCode(10);
   let t = '';
-  if (res.carriles && res.carriles.length) t += NL + 'Carriles: ' + res.carriles.join(', ') + '.';
+  if (res.carriles && res.carriles.length) t += NL + tr('bpmn.carriles', { lista: res.carriles.join(', ') });
   if (res.subprocesos) {
-    t += NL + (res.subprocesos === 1 ? 'Un subproceso con contenido' : res.subprocesos + ' subprocesos con contenido') +
-      ': se ve desplegado en el nivel Detalle y plegado en Actividad y Ejecutivo.';
+    t += NL + (res.subprocesos === 1 ? tr('bpmn.unSubproceso') : tr('bpmn.subprocesos', { n: res.subprocesos })) +
+      tr('bpmn.subprocesosNiveles');
   }
-  (res.avisos || []).forEach((a) => { t += NL + '• ' + a; });
+  (res.avisos || []).forEach((a) => { t += NL + '• ' + traducirDe(AVISOS_BPMN_EN, a); });
   return t;
 }
 

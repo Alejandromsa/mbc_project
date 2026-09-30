@@ -113,15 +113,16 @@ Pulsa «Salir», a la derecha de la cabecera. La página se recarga y no queda e
 
 ### 2.7 Idioma: español o inglés
 
-La plataforma de proyectos está en **español** y en **inglés**, para trabajar con clientes o equipos que no hablan español.
+La plataforma de proyectos y el editor están en **español** y en **inglés**, para trabajar con clientes o equipos que no hablan español.
 
-- **Para cambiarlo**, pulsa «ES» o «EN» en la cabecera, junto a tu nombre, o en la pantalla «Entrar». El cambio es inmediato: no hace falta recargar.
-- **Se recuerda en este navegador.** La próxima vez que entres desde él, la plataforma sale en el idioma que elegiste; en otro navegador u otro equipo, vuelve a elegirlo. Si tienes otra pestaña abierta, cambia también.
+- **Para cambiarlo**, pulsa «ES» o «EN» en la cabecera, junto a tu nombre, o en la pantalla «Entrar». En el editor, el mismo selector está a la derecha de su cabecera (también en la vista del cliente de un enlace de revisión). El cambio es inmediato: no hace falta recargar, y no se pierde nada de lo que tengas abierto.
+- **Es uno solo para la plataforma y el editor, y se recuerda en este navegador.** La próxima vez que entres desde él, sale en el idioma que elegiste; en otro navegador u otro equipo, vuelve a elegirlo. Si tienes otra pestaña abierta (la plataforma o el editor), cambia también.
 - **Por defecto, español**, aunque tu navegador esté en inglés: es el idioma del equipo y de los procesos.
-- **Qué se traduce:** menús, botones, títulos, avisos, estados («Draft», «In review», «Approved»), roles, fechas y números, y los mensajes de error más habituales.
+- **Qué se traduce:** menús, botones, títulos, paneles, diálogos, avisos, estados («Draft», «In review», «Approved»), roles, fechas y números, los mensajes del copiloto que no escribe la IA, los hallazgos del linter y los mensajes de error más habituales.
 - **Qué no se traduce:**
-  - **el editor**, que sigue en español (en inglés, los enlaces que llevan a él lo avisan al pasar el ratón); tampoco la vista del cliente de un enlace de revisión;
-  - lo que escribe el equipo: nombres de proyectos y procesos, mensajes de revisión, la ficha, los KPIs y los verbos del catálogo;
+  - **lo que entregas al cliente**: las exportaciones (PPTX, Word, Ficha de Proceso, BPMN, SVG, PNG y JSON) y el diagrama del lienzo, que salen igual en los dos idiomas;
+  - lo que responde la IA y los procesos de ejemplo;
+  - lo que escribe el equipo: nombres de proyectos y procesos, actividades, mensajes de revisión, la ficha, los KPIs, los verbos del catálogo, las industrias y los macroprocesos. Las actividades se siguen escribiendo en español (el linter revisa sus verbos) y los comandos del copiloto («agregar X después de Y») también son en español;
   - algunos textos que genera el servidor, como el detalle de un error de validación.
 
 Donde la versión inglesa menciona un botón o menú del editor, lo cita tal como aparece, en español, con la traducción entre paréntesis: “Exportar → JSON” (Export → JSON).

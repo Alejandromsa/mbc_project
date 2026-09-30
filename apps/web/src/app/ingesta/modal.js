@@ -1,6 +1,7 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { $, $$ } from '../dom.js';
 import { openExamplesModal } from '../ejemplos/galeria.js';
+import { tr } from '../i18n.js';
 import { buildProcessFromEventLog, handleCsvFile, loadCsvSample } from '../mining/event-log.js';
 import { runIngest } from './flujo.js';
 import { addFilesAsSources, addSource, sourcesList } from './fuentes.js';
@@ -43,7 +44,7 @@ function attachIngestListeners() {
   $('#btnRecStop').addEventListener('click', stopSpeechRecognition);
   $('#btnIngestAudio').addEventListener('click', () => {
     const txt = $('#audioTranscript').value.trim();
-    if (!txt) { alert('No hay transcripción.'); return; }
+    if (!txt) { alert(tr('grabacion.sinTranscripcion')); return; }
     // v3.8.4: la transcripcion va por el MISMO camino que los documentos (IA con
     // la clave del equipo). Antes llamaba al extractor por palabras clave y
     // generaba al instante sin IA aunque la clave estuviera configurada.
@@ -94,7 +95,7 @@ function activateIngestTab(name) {
 function startSpeechRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
-    alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge. También puedes pegar la transcripción manualmente.');
+    alert(tr('grabacion.sinSoporte'));
     return;
   }
   speechRecognition = new SR();
@@ -116,19 +117,19 @@ function startSpeechRecognition() {
   };
 
   speechRecognition.onerror = (e) => {
-    $('#recStatus').textContent = 'Error: ' + e.error;
+    $('#recStatus').textContent = tr('modal.error', { mensaje: e.error });
     $('#recStatus').classList.remove('recording');
   };
 
   speechRecognition.onend = () => {
-    $('#recStatus').textContent = 'detenido';
+    $('#recStatus').textContent = tr('grabacion.detenido');
     $('#recStatus').classList.remove('recording');
     $('#btnRecStart').disabled = false;
     $('#btnRecStop').disabled = true;
   };
 
   speechRecognition.start();
-  $('#recStatus').textContent = 'grabando…';
+  $('#recStatus').textContent = tr('grabacion.grabando');
   $('#recStatus').classList.add('recording');
   $('#btnRecStart').disabled = true;
   $('#btnRecStop').disabled = false;
@@ -136,7 +137,7 @@ function startSpeechRecognition() {
 
 function stopSpeechRecognition() {
   if (speechRecognition) { try { speechRecognition.stop(); } catch (e) {} speechRecognition = null; }
-  $('#recStatus').textContent = 'listo';
+  $('#recStatus').textContent = tr('grabacion.listo');
   $('#recStatus').classList.remove('recording');
   $('#btnRecStart').disabled = false;
   $('#btnRecStop').disabled = true;

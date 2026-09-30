@@ -2,8 +2,10 @@
 import { PESO_SEVERIDAD, validarProceso } from '@processiq/dominio';
 import { $ } from '../dom.js';
 import { state } from '../estado.js';
+import { traducirDe, tr } from '../i18n.js';
 import { render } from '../lienzo/render.js';
 import { activateTab } from '../paneles/cajon.js';
+import { LINT_EN } from '../textos/en.js';
 import { escapeHtml } from '../util.js';
 
 // ============================================================
@@ -38,15 +40,15 @@ function renderLintPanel(issues) {
   if (!list || !score) return;
 
   if (state.nodes.length === 0) {
-    list.innerHTML = '<div class="panel-hint">Genera o dibuja un proceso para validar.</div>';
+    list.innerHTML = '<div class="panel-hint">' + tr('lint.vacio') + '</div>';
     score.innerHTML = '';
     return;
   }
 
   if (issues.length === 0) {
-    list.innerHTML = '<div class="lint-empty">¡Cero issues! El proceso cumple el playbook MBB.</div>';
+    list.innerHTML = '<div class="lint-empty">' + tr('lint.cero') + '</div>';
     score.className = 'lint-score good';
-    score.innerHTML = '<div><div class="score-num">100</div><div class="score-detail">Score MBB · sin issues</div></div>';
+    score.innerHTML = '<div><div class="score-num">100</div><div class="score-detail">' + tr('lint.scoreSin') + '</div></div>';
     return;
   }
 
@@ -57,15 +59,15 @@ function renderLintPanel(issues) {
   const cls = scoreVal >= 80 ? 'good' : (scoreVal >= 50 ? 'warn' : 'bad');
   score.className = 'lint-score ' + cls;
   score.innerHTML = `
-      <div><div class="score-num">${scoreVal}</div><div class="score-detail">Score MBB</div></div>
+      <div><div class="score-num">${scoreVal}</div><div class="score-detail">${tr('lint.score')}</div></div>
       <div style="flex:1;text-align:right">
         <div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:3px">
-          ${c.critical ? `<span class="sev-tag sev-critical">${c.critical} crit</span>` : ''}
-          ${c.high ? `<span class="sev-tag sev-high">${c.high} alto</span>` : ''}
-          ${c.medium ? `<span class="sev-tag sev-medium">${c.medium} medio</span>` : ''}
-          ${c.low ? `<span class="sev-tag sev-low">${c.low} bajo</span>` : ''}
+          ${c.critical ? `<span class="sev-tag sev-critical">${tr('lint.crit', { n: c.critical })}</span>` : ''}
+          ${c.high ? `<span class="sev-tag sev-high">${tr('lint.alto', { n: c.high })}</span>` : ''}
+          ${c.medium ? `<span class="sev-tag sev-medium">${tr('lint.medio', { n: c.medium })}</span>` : ''}
+          ${c.low ? `<span class="sev-tag sev-low">${tr('lint.bajo', { n: c.low })}</span>` : ''}
         </div>
-        <div class="score-detail">${issues.length} issue${issues.length === 1 ? '' : 's'} detectado${issues.length === 1 ? '' : 's'}</div>
+        <div class="score-detail">${tr(issues.length === 1 ? 'lint.detectado' : 'lint.detectados', { n: issues.length })}</div>
       </div>`;
 
   // Ordena por severidad
@@ -77,9 +79,9 @@ function renderLintPanel(issues) {
       <div class="lint-item sev-${i.sev}" data-target="${i.target || ''}">
         <div class="lint-icon">${icons[i.sev]}</div>
         <div class="lint-body">
-          <div class="lint-title">${escapeHtml(i.title)}</div>
-          <div class="lint-detail">${escapeHtml(i.detail)}</div>
-          ${i.target ? '<div class="lint-target">→ click para ir al nodo</div>' : ''}
+          <div class="lint-title">${escapeHtml(traducirDe(LINT_EN, i.title))}</div>
+          <div class="lint-detail">${escapeHtml(traducirDe(LINT_EN, i.detail))}</div>
+          ${i.target ? '<div class="lint-target">' + tr('lint.irAlNodo') + '</div>' : ''}
         </div>
       </div>`).join('');
 
