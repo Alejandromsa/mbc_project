@@ -94,6 +94,9 @@ test.describe('editor libre', () => {
   test.use({ viewport: { width: 1280, height: 860 } });
 
   test('en inglés: cabecera, paneles y mensajes; ejemplo y exportaciones sin traducir; persiste; al volver a español, idéntico', async ({ page, context }) => {
+    // Exporta Word, BPMN y PPTX en los dos idiomas: en el runner de la CI (más lento
+    // que el PC) pasaba de los 60 s por defecto esperando la descarga del PPTX.
+    test.setTimeout(240_000);
     await mkdir(CAPTURAS, { recursive: true });
     await page.clock.setFixedTime(FECHA);
     const errores = [];
