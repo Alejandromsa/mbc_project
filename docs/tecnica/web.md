@@ -205,7 +205,8 @@ El proceso se genera **una vez** al máximo detalle y se colapsa en el navegador
 | 3 | Detalle | Todas las tareas, como se levantaron |
 
 - Proyección: `proyectarNivel` de `@processiq/motor`. En la app, [layout/niveles.js](../../apps/web/src/app/layout/niveles.js) guarda el modelo completo (`state._modeloCompleto`), aplica el nivel (`aplicarNivel`), rehace el auto-layout y actualiza el selector.
-- Si la IA etiquetó los nodos con `nivel` y `padre`, manda esa jerarquía. Si no (proceso importado o dibujado a mano), se deduce.
+- Si la IA etiquetó los nodos con `nivel` y `padre`, manda esa jerarquía; también la traen los subprocesos de un BPMN de otra herramienta (D10). Si no (proceso importado sin subprocesos o dibujado a mano), se deduce.
+- El techo de 10 cajas del Ejecutivo vale en los dos casos: con la jerarquía explícita, si el nivel superior pasa de 10 cajas se agrupa en etapas como las deducidas (divergencia D13; el MVP no lo hacía).
 - Cada modelo completo lleva un sello (`_sello`) que heredan sus proyecciones. Si aparece un nodo sin sello, el proceso se reemplazó por otra vía y se vuelve a capturar el modelo. Los nodos de dibujo que crea el editor (`_autoGen`) quedan fuera de esa comprobación.
 - El nivel visible se guarda en `meta.nivelVista`.
 
@@ -256,7 +257,7 @@ Todos en [src/app/](../../apps/web/src/app/). «Portado» significa copiado del 
 | [lienzo/interaccion.js](../../apps/web/src/app/lienzo/interaccion.js) | Seleccionar, arrastrar, conectar y borrar; cabeceras de carril fijas |
 | [lienzo/zoom.js](../../apps/web/src/app/lienzo/zoom.js) | Zoom con atajos y rueda; encuadre al cargar |
 | [lienzo/calidad.js](../../apps/web/src/app/lienzo/calidad.js) | Mide la calidad del diagrama y Autoajustar (prueba variantes de disposición) |
-| [layout/auto-layout.js](../../apps/web/src/app/layout/auto-layout.js) | `autoLayout()` sobre `calcularLayout` de `@processiq/motor`; asigna códigos de actividad |
+| [layout/auto-layout.js](../../apps/web/src/app/layout/auto-layout.js) | `autoLayout()` sobre `calcularLayout` de `@processiq/motor`; asigna códigos de actividad. Si el proceso trae `meta.ordenCarriles` (una lista de nombres de carril), los carriles van en ese orden en lugar del baricentro; `meta` ya se guarda en `processiq.v1`, en las revisiones y en el JSON, y el esquema v1 conserva la clave. Hoy no la rellena nadie: está pensada para el orden del archivo de un BPMN importado ([pendientes §5.3](../pendientes.md#53-editor-y-dominio)) |
 | [layout/niveles.js](../../apps/web/src/app/layout/niveles.js) | Niveles 1–3, modelo completo y selector |
 
 #### Proceso, validación y vistas
@@ -740,3 +741,4 @@ Cambios en `src/app/`: `pnpm fidelidad` y `pnpm e2e` en verde. Pantalla nueva o 
 - **El modelo completo no se guarda.** `state._modeloCompleto` no está ni en `processiq.v1` ni en la revisión. Al recargar, o al abrir una revisión guardada en nivel 1 o 2, lo visible pasa a ser el «modelo completo» y el detalle de nivel 3 se pierde. En modo proyecto, la generación con IA se guarda **después** de aplicar el nivel elegido. Es el comportamiento del MVP. Por confirmar si se acepta así.
 - **Borradores sin cambios.** Abrir un proceso solo para verlo deja su borrador (igual a la revisión) hasta el siguiente guardado o hasta que la purga lo borre a los 30 días. No se borra al cerrar la pestaña: otra pestaña con el mismo proceso usa la misma clave.
 - **Textos del servidor en la interfaz en inglés.** Se traducen los mensajes de error conocidos y los avisos de «Sistema» (sección 5.10). Siguen en español los `detalles` de validación, el error de una ejecución de IA y los errores y avisos de la vista previa del marco de Conocimiento. Los mensajes de revisión que pone la web al importar («Importado de…» / «Imported from…») se guardan en el idioma de quien importa: son datos y no cambian después. Por confirmar si la API debe devolver un código por aviso para poder traducirlos todos.
+- **Dos defectos del lienzo heredados del MVP, diagnosticados y sin corregir.** Tras «Ajustar», el inicio queda debajo de la columna fija de nombres de carril (`lienzo/zoom.js` e `interaccion.js`), y la etiqueta «Sí» de una compuerta con dos ramas con codo queda tapada por la «No» (`edgeLabelPoint` en `lienzo/render.js`). Corregirlos cambia el SVG de 10 y 13 de los 14 ejemplos de la fidelidad: diagnóstico, medición y arreglo propuesto en [pendientes §5.3](../pendientes.md#53-editor-y-dominio). Por decidir si se asumen como divergencia.

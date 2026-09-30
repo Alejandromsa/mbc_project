@@ -26,7 +26,7 @@ Recuentos medidos en esa fecha con `vitest list` y `playwright test --list` sobr
 ```text
                  manual: bench/ con procesos reales, capturas de pantalla
               E2E (38)            web construida + API + worker + Postgres, con la CSP de producción
-         Fidelidad (36)           app nueva frente al MVP 3.8.9 congelado
+         Fidelidad (39)           app nueva frente al MVP 3.8.9 congelado
      Integración API (117)        rutas y permisos contra Postgres real
   Unitarias (116 + 7)             paquetes e intermediario, sin red
 Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
@@ -36,11 +36,11 @@ Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 |---|---|---|---|---|---|
 | Fronteras | Node | [herramientas/fronteras.mjs](../../herramientas/fronteras.mjs) | 1 comprobación (9 paquetes), con 10 casos de ejemplo del extractor de imports | Nada | Segundos |
 | Tipos | `tsc --noEmit` | Cada paquete y app | — | Nada | — |
-| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 141 | Nada | Segundos |
+| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 149 | Nada | Segundos |
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
 | Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 132 | Postgres de desarrollo | — |
-| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 37 | Web construida, Chromium, internet | ~2,5 min |
-| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 49 | Web construida, Chromium, Postgres de desarrollo | ~6 min |
+| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 39 | Web construida, Chromium, internet | ~2,5 min |
+| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 52 | Web construida, Chromium, Postgres de desarrollo | ~6 min |
 | Imágenes | `docker compose build` | [infra/](../../infra) | — | Docker | — |
 | Banco de calidad | Consola del navegador | [bench/](../../bench/README.md) | Manual | Procesos reales fuera del repositorio | — |
 
@@ -192,8 +192,9 @@ No son tolerancias: son cambios intencionales ([fase1-divergencias.md](../fase1-
 
 - **Textos de la interfaz (D8, D9).** Antes de comparar, `comparar.mjs` sustituye en los artefactos del MVP los textos que la app cambió a propósito por los nuevos (lista en [textos-divergentes.mjs](../../pruebas/fidelidad/src/textos-divergentes.mjs), con fragmentos largos que no coinciden con nada más). Todo lo demás del artefacto sigue byte a byte. Lo guardado en `resultados/` como `referencia` ya lleva la sustitución. La prueba `D9` falla si un texto de la lista deja de estar en el MVP o en la app: la lista no puede quedar vieja sin que se note.
 - **JSON completo (D7).** El JSON exportado se compara en la parte que exporta el MVP: sus claves, en su orden (`jsonDelMvp` en [escenarios.mjs](../../pruebas/fidelidad/src/escenarios.mjs); el del MVP pasa tal cual). En «paneles y vistas» se importa un JSON con solo esas claves, así que se compara la importación de los JSON de siempre.
+- **Artefactos que cambian enteros (D12).** Cuando la divergencia cambia el diagrama y no se puede traducir con un reemplazo de texto, el artefacto se lista en [artefactos-divergentes.mjs](../../pruebas/fidelidad/src/artefactos-divergentes.mjs) con su caso y su divergencia: hoy, `merge-gateways/` (mensajes, resumen y diagrama) de «copiloto» con `loadComplex`, `loadComplex11` y `loadFichaVentaLotes`. `comparar.mjs` no los compara, pero exige que sigan difiriendo del MVP (si un día coinciden, la lista está vieja y el escenario falla), y la prueba de la divergencia comprueba en las dos apps en qué difieren exactamente. Es por artefacto y por caso, no una tolerancia: el resto del escenario sigue byte a byte.
 
-### Escenarios (36)
+### Escenarios (39)
 
 | Spec | Escenario | Qué compara |
 |---|---|---|
@@ -214,6 +215,8 @@ No son tolerancias: son cambios intencionales ([fase1-divergencias.md](../fase1-
 | | `D8` | El panel «Validaciones» ya no dice que lo crítico bloquea el export; con hallazgos críticos, JSON y BPMN se descargan igual |
 | | `D9` | Tildes de la interfaz: la lista de `textos-divergentes.mjs` está al día y en pantalla se ven los textos nuevos |
 | | `D10` | Un BPMN de otra herramienta conserva carriles y subprocesos; uno exportado por ProcessIQ se lee exactamente como en el MVP |
+| | `D12` | «Insertar compuertas de convergencia» con `loadComplex`, `loadComplex11` y `loadFichaVentaLotes`: el modelo es el del MVP sin sus fines «Caso no procede», sin sus ramas «No» y sin el «Sí» de la salida de cada cierre; el mensaje solo cambia en el recuento de nodos |
+| | `D13` | Un proceso de la IA con 14 pasos de nivel 1: el MVP muestra 14 cajas en el Ejecutivo y la app nueva, 10 o menos, en etapas; Actividad y Detalle, iguales |
 
 La IA simulada intercepta en el navegador las llamadas a un intermediario ficticio y responde con un SSE como el de Anthropic. No hay red ni gasto.
 
@@ -293,6 +296,9 @@ La tabla describe las del núcleo; las de cada iniciativa están en su ficha ([d
 | [editor.spec.mjs](../../pruebas/e2e/editor.spec.mjs) | Borradores locales | Al abrir un proceso se purgan los borradores de otros procesos con más de 30 días; guardar una revisión que contiene el borrador lo borra; `processiq.v1` no se toca |
 | | JSON completo en un proyecto | El JSON del editor libre llega entero (dos vistas, KPIs, RACI, SIPOC, simulación, carriles, sin cachés) por «Nuevo proceso → JSON» y por la importación asistida, y se abre en To-Be |
 | | JSON completo en el editor libre | «Importar» lo restaura; capturas del panel «Validaciones» (D8) y de la ingesta (D9) |
+| [motor.spec.mjs](../../pruebas/e2e/motor.spec.mjs) | Convergencias | Un BPMN de Bizagi con carriles y «Insertar compuertas de convergencia», y un BPMN de ProcessIQ con compuertas de cierre reimportado: ningún fin «Caso no procede» (D12) |
+| | Ejecutivo de BPMN con subprocesos | Camunda y Signavio: 10 cajas o menos en etapas, un carril, sin flechas sobre cajas, y Detalle entero al volver (D13) |
+| | Orden de carriles | Con `meta.ordenCarriles` (por «Importar» JSON), el auto-layout respeta ese orden al reorganizar y al cambiar de nivel |
 
 ### Qué necesita la E2E
 
