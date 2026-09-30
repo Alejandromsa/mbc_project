@@ -3,6 +3,7 @@ import { REGLAS_FUSION, combinarFuentes } from '@processiq/ia';
 import { flowOrderNodes } from '../proceso/operaciones.js';
 import { $ } from '../dom.js';
 import { state } from '../estado.js';
+import { locale, traducirError, tr } from '../i18n.js';
 import { getNode } from '../lienzo/interaccion.js';
 import { escapeHtml } from '../util.js';
 import { extractFileText, runIngest } from './flujo.js';
@@ -43,14 +44,14 @@ async function addFilesAsSources(fileList) {
   }
   startIngestJob();
   const lbl = $('#btnIngestGo .go-label');
-  if (lbl) lbl.textContent = 'Leyendo documentos…';
+  if (lbl) lbl.textContent = tr('fuentes.leyendoDocumentos');
   const fallos = [];
   let nuevos = 0;
   try {
     for (let i = 0; i < files.length; i++) {
       throwIfCancelled();
       const f = files[i];
-      ingestProgress('Leyendo ' + (i + 1) + ' de ' + files.length + ': ' + f.name, Math.round((i / files.length) * 100));
+      ingestProgress(tr('fuentes.leyendo', { i: i + 1, n: files.length, nombre: f.name }), Math.round((i / files.length) * 100));
       await uiTick();
       try {
         const r = await extractFileText(f);
@@ -63,10 +64,10 @@ async function addFilesAsSources(fileList) {
         if (sourcesList().some(s => s.nombre === r.name && s.chars === texto.length)) continue;   // ya estaba
         const tipo = /transcrip|audio|reunion|llamada|teams|zoom/i.test(r.name) ? 'transcripcion' : 'documento';
         if (addSource(tipo, r.name, texto)) nuevos++;
-        else fallos.push(f.name + ': no tiene texto legible');
+        else fallos.push(tr('fuentes.sinTexto', { nombre: f.name }));
       } catch (err) {
         if (String(err.message) === 'CANCELLED' || err.name === 'AbortError') throw err;
-        fallos.push(f.name + ': ' + (err.message || err));
+        fallos.push(f.name + ': ' + traducirError(err.message || err));
       }
     }
   } catch (err) {
@@ -76,13 +77,15 @@ async function addFilesAsSources(fileList) {
     renderSources();   // endIngestJob restaura una etiqueta vieja del boton
   }
   const n = sourcesList().length, aviso = $('#docFileName');
-  if (aviso) aviso.textContent = !nuevos ? '' :
-    (nuevos === 1 ? '1 documento añadido' : nuevos + ' documentos añadidos') + ' · añade más o pulsa ' +
-    (n > 1 ? 'Combinar y generar' : 'Generar proceso');
-  if (fallos.length) alert('No se pudieron leer ' + fallos.length + ' archivo(s):\n\n' + fallos.join('\n'));
+  if (aviso) aviso.textContent = !nuevos ? '' : tr('fuentes.anadidos', {
+    que: nuevos === 1 ? tr('fuentes.unoAnadido') : tr('fuentes.variosAnadidos', { n: nuevos }),
+    boton: n > 1 ? tr('fuentes.combinarYGenerar') : tr('ingesta.generarProceso')
+  });
+  if (fallos.length) alert(tr('fuentes.noLeidos', { n: fallos.length, lista: fallos.join('\n') }));
 }
 
 const SRC_ICON = { documento: 'DOC', transcripcion: 'AUDIO', diagrama: 'BPMN', texto: 'TEXTO', eventlog: 'CSV' };
+const etiquetaFuente = (tipo) => (tipo === 'texto' ? tr('fuentes.tagTexto') : (SRC_ICON[tipo] || 'DOC'));
 
 function renderSources() {
   const box = $('#sourcesBox'), list = $('#sourcesList');
@@ -91,32 +94,30 @@ function renderSources() {
   box.hidden = arr.length === 0;
   list.innerHTML = arr.map(s =>
     '<li class="src-item" data-id="' + s.id + '">' +
-      '<span class="src-tag">' + (SRC_ICON[s.tipo] || 'DOC') + '</span>' +
+      '<span class="src-tag">' + etiquetaFuente(s.tipo) + '</span>' +
       '<span class="src-name">' + escapeHtml(s.nombre) + '</span>' +
-      '<span class="src-chars">' + s.chars.toLocaleString('es-PE') + ' car.</span>' +
-      '<button class="src-del" data-id="' + s.id + '" title="Quitar esta fuente" type="button">x</button>' +
+      '<span class="src-chars">' + tr('fuentes.caracteres', { n: s.chars.toLocaleString(locale()) }) + '</span>' +
+      '<button class="src-del" data-id="' + s.id + '" title="' + tr('fuentes.quitar') + '" type="button">x</button>' +
     '</li>').join('');
   list.querySelectorAll('.src-del').forEach(b =>
     b.addEventListener('click', () => removeSource(b.dataset.id)));
   const n = arr.length;
   const lbl = $('#sourcesCount');
-  if (lbl) lbl.textContent = n === 1 ? '1 fuente lista' : n + ' fuentes listas para combinar';
+  if (lbl) lbl.textContent = n === 1 ? tr('fuentes.unaLista') : tr('fuentes.variasListas', { n });
   const total = arr.reduce((a, s) => a + s.chars, 0);
-  if (lbl && n > 1) lbl.textContent += ' · ' + total.toLocaleString('es-PE') + ' car.';
+  if (lbl && n > 1) lbl.textContent += ' · ' + tr('fuentes.caracteres', { n: total.toLocaleString(locale()) });
   const warn = $('#sourcesWarn');
   if (warn) {
     const excede = total > MAX_AI_CHARS;
     warn.hidden = !excede;
     warn.textContent = excede
-      ? 'Entre todas suman ' + total.toLocaleString('es-PE') + ' caracteres y la IA lee hasta ' +
-        MAX_AI_CHARS.toLocaleString('es-PE') + ': se recortará el final de las fuentes más largas. ' +
-        'Quita las que no aporten o deja solo los capítulos del proceso.'
+      ? tr('fuentes.excede', { total: total.toLocaleString(locale()), max: MAX_AI_CHARS.toLocaleString(locale()) })
       : '';
   }
   const go = $('#btnIngestGo');
   if (go) {
     const span = go.querySelector('.go-label');
-    if (span) span.textContent = n > 1 ? 'Combinar ' + n + ' fuentes y generar' : 'Generar proceso';
+    if (span) span.textContent = n > 1 ? tr('fuentes.combinarN', { n }) : tr('ingesta.generarProceso');
   }
 }
 

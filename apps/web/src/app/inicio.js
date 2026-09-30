@@ -11,6 +11,7 @@ import { serializeCanvasSvg } from './exportar/archivos.js';
 import { exportFicha, openFichaPreview } from './exportar/ficha.js';
 import { deriveFicha } from './exportar/word.js';
 import { attachUndoRedoListeners, resetHistory } from './historial.js';
+import { alCambiarIdioma, etiquetaEjecucion, etiquetaPain } from './i18n.js';
 import { attachAiListeners, openAiSettings, updateAiUi } from './ia/ajustes.js';
 import { askProfundidad } from './ia/dialogos.js';
 import { buildProcessFromAiSpec } from './ia/generacion.js';
@@ -19,11 +20,11 @@ import { aiAnalyzePains } from './ia/pains.js';
 import { AI_TASKS, runAiTask } from './ia/tareas.js';
 import { runIngest } from './ingesta/flujo.js';
 import { cancelIngestJob } from './ingesta/formatos.js';
-import { addSource, sourcesList } from './ingesta/fuentes.js';
+import { addSource, renderSources, sourcesList } from './ingesta/fuentes.js';
 import { attachIngestListeners } from './ingesta/modal.js';
 import { detectParticipants } from './ingesta/participantes.js';
 import { autoLayout } from './layout/auto-layout.js';
-import { NIVELES, aplicarNivel } from './layout/niveles.js';
+import { NIVELES, actualizarSelectorNivel, aplicarNivel } from './layout/niveles.js';
 import { autoFitDiagram, diagramQuality } from './lienzo/calidad.js';
 import { attachCanvasListeners } from './lienzo/interaccion.js';
 import { render } from './lienzo/render.js';
@@ -31,7 +32,7 @@ import { invalidarRutas } from './lienzo/ruteo.js';
 import { attachZoomInteractions } from './lienzo/zoom.js';
 import { attachTabListeners } from './paneles/cajon.js';
 import { attachFichaListeners } from './paneles/ficha.js';
-import { attachKpiListeners, populateKpiLibrary } from './paneles/kpis.js';
+import { attachKpiListeners, populateKpiLibrary, renderKpiLibrary } from './paneles/kpis.js';
 import { attachPainListeners } from './paneles/pains.js';
 import { attachPropertyListeners } from './paneles/propiedades.js';
 import { loadFromStorage } from './persistencia.js';
@@ -95,7 +96,7 @@ function populateSelects() {
 function populatePainCategories() {
   const sel = $('#painCategory');
   window.PAIN_CATEGORIES.forEach(c => {
-    sel.insertAdjacentHTML('beforeend', `<option value="${c.id}">${c.icon} ${c.label}</option>`);
+    sel.insertAdjacentHTML('beforeend', `<option value="${c.id}">${c.icon} ${etiquetaPain(c)}</option>`);
   });
 }
 
@@ -103,9 +104,27 @@ function populateExecutionTypes() {
   const sel = $('#propExecType');
   if (!sel) return;
   (window.EXECUTION_TYPES || []).forEach(t => {
-    sel.insertAdjacentHTML('beforeend', `<option value="${t.id}">${t.label}</option>`);
+    sel.insertAdjacentHTML('beforeend', `<option value="${t.id}">${etiquetaEjecucion(t)}</option>`);
   });
 }
+
+// Al cambiar de idioma se vuelve a pintar lo que el editor escribe (el HTML estático
+// lo traduce i18n.js). El lienzo no cambia: es el diagrama, que se exporta tal cual.
+alCambiarIdioma(() => {
+  window.PAIN_CATEGORIES.forEach(c => {
+    const o = $('#painCategory option[value="' + c.id + '"]');
+    if (o) o.textContent = c.icon + ' ' + etiquetaPain(c);
+  });
+  (window.EXECUTION_TYPES || []).forEach(t => {
+    const o = $('#propExecType option[value="' + t.id + '"]');
+    if (o) o.textContent = etiquetaEjecucion(t);
+  });
+  render();                    // barra de estado, propiedades, pains y validaciones
+  actualizarSelectorNivel();
+  renderKpiLibrary();
+  if (sourcesList().length) renderSources();   // sin fuentes, la caja está oculta y la tabla traduce su texto
+  updateAiUi();
+});
 
 // =================== BOOT ===================
 document.addEventListener('DOMContentLoaded', () => {

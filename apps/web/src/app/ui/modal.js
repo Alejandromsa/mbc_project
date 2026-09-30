@@ -1,5 +1,6 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { $ } from '../dom.js';
+import { alCambiarIdioma, tr } from '../i18n.js';
 
 // =================== MODAL ===================
 function openModal(title, bodyHtml, onOk) {
@@ -12,7 +13,7 @@ function openModal(title, bodyHtml, onOk) {
 
   $('#modalCancel').onclick = cancel;
   $('#modalOk').onclick = () => {
-    try { onOk(); } catch (err) { console.error('[ProcessIQ] modal onOk error:', err); alert('Error: ' + err.message); }
+    try { onOk(); } catch (err) { console.error('[ProcessIQ] modal onOk error:', err); alert(tr('modal.error', { mensaje: err.message })); }
     cancel();
   };
   // Click outside (sobre el backdrop) cierra el modal
@@ -26,5 +27,14 @@ function openModal(title, bodyHtml, onOk) {
     if (first) first.focus();
   });
 }
+
+// Cada diálogo pone el texto de sus botones y no lo devuelve (lección 21): al cambiar
+// de idioma con el diálogo cerrado, vuelven los de siempre, ya en el idioma nuevo.
+alCambiarIdioma(() => {
+  const modal = $('#modal');
+  if (!modal || !modal.hidden) return;
+  $('#modalOk').textContent = tr('comun.aceptar');
+  $('#modalCancel').textContent = tr('comun.cancelar');
+});
 
 export { openModal };

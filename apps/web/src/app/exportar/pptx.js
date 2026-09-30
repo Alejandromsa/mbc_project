@@ -2,15 +2,17 @@
 // valida, se descarga y se guarda el resultado para las pruebas (ProcessIQ.ultimoPptx()).
 import { construirPptx, painImplication, posprocesarPptx } from '@processiq/exportar';
 import { state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { CDN, lazyLoadScript } from '../ingesta/formatos.js';
 import { filename } from './archivos.js';
 
+// El PPTX es un entregable: no se traduce. Solo los avisos.
 function exportPptx(tema) {
   if (typeof PptxGenJS === 'undefined') {
-    alert('La librería PPTX no se cargó (¿estás offline?). Conecta a internet o usa export SVG/PNG.');
+    alert(tr('exportar.sinPptx'));
     return;
   }
-  if (state.nodes.length === 0) { alert('No hay proceso para exportar.'); return; }
+  if (state.nodes.length === 0) { alert(tr('exportar.sinProceso')); return; }
   const { pres, nombresPorNodo } = construirPptx(state, tema, {
     PptxGenJS,
     alNombresPorNodo: (m) => { state._nombresPorNodo = m; }

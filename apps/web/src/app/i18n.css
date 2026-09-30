@@ -1,0 +1,25 @@
+/* «ES / EN» en la cabecera del editor (i18n.js). Cabecera oscura: mismo aspecto que
+   el botón de industria (.meta-btn). Clases piq- para no tocar el CSS portado. */
+.piq-idioma {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.piq-idioma button {
+  border: 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.62);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 6px 7px;
+}
+.piq-idioma button + button { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.piq-idioma button:hover:not([aria-pressed="true"]) { background: rgba(255, 255, 255, 0.10); color: #fff; }
+.piq-idioma button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.16); color: #fff; cursor: default; }
+.piq-idioma button:focus-visible { outline: 2px solid var(--indra-primary); outline-offset: -2px; }

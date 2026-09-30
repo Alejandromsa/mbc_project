@@ -5,6 +5,7 @@ import {
   extraerJson, fmtUsd, llamarClaude, precioModelo, usd
 } from '@processiq/ia';
 import { state } from '../estado.js';
+import { locale, tr } from '../i18n.js';
 import { MAX_AI_CHARS, ingestAbort, throwIfCancelled } from '../ingesta/formatos.js';
 import { iaRemota } from './remota.js';
 
@@ -39,9 +40,8 @@ function estimarCosteGeneracion(charsTexto, nivel, modeloElegido) {
 }
 function lineaCosteIa() {
   const c = state._ultimoCosteIa;
-  return c ? '\n\nCoste de esta ejecución: **' + fmtUsd(c.usd) + '** (' + c.entrada.toLocaleString('es-PE') +
-    ' tokens de entrada y ' + c.salida.toLocaleString('es-PE') + ' de salida, precio de lista de ' +
-    precioModelo(c.modelo).nombre + ').' : '';
+  return c ? tr('ia.coste', { usd: fmtUsd(c.usd), entrada: c.entrada.toLocaleString(locale()),
+    salida: c.salida.toLocaleString(locale()), modelo: precioModelo(c.modelo).nombre }) : '';
 }
 // Lista si hay forma de llegar a Claude: codigo de equipo (intermediario)
 // o clave propia. Sin 'modo' guardado se asume clave propia (configs viejas).

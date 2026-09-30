@@ -2,6 +2,7 @@
 import { PROMPT_PAINS, interpretarPains, resumenProcesoParaIa } from '@processiq/ia';
 import { copilotPost } from '../copiloto/copiloto.js';
 import { state } from '../estado.js';
+import { traducirError, tr } from '../i18n.js';
 import { getNode } from '../lienzo/interaccion.js';
 import { render } from '../lienzo/render.js';
 import { activateTab } from '../paneles/cajon.js';
@@ -25,13 +26,13 @@ function processDigestForAi() {
 }
 
 async function aiAnalyzePains() {
-  if (state.nodes.length === 0) { alert('No hay proceso que analizar.'); return; }
+  if (state.nodes.length === 0) { alert(tr('ia.sinProceso')); return; }
   if (!aiReady()) {
     if (iaRemota()) { iaRemota().avisarNoDisponible(); return; }
-    if (confirm('El análisis profundo de dolores usa la IA (Claude). Aún no configuraste tu API key. ¿Abrir Ajustes de IA?')) openAiSettings();
+    if (confirm(tr('painsIa.sinIa'))) openAiSettings();
     return;
   }
-  copilotPost('ai', '_Analizando el proceso en busca de dolores..._');
+  copilotPost('ai', tr('painsIa.analizando'));
   let data;
   try {
     // Proceso de un proyecto: el análisis lo hace el servidor con el proceso actual
@@ -43,7 +44,7 @@ async function aiAnalyzePains() {
       data = parseJsonLoose(raw);
     }
   } catch (e) {
-    copilotPost('ai', '**No se pudo completar el análisis:** ' + e.message);
+    copilotPost('ai', tr('ia.analisisFallido', { error: traducirError(e.message) }));
     return;
   }
   const r = interpretarPains(data, state.nodes, state.nextId);
@@ -61,21 +62,22 @@ async function aiAnalyzePains() {
   state.nodes.forEach(n => (n.pains || []).forEach(x => top.push({ n: n, x: x })));
   top.sort((a, b) => (b.x.severity * b.x.frequency) - (a.x.severity * a.x.frequency));
   const NL = String.fromCharCode(10);
-  let msg = '**' + nuevos + ' dolor(es) detectados en el flujo** (con evidencia del propio proceso):' + NL + NL;
+  // El marco del mensaje se traduce; lo que escribió la IA (dolores, evidencias, hipótesis) no
+  let msg = tr('painsIa.detectados', { n: nuevos }) + NL + NL;
   top.slice(0, 8).forEach(t => {
     msg += '- **' + escapeHtml(t.n.label) + '** - ' + escapeHtml(t.x.description) +
-           '  _(sev ' + t.x.severity + ' x frec ' + t.x.frequency + ' = **' + (t.x.severity * t.x.frequency) + '**)_' + NL +
-           (t.x.evidence ? '  - Evidencia: ' + escapeHtml(t.x.evidence) + NL : '') +
-           (t.x.impact ? '  - Impacto: ' + escapeHtml(t.x.impact) + NL : '');
+           tr('painsIa.puntaje', { sev: t.x.severity, frec: t.x.frequency, total: t.x.severity * t.x.frequency }) + NL +
+           (t.x.evidence ? tr('painsIa.evidencia', { texto: escapeHtml(t.x.evidence) }) + NL : '') +
+           (t.x.impact ? tr('painsIa.impacto', { texto: escapeHtml(t.x.impact) }) + NL : '');
   });
   if (state._sectorPains.length) {
-    msg += NL + '---' + NL + NL + '**Hipótesis del sector - NO detectadas en este flujo, a validar con el cliente:**' + NL + NL;
+    msg += NL + '---' + NL + NL + tr('painsIa.hipotesis') + NL + NL;
     state._sectorPains.forEach((h, i) => {
       msg += (i + 1) + '. **' + escapeHtml(h.titulo || '') + '** - ' + escapeHtml(h.descripcion || '') + NL +
-             (h.donde ? '   - Dónde mirar: ' + escapeHtml(h.donde) + NL : '') +
-             (h.senal ? '   - Cómo confirmarlo: ' + escapeHtml(h.senal) + NL : '');
+             (h.donde ? tr('painsIa.donde', { texto: escapeHtml(h.donde) }) + NL : '') +
+             (h.senal ? tr('painsIa.senal', { texto: escapeHtml(h.senal) }) + NL : '');
     });
-    msg += NL + '_Estas NO se agregaron al diagrama: son preguntas para el levantamiento, no hallazgos._';
+    msg += NL + tr('painsIa.noAgregadas');
   }
   copilotPost('ai', msg);
   activateTab('pains');

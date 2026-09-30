@@ -7,6 +7,7 @@ import { exportJson, exportPng, exportSvg, importJson } from '../exportar/archiv
 import { openFichaPreview } from '../exportar/ficha.js';
 import { exportPptx } from '../exportar/pptx.js';
 import { exportWord } from '../exportar/word.js';
+import { alCambiarIdioma, tr } from '../i18n.js';
 import { resetState } from '../historial.js';
 import { aiReady } from '../ia/motor.js';
 import { runAiTask } from '../ia/tareas.js';
@@ -28,7 +29,7 @@ function attachHeaderListeners() {
   $('#processMacro').addEventListener('change', e => { state.meta.macroprocess = e.target.value; persist(); });
 
   $('#btnNew').addEventListener('click', () => {
-    if (confirm('¿Crear un nuevo proceso? Se perderá el actual si no fue exportado.')) resetState();
+    if (confirm(tr('cabecera.confirmarNuevo'))) resetState();
   });
 
   // View toggle as-is / to-be
@@ -39,7 +40,7 @@ function attachHeaderListeners() {
     // Con API key el To-Be lo disena Claude sobre ESTE proceso; sin key, reglas fijas
     if (aiReady() && state.nodes.length) {
       activateTab('copilot');
-      copilotPost('user', 'Diseñar el proceso To-Be (IA).');
+      copilotPost('user', tr('cabecera.disenarToBe'));
       runAiTask('propose-tobe');
       return;
     }
@@ -107,8 +108,16 @@ function toggleConnectMode() {
   state.connectSourceId = null;
   $('#btnConnect').classList.toggle('active', state.mode === 'connect');
   canvas.classList.toggle('connect-mode', state.mode === 'connect');
-  $('#statusMode').textContent = `Modo: ${state.mode === 'connect' ? 'conexión (click origen y destino)' : 'edición'}`;
+  pintarModo();
   render();
 }
+
+// La barra de estado dice el modo desde el primer cambio (antes, el texto de index.html)
+let modoPintado = false;
+function pintarModo() {
+  modoPintado = true;
+  $('#statusMode').textContent = tr('estado.modo', { modo: state.mode === 'connect' ? tr('estado.modoConexion') : tr('estado.modoEdicion') });
+}
+alCambiarIdioma(() => { if (modoPintado) pintarModo(); });
 
 export { attachHeaderListeners, attachToolbarListeners, toggleConnectMode };

@@ -1,5 +1,6 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { $ } from '../dom.js';
+import { tr } from '../i18n.js';
 
 // ============================================================
 // INGESTA MULTI-FORMATO — Word / PDF / PowerPoint / texto / BPMN
@@ -24,7 +25,7 @@ function lazyLoadScript(url) {
     const s = document.createElement('script');
     s.src = url; s.async = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error('No se pudo cargar ' + url + ' (¿sin conexión o CDN bloqueado?)'));
+    s.onerror = () => reject(new Error(tr('formatos.noCarga', { url })));
     document.head.appendChild(s);
   });
   return _loadedScripts[url];
@@ -58,7 +59,7 @@ function ingestBusy(on) {
     const lbl = btn.querySelector('.go-label');
     if (on && !btn.classList.contains('is-busy')) {
       btn.classList.add('is-busy');
-      if (lbl) { btn.dataset.labelPrevia = lbl.textContent; lbl.textContent = 'Generando…'; }
+      if (lbl) { btn.dataset.labelPrevia = lbl.textContent; lbl.textContent = tr('ingesta.generando'); }
     } else if (!on && btn.classList.contains('is-busy')) {
       btn.classList.remove('is-busy');
       if (lbl && btn.dataset.labelPrevia) lbl.textContent = btn.dataset.labelPrevia;
@@ -105,14 +106,14 @@ function cancelIngestJob() {
   if (!ingestAbort) return;
   ingestAbort.cancelled = true;
   try { ingestAbort.controller.abort(); } catch (_) {}
-  ingestProgress('Cancelando…', null);
+  ingestProgress(tr('ingesta.cancelando'), null);
 }
 
 function readFileAs(file, how) {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(r.result);
-    r.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    r.onerror = () => reject(new Error(tr('formatos.noLeido')));
     if (how === 'arraybuffer') r.readAsArrayBuffer(file); else r.readAsText(file, 'utf-8');
   });
 }

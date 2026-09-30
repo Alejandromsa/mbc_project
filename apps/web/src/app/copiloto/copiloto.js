@@ -5,6 +5,7 @@ import { generateRaci } from '../analitica/raci.js';
 import { generateSipoc } from '../analitica/sipoc.js';
 import { $, $$ } from '../dom.js';
 import { state } from '../estado.js';
+import { alCambiarIdioma, etiquetaTarea, tr } from '../i18n.js';
 import { aiReady } from '../ia/motor.js';
 import { aiAnalyzePains } from '../ia/pains.js';
 import { AI_TASKS, runAiTask } from '../ia/tareas.js';
@@ -30,100 +31,118 @@ function attachCopilotListeners() {
     $('#copilotPrompt').value = '';
     setTimeout(() => copilotPost('ai', mockCopilotResponse(txt)), 350);
   });
-  copilotPost('ai',
-    '¡Hola! Soy tu copiloto **ProcessIQ**.\n\n' +
-    'Estoy aquí para ayudarte a levantar, diagnosticar y reingenierizar procesos más rápido.\n' +
-    'Empieza completando el **nombre, industria y macroproceso** arriba, y luego usa las acciones rápidas o pídeme algo en lenguaje natural.\n\n' +
-    'Ejemplo: *"Levanta el proceso de gestión de reclamos para un banco minorista peruano."*');
+  saludo = copilotPost('ai', tr('copiloto.saludo'));
 }
 
+// El saludo se vuelve a escribir al cambiar de idioma; los demás mensajes son la
+// conversación y se quedan en el idioma en que se escribieron.
+let saludo = null;
+alCambiarIdioma(() => {
+  const burbuja = saludo && saludo.isConnected && saludo.querySelector('.bubble');
+  if (burbuja) {
+    burbuja.innerHTML = formatMd(tr('copiloto.saludo'));
+    saludo.querySelector('.author').textContent = tr('copiloto.autor');
+  }
+});
+
+// Lo que se escribe en el chat como pedido de la persona, por acción rápida
+const PEDIDOS = {
+  'detect-pains': 'copiloto.pedido.detectPains', 'suggest-kpis': 'copiloto.pedido.suggestKpis',
+  'propose-tobe': 'copiloto.pedido.proposeTobe', 'raci': 'copiloto.pedido.raci', 'sipoc': 'copiloto.pedido.sipoc',
+  'impact-effort': 'copiloto.pedido.impactEffort', 'whatif': 'copiloto.pedido.whatif',
+  'automation': 'copiloto.pedido.automation', 'bottleneck': 'copiloto.pedido.bottleneck',
+  'variants': 'copiloto.pedido.variants', 'value-map': 'copiloto.pedido.valueMap', 'backlog': 'copiloto.pedido.backlog',
+  'exec-summary': 'copiloto.pedido.execSummary', 'merge-gateways': 'copiloto.pedido.mergeGateways',
+  'ai-pains': 'copiloto.pedido.aiPains', 'autofit': 'copiloto.pedido.autofit', 'relayout': 'copiloto.pedido.relayout'
+};
+
 function handleCopilotAction(action) {
-  if (aiReady() && AI_TASKS[action]) { copilotPost('user', AI_TASKS[action].etiqueta + ' (IA).'); runAiTask(action); return; }
+  if (aiReady() && AI_TASKS[action]) { copilotPost('user', tr('copiloto.tareaIa', { tarea: etiquetaTarea(action, AI_TASKS[action]) })); runAiTask(action); return; }
 
   activateTab('copilot');
   switch (action) {
     case 'generate':
-      openModal('Generar proceso desde descripción',
-        '<textarea id="modalInput" placeholder="Describe el proceso a levantar..."></textarea>',
+      openModal(tr('copiloto.generarTitulo'),
+        '<textarea id="modalInput" placeholder="' + tr('copiloto.generarEjemplo') + '"></textarea>',
         () => {
           const desc = $('#modalInput').value.trim();
           if (!desc) return;
-          copilotPost('user', 'Generar proceso: ' + desc);
+          copilotPost('user', tr('copiloto.generarPedido', { desc }));
           ingestarDescripcion(desc);
         });
       break;
     case 'detect-pains':
-      copilotPost('user', 'Detecta pains en el diagrama actual.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(detectPainsMock, 300);
       break;
     case 'suggest-kpis':
-      copilotPost('user', 'Sugiere KPIs aplicables.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(suggestKpisMock, 300);
       break;
     case 'propose-tobe':
-      copilotPost('user', 'Propón reingeniería to-be.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(proposeToBeMock, 300);
       break;
     case 'raci':
-      copilotPost('user', 'Generar matriz RACI.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(generateRaci, 250);
       break;
     case 'sipoc':
-      copilotPost('user', 'Generar SIPOC del proceso.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(generateSipoc, 250);
       break;
     case 'impact-effort':
-      copilotPost('user', 'Generar matriz impacto-esfuerzo.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(generateImpactEffort, 250);
       break;
     case 'whatif':
-      copilotPost('user', 'Comparar escenarios What-If.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(openWhatIfModal, 250);
       break;
     case 'automation':
-      copilotPost('user', 'Detectar oportunidades de automatización.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(analyzeAutomation, 250);
       break;
     case 'bottleneck':
-      copilotPost('user', 'Identificar cuello de botella y ruta crítica.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(analyzeBottleneck, 250);
       break;
     case 'variants':
-      copilotPost('user', 'Analizar variantes del proceso.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(analyzeVariants, 250);
       break;
     case 'value-map':
-      copilotPost('user', 'Mostrar mapa de valor Lean (VA/NVA).');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(toggleValueMap, 250);
       break;
     case 'backlog':
-      copilotPost('user', 'Generar backlog de iniciativas.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(generateBacklog, 250);
       break;
     case 'exec-summary':
-      copilotPost('user', 'Resumen ejecutivo del diagnóstico.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(execSummaryMock, 300);
       break;
     case 'merge-gateways':
-      copilotPost('user', 'Insertar compuertas de convergencia.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(insertMergeGateways, 250);
       break;
     case 'ai-pains':
-      copilotPost('user', 'Análisis profundo de dolores (IA).');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(aiAnalyzePains, 200);
       break;
     case 'autofit':
-      copilotPost('user', 'Autoajustar el diagrama.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(() => autoFitDiagram(), 220);
       break;
     case 'relayout':
-      copilotPost('user', 'Reorganizar el diagrama.');
+      copilotPost('user', tr(PEDIDOS[action]));
       setTimeout(() => {
         state._wrap = undefined;          // vuelve a decidir automáticamente
         autoLayout();
         maybeFitOnLoad();
         const L = state._lanes || {};
-        copilotPost('ai', `**Diagrama reorganizado.** ${L.wrap ? `Modo envolvente activo: ${L.bands} bandas de hasta ${L.wrapAt} columnas (evita el diagrama kilométrico).` : 'Disposición en una sola banda.'} Carriles ordenados para minimizar cruces y retornos de reproceso por corredor inferior.`);
+        copilotPost('ai', tr('copiloto.reorganizado', { disposicion: L.wrap ? tr('copiloto.envolvente', { bandas: L.bands, columnas: L.wrapAt }) : tr('copiloto.unaBanda') }));
       }, 200);
       break;
   }
@@ -134,12 +153,13 @@ function copilotPost(who, text) {
   const div = document.createElement('div');
   div.className = 'copilot-msg ' + who;
   if (who === 'ai') {
-    div.innerHTML = `<div class="author">ProcessIQ · IA</div><div class="bubble">${formatMd(text)}</div>`;
+    div.innerHTML = `<div class="author">${tr('copiloto.autor')}</div><div class="bubble">${formatMd(text)}</div>`;
   } else {
     div.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
   }
   wrap.appendChild(div);
   wrap.scrollTop = wrap.scrollHeight;
+  return div;
 }
 
 function formatMd(s) {

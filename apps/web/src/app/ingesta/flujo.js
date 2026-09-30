@@ -4,6 +4,7 @@ import { detalleImportBpmn, importBpmnXml } from '../bpmn/importar.js';
 import { copilotPost } from '../copiloto/copiloto.js';
 import { $ } from '../dom.js';
 import { state } from '../estado.js';
+import { locale, traducirDe, traducirError, tr } from '../i18n.js';
 import { updateAiUi } from '../ia/ajustes.js';
 import { askProfundidad, pedirCodigoEquipo } from '../ia/dialogos.js';
 import { aiBuildProcess } from '../ia/generacion.js';
@@ -12,6 +13,7 @@ import { aplicarNivel } from '../layout/niveles.js';
 import { maybeFitOnLoad } from '../lienzo/zoom.js';
 import { activateTab } from '../paneles/cajon.js';
 import { renderFichaTab } from '../paneles/ficha.js';
+import { ETIQUETAS_FUENTE_EN, PROGRESO_EN } from '../textos/en.js';
 import { escapeHtml } from '../util.js';
 import { CDN, MAX_AI_CHARS, endIngestJob, ingestAbort, ingestBusy, ingestProgress, lazyLoadScript, readFileAs, startIngestJob, throwIfCancelled, uiTick } from './formatos.js';
 import { addSource, combinedSourceText, describeCurrentProcessAsText, sourcesList } from './fuentes.js';
@@ -33,6 +35,11 @@ function ingestarDescripcion(desc) {
   setTimeout(() => runIngest(null), 0);
 }
 
+// La etiqueta de la fuente ('texto pegado', 'N fuentes combinadas' o el archivo) va al
+// prompt y es el nombre por defecto del proceso: es un dato y sigue en español. En los
+// mensajes se muestra en el idioma de la interfaz.
+const etiquetaVisible = (label) => traducirDe(ETIQUETAS_FUENTE_EN, label);
+
 // ============================================================
 // FLUJO ÚNICO DE INGESTA — "suelta el archivo y listo"
 // Extrae -> interpreta (IA si hay key, si no heurístico) -> dibuja.
@@ -48,28 +55,28 @@ async function runIngest(source) {
     let text = '', label = 'documento';
 
     if (source && source.file) {
-      ingestProgress('Abriendo ' + source.file.name + '...', 2);
+      ingestProgress(tr('flujo.abriendo', { nombre: source.file.name }), 2);
       await uiTick();
       const r = await extractFileText(source.file);
       if (r.kind === 'bpmn' && sourcesList().length > 0) {
         const desc = describeCurrentProcessAsText();
         if (desc) addSource('diagrama', r.name, 'Diagrama existente del proceso:' + String.fromCharCode(10) + desc);
-        ingestProgress('Diagrama añadido como fuente', 100);
+        ingestProgress(tr('flujo.diagramaComoFuente'), 100);
         endIngestJob();
         return;
       }
       if (r.kind === 'bpmn') {
-        ingestProgress('Diagrama importado', 100);
+        ingestProgress(tr('flujo.diagramaImportado'), 100);
         closeIngestModal();
         maybeFitOnLoad();
         activateTab('ficha');
-        copilotPost('ai', '**BPMN importado desde ' + escapeHtml(r.name) + ':** ' + r.result.count + ' elementos (' + r.result.tasks + ' actividades, ' + r.result.gateways + ' compuertas, ' + r.result.events + ' eventos) y ' + r.result.flows + ' flujos.' + detalleImportBpmn(r.result));
+        copilotPost('ai', tr('flujo.bpmnImportado', { nombre: escapeHtml(r.name), n: r.result.count, tareas: r.result.tasks, compuertas: r.result.gateways, eventos: r.result.events, flujos: r.result.flows }) + detalleImportBpmn(r.result));
         return;
       }
       const tipo = /transcrip|audio|reunion|llamada|teams|zoom/i.test(r.name) ? 'transcripcion' : 'documento';
       addSource(tipo, r.name, r.text);
       if (source.addOnly) {
-        ingestProgress('Fuente añadida: ' + r.name, 100);
+        ingestProgress(tr('flujo.fuenteAnadida', { nombre: r.name }), 100);
         endIngestJob();
         return;
       }
@@ -82,7 +89,7 @@ async function runIngest(source) {
       label = sourcesList().length > 1 ? (sourcesList().length + ' fuentes combinadas') : 'texto pegado';
     }
     throwIfCancelled();
-    if (!text) throw new Error('No hay texto que interpretar. Carga un archivo o pega el texto del proceso.');
+    if (!text) throw new Error(tr('flujo.sinTexto'));
 
     // La IA es el camino por defecto. Si este navegador aun no tiene el codigo
     // del equipo (ni clave propia) se pide AHORA, en vez de caer en silencio al
@@ -100,8 +107,8 @@ async function runIngest(source) {
     }
     const useAi = aiReady();
     ingestProgress(
-      useAi ? 'Interpretando con IA ' + text.length.toLocaleString('es-PE') + ' caracteres... (puede tardar hasta 1 min)'
-            : 'Analizando ' + text.length.toLocaleString('es-PE') + ' caracteres...',
+      useAi ? tr('flujo.interpretandoN', { n: text.length.toLocaleString(locale()) })
+            : tr('flujo.analizandoN', { n: text.length.toLocaleString(locale()) }),
       useAi ? null : 80);
     await uiTick();
 
@@ -109,49 +116,47 @@ async function runIngest(source) {
       let roles = null;
       const personas = detectParticipants(text);
       if (personas.length) {
-        ingestProgress('Participantes detectados: ' + personas.length + '. Definiendo roles...', null);
+        ingestProgress(tr('flujo.participantes', { n: personas.length }), null);
         ingestBusy(false);
         roles = await askParticipantRoles(personas);
         ingestBusy(true);
-        ingestProgress('Interpretando con IA...', null);
+        ingestProgress(tr('flujo.interpretando'), null);
       }
       ingestBusy(false);
       const vista = await askProfundidad({ chars: text.length });
       ingestBusy(true);
-      ingestProgress('Interpretando con IA...', null);
+      ingestProgress(tr('flujo.interpretando'), null);
       const spec = await aiBuildProcess(text, label, (m) => ingestProgress(m, null), { roles, vista });
       throwIfCancelled();
       if (vista < 3) aplicarNivel(vista, { silent: true });
-      ingestProgress('Proceso generado con IA', 100);
+      ingestProgress(tr('flujo.generadoIa'), 100);
       closeIngestModal();
       maybeFitOnLoad();
       activateTab('ficha');
       renderFichaTab();
       const n = (spec.nodes || []).length;
-      copilotPost('ai', `**Proceso interpretado con IA desde ${escapeHtml(label)}.** ${n} elementos con roles, sistemas y decisiones. Revisa el diagrama y completa la pestaña **Ficha**; luego exporta a **Ficha de Proceso**.` +
-        (text.length > MAX_AI_CHARS ? `\n\nNota: el documento excedía ${(MAX_AI_CHARS / 1000) | 0}K caracteres, interpreté la primera parte. Si falta el final del proceso, pega esa sección y vuelve a generar.` : '') + lineaCosteIa());
+      copilotPost('ai', tr('flujo.interpretadoIa', { etiqueta: escapeHtml(etiquetaVisible(label)), n }) +
+        (text.length > MAX_AI_CHARS ? tr('flujo.excedia', { k: (MAX_AI_CHARS / 1000) | 0 }) : '') + lineaCosteIa());
     } else {
       buildProcessFromText(text, label);
-      ingestProgress('Proceso generado', 100);
+      ingestProgress(tr('flujo.generado'), 100);
       closeIngestModal();
       maybeFitOnLoad();
       // Que nunca se confunda con una interpretacion por IA
-      copilotPost('ai', '**Proceso generado en modo básico (sin IA)** desde ' + escapeHtml(label) +
-        '. Las actividades se extrajeron por palabras clave: revisa roles y decisiones. ' +
-        'Para interpretarlo con Claude, pon el código del equipo en Ajustes de IA (✨) y vuelve a generar.');
+      copilotPost('ai', tr('flujo.basico', { etiqueta: escapeHtml(etiquetaVisible(label)) }));
     }
     console.info('[ProcessIQ] ingesta OK en', ((Date.now() - t0) / 1000).toFixed(1) + 's');
   } catch (err) {
     if (String(err.message) === 'CANCELLED' || err.name === 'AbortError') {
-      ingestProgress('Cancelado.', 0);
+      ingestProgress(tr('flujo.cancelado'), 0);
       setTimeout(() => ingestBusy(false), 900);
     } else {
       console.error('[ProcessIQ] ingesta:', err);
       // Aunque falle (p. ej. respuesta cortada), lo consumido se cobra: se dice
-      if (state._ultimoCosteIa) err = new Error((err.message || err) + '\n\nEsta ejecución igual consumió ' + fmtUsd(state._ultimoCosteIa.usd) + ' a precio de lista.');
+      if (state._ultimoCosteIa) err = new Error(tr('flujo.consumio', { error: traducirError(err.message || err), coste: fmtUsd(state._ultimoCosteIa.usd) }));
       ingestProgress('', 0);
       ingestBusy(false);
-      alert('No se pudo completar:\n\n' + (err.message || err));
+      alert(tr('flujo.noSePudo', { error: traducirError(err.message || err) }));
     }
   } finally {
     if (ingestAbort) endIngestJob();
@@ -201,7 +206,7 @@ async function casillasComoTexto(buf) {
 // Lectura de documentos: @processiq/documentos (extraerTexto). Aquí va el
 // entorno del navegador: progreso, cancelación y carga diferida de librerías.
 const entornoExtraccion = {
-  progreso: (mensaje, porcentaje) => ingestProgress(mensaje, porcentaje),
+  progreso: (mensaje, porcentaje) => ingestProgress(traducirDe(PROGRESO_EN, mensaje), porcentaje),
   ceder: uiTick,
   comprobarCancelado: throwIfCancelled,
   leer: readFileAs,
@@ -213,7 +218,7 @@ const entornoExtraccion = {
   // pdf.js se importa como módulo ESM (la primera vez tarda unos segundos: avisamos)
   pdfjs: async () => {
     if (!window._pdfjsLib) {
-      ingestProgress('Cargando el lector de PDF (solo la primera vez)…', null);
+      ingestProgress(tr('flujo.cargandoPdf'), null);
       await uiTick();
       window._pdfjsLib = await import(/* @vite-ignore */ CDN.pdfjs);
       try { window._pdfjsLib.GlobalWorkerOptions.workerSrc = CDN.pdfWorker; } catch (_) {}
