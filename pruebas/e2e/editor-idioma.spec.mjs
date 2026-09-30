@@ -299,7 +299,7 @@ test.describe('plataforma', () => {
     const propietaria = await otro.newPage();
     await entrar(propietaria, 'propietario');
     await expect(propietaria.locator('.piq-proyecto')).toContainText('v3 · Borrador');
-    await expect(barra.locator('.piq-avatar').first()).toHaveAttribute('title', 'Propietario de Prueba: viendo en el editor');
+    await expect(barra.locator('.piq-avatar').first()).toHaveAttribute('title', 'Propietario de Prueba: viendo en el editor (v3)');
 
     // Se envía a revisión la v3 (por la API): la barra del editor lo dice sin recargar
     const id = new URL(page.url()).searchParams.get('revision')
@@ -311,7 +311,7 @@ test.describe('plataforma', () => {
     // Y en inglés, el mismo estado
     await page.getByRole('group', { name: 'Idioma' }).getByRole('button', { name: 'English' }).click();
     await expect(barra).toContainText('v3 · In review');
-    await expect(barra.locator('.piq-avatar').first()).toHaveAttribute('title', 'Propietario de Prueba: viewing in the editor');
+    await expect(barra.locator('.piq-avatar').first()).toHaveAttribute('title', 'Propietario de Prueba: viewing in the editor (v3)');
     await otro.close();
   });
 });
