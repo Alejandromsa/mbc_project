@@ -815,6 +815,7 @@ Los errores salen como `ruta: mensaje`.
 | `client` | string | Cliente. |
 | `owner` | string | Dueño del proceso. |
 | `nivelVista` | `1` \| `2` \| `3` | Opcional. Lo añade el editor: nivel de detalle que se veía al guardar. |
+| `ordenCarriles` | string[] | Opcional. Orden de los carriles que respeta el auto-layout en lugar de reordenarlos por baricentro (pensado para el orden del archivo de un BPMN importado; hoy no lo rellena nadie). Los nombres que no son carriles del proceso se ignoran. |
 
 ### 8.4 Nodos
 
