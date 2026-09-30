@@ -32,7 +32,7 @@ describe('operaciones sobre el grafo', () => {
     expect(edges.at(-1)).toEqual({ id: 'e11', from: 'd', to: 'n10', label: 'No' });
   });
 
-  it('una compuerta de convergencia (varias entradas, una salida) no es una decisión: ni rama "No" ni rótulo (D11)', () => {
+  it('una compuerta de convergencia (varias entradas, una salida) no es una decisión: ni rama "No" ni rótulo (D12)', () => {
     const nodes = [n('a', 'task'), n('b', 'task'), n('m', 'decision', { gatewayType: 'exclusive' }), n('z', 'task')];
     const edges = [e('1', 'a', 'm'), e('2', 'b', 'm'), e('3', 'm', 'z')];
     expect(esConvergencia(nodes[2]!, edges)).toBe(true);
@@ -121,6 +121,34 @@ describe('layout', () => {
     const pila = nodes.slice(1).sort((p, q) => p.y - q.y);
     for (let i = 1; i < pila.length; i++) expect(pila[i]!.y).toBeGreaterThanOrEqual(pila[i - 1]!.y + pila[i - 1]!.h);
     expect(L.laneHs[0]).toBeGreaterThan(170);
+  });
+
+  // Cuatro carriles que aparecen A, B, C, D; el baricentro sube «C» por encima de «B»
+  function cuatroCarriles() {
+    const seq: [string, string][] = [['s', 'A'], ['a', 'A'], ['b', 'B'], ['c', 'C'], ['d', 'D'], ['a2', 'A'], ['d2', 'D'], ['f', 'A']];
+    const nodes = seq.map(([id, owner], i) => n(id, i === 0 ? 'start' : i === seq.length - 1 ? 'end' : 'task', { owner }));
+    const edges = seq.slice(1).map(([id], i) => e('e' + i, seq[i]![0], id));
+    return { nodes, edges };
+  }
+
+  it('sin orden preferido, los carriles se reordenan por baricentro (como el MVP)', () => {
+    const { nodes, edges } = cuatroCarriles();
+    expect(calcularLayout(nodes, edges, { ownerMap: inferirResponsables(nodes, edges), wrap: false }).list).toEqual(['A', 'C', 'B', 'D']);
+  });
+
+  it('con ordenCarriles se respeta ese orden; los carriles que no nombra van detrás', () => {
+    const { nodes, edges } = cuatroCarriles();
+    const ownerMap = inferirResponsables(nodes, edges);
+    const L = calcularLayout(nodes, edges, { ownerMap, wrap: false, ordenCarriles: ['A', 'B', 'C', 'D'] });
+    expect(L.list).toEqual(['A', 'B', 'C', 'D']);
+    const y = (id: string) => nodes.find((x) => x.id === id)!.y;
+    expect(y('a')).toBeLessThan(y('b'));
+    expect(y('b')).toBeLessThan(y('c'));
+    expect(y('c')).toBeLessThan(y('d'));
+    // Nombres que no son carriles de este proceso se ignoran; los que faltan, detrás y en orden de aparición
+    expect(calcularLayout(nodes, edges, { ownerMap, wrap: false, ordenCarriles: ['Otro', 'C', 'C'] }).list).toEqual(['C', 'A', 'B', 'D']);
+    // Una lista vacía es como no pasarla
+    expect(calcularLayout(nodes, edges, { ownerMap, wrap: false, ordenCarriles: [] }).list).toEqual(['A', 'C', 'B', 'D']);
   });
 
   it('normalizarGeometria repara tamaños y posiciones no finitos', () => {
@@ -225,7 +253,7 @@ describe('niveles de detalle', () => {
     return { nodes, edges };
   }
 
-  it('con jerarquía explícita, el Ejecutivo también tiene el techo de 10 cajas (D12)', () => {
+  it('con jerarquía explícita, el Ejecutivo también tiene el techo de 10 cajas (D13)', () => {
     const full = importadoLargo();
     // Actividad: la jerarquía explícita tal cual (sin techo): 14 pasos + inicio y fin
     expect(proyectarNivel(full, 2, { carrilDe, macroproceso: 'O2C' }).nodes).toHaveLength(16);

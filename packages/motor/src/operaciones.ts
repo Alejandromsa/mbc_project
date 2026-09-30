@@ -20,7 +20,7 @@ export function esConvergencia(d: Nodo, edges: readonly Arista[]): boolean {
  * fin "Caso no procede" nuevo (en su mismo carril); las dos primeras salidas
  * sin etiqueta se rotulan "Sí" y "No". Las paralelas e inclusivas no se tocan,
  * ni las de convergencia (`esConvergencia`): una convergencia no es una
- * decisión. El MVP también les inventaba la rama "No" (divergencia D11).
+ * decisión. El MVP también les inventaba la rama "No" (divergencia D12).
  * @returns el siguiente id libre
  */
 export function asegurarRamasDeDecision(nodes: Nodo[], edges: Arista[], siguienteId: number, formas: Formas = FORMAS_POR_DEFECTO): number {

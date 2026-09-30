@@ -220,7 +220,7 @@ export function proyectarNivel(full: ModeloProceso, nivel: number, ctx: Contexto
   // subprocesos, una IA que marca muchos pasos como de nivel 1): el techo de
   // cajas se aplica igual que con las etapas deducidas, agrupando en etapas lo
   // que ya se ve en el Ejecutivo. Cada nodo del modelo va a la etapa de su
-  // representante. No lo hacía el MVP (divergencia D12).
+  // representante. No lo hacía el MVP (divergencia D13).
   const et = etapasEjecutivas(p.nodes, p.edges, EJEC_MAX_CAJAS, formas);
   if (!et.grupos.length) return r;
   const grupoFinal: Record<string, string> = {};
