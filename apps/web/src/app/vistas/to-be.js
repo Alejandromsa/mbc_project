@@ -2,6 +2,7 @@
 import { copilotPost } from '../copiloto/copiloto.js';
 import { $ } from '../dom.js';
 import { state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { activateTab } from '../paneles/cajon.js';
 import { openModal } from '../ui/modal.js';
@@ -11,27 +12,17 @@ import { setView } from './comparador.js';
 // TRANSFORMAR A TO-BE por nivel (Operativo / Táctico / Estratégico)
 // Inspirado en MBC Process Disruptor: "Generar To-Be · Mantener Nivel"
 // ============================================================
-const TOBE_LEVELS = {
-  operativo: {
-    label: 'Operativo — Quick wins',
-    desc: 'Automatiza tareas manuales repetitivas, elimina reprocesos. Cambios de bajo riesgo, 0-3 meses.'
-  },
-  tactico: {
-    label: 'Táctico — Rediseño de flujo',
-    desc: 'Elimina handoffs, paraleliza, consolida controles duplicados. 3-9 meses.'
-  },
-  estrategico: {
-    label: 'Estratégico — Reimaginar',
-    desc: 'Self-service digital, elimina pasos sin valor, repensar el proceso end-to-end. 9-18 meses.'
-  }
-};
+// Etiqueta y descripción de cada nivel, en el idioma de la interfaz (textos/es.js)
+const TOBE_LEVELS = new Proxy({}, {
+  get: (_, nivel) => ({ label: tr('tobe.' + String(nivel) + '.label'), desc: tr('tobe.' + String(nivel) + '.desc') })
+});
 
 function openTransformToBeModal() {
   const asisNodes = state.activeView === 'asis' ? state.nodes : (state._views.asis?.nodes || []);
-  if (asisNodes.length === 0) { alert('Genera o dibuja un proceso As-Is primero.'); return; }
+  if (asisNodes.length === 0) { alert(tr('vistas.sinAsIs')); return; }
   const html = `
-      <p class="panel-hint" style="margin-bottom:10px">ProcessIQ clona el As-Is y aplica palancas de reingeniería según el <strong>nivel</strong> elegido. Luego puedes editar manualmente el resultado.</p>
-      <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:600">Nivel de transformación
+      <p class="panel-hint" style="margin-bottom:10px">${tr('tobe.intro')}</p>
+      <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:600">${tr('tobe.nivel')}
         <select id="tobeLevelSel" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:6px;margin-top:3px">
           <option value="operativo">${TOBE_LEVELS.operativo.label}</option>
           <option value="tactico">${TOBE_LEVELS.tactico.label}</option>
@@ -39,10 +30,10 @@ function openTransformToBeModal() {
         </select>
       </label>
       <div id="tobeLevelDesc" class="field-hint info" style="margin-bottom:10px">${TOBE_LEVELS.operativo.desc}</div>
-      <label style="display:block;font-size:12px;font-weight:600">Cambios específicos (opcional)
-        <textarea id="tobeChanges" rows="3" placeholder="Ej. 'Eliminar la validación manual del paso 3', 'Añadir autoservicio en la captura'…" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:3px;font-family:inherit"></textarea>
+      <label style="display:block;font-size:12px;font-weight:600">${tr('tobe.cambios')}
+        <textarea id="tobeChanges" rows="3" placeholder="${tr('tobe.cambiosEjemplo')}" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:6px;margin-top:3px;font-family:inherit"></textarea>
       </label>`;
-  openModal('✨ Transformar a To-Be por nivel', html, () => {
+  openModal(tr('tobe.titulo'), html, () => {
     const level = $('#tobeLevelSel').value;
     const changes = $('#tobeChanges').value.trim();
     transformToBe(level, changes);
@@ -61,7 +52,7 @@ function transformToBe(level, changes) {
   if (state.activeView === 'asis') {
     state._views.asis = { nodes: JSON.parse(JSON.stringify(state.nodes)), edges: JSON.parse(JSON.stringify(state.edges)) };
   }
-  if (!state._views.asis) { alert('No hay As-Is que transformar.'); return; }
+  if (!state._views.asis) { alert(tr('tobe.sinAsIs')); return; }
 
   // Clona profundo
   const tobe = JSON.parse(JSON.stringify(state._views.asis));
@@ -76,7 +67,7 @@ function transformToBe(level, changes) {
         if (/registr|ingres|valid|calcul|consult|verific|notific|envi|gener/.test(lbl)) {
           n.executionType = /notific|envi|correo/.test(lbl) ? 'automatic' : 'rpa';
           n.activityCode = '';  // se re-asignará
-          changeLog.push(`Automatizada: "${n.label}" → ${n.executionType === 'rpa' ? 'RPA/Bot' : 'Service Task'}`);
+          changeLog.push(tr('tobe.automatizada', { etiqueta: n.label, tipo: n.executionType === 'rpa' ? 'RPA/Bot' : 'Service Task' }));
         }
       }
     });
@@ -88,14 +79,14 @@ function transformToBe(level, changes) {
       if (n.type === 'task' && n.executionType === 'manual') {
         n.executionType = 'system';
         n.activityCode = '';
-        changeLog.push(`Digitalizada: "${n.label}" → User Task (sistema)`);
+        changeLog.push(tr('tobe.digitalizada', { etiqueta: n.label }));
       }
     });
     // Marca decisiones para codificar como reglas (DMN)
     tobe.nodes.filter(n => n.type === 'decision').forEach(d => {
       if (!/regla|dmn/i.test(d.notes || '')) {
         d.notes = (d.notes ? d.notes + ' ' : '') + '[To-Be: codificar como regla DMN]';
-        changeLog.push(`Decisión "${d.label}" → regla codificada (DMN)`);
+        changeLog.push(tr('tobe.decision', { etiqueta: d.label }));
       }
     });
   } else if (level === 'estrategico') {
@@ -107,17 +98,17 @@ function transformToBe(level, changes) {
           n.executionType = 'automatic';
           n.activityCode = '';
           n.label = n.label.replace(/^(Solicitar|Capturar|Ingresar|Registrar|Completar|Llenar)/i, 'Autoservicio:');
-          changeLog.push(`Self-service: "${n.label}"`);
+          changeLog.push(tr('tobe.selfService', { etiqueta: n.label }));
         } else if (/valid|verific|evalu|analiz|diagnostic|scoring/.test(lbl)) {
           n.executionType = 'ai';
           n.activityCode = '';
-          changeLog.push(`IA-assisted: "${n.label}" → Script/IA Task`);
+          changeLog.push(tr('tobe.ia', { etiqueta: n.label }));
         }
       }
     });
   }
 
-  if (changes) changeLog.push(`Cambios manuales solicitados: ${changes}`);
+  if (changes) changeLog.push(tr('tobe.manuales', { cambios: changes }));
 
   // Aplica el to-be
   state._views.tobe = tobe;
@@ -127,12 +118,10 @@ function transformToBe(level, changes) {
   activateTab('copilot');
   const lv = TOBE_LEVELS[level];
   copilotPost('ai',
-    `**To-Be generado · nivel ${lv.label.split(' — ')[0]}**\n\n` +
-    `${lv.desc}\n\n` +
-    `**${changeLog.length} cambio(s) aplicado(s):**\n` +
-    (changeLog.slice(0, 12).map(c => '• ' + c).join('\n') || '• Sin cambios automáticos — edita manualmente.') +
-    (changeLog.length > 12 ? `\n• …y ${changeLog.length - 12} más.` : '') +
-    `\n\nEdita manualmente cualquier nodo en Props. Exporta a PPTX para el comparativo As-Is vs To-Be.`);
+    tr('tobe.generado', { nivel: lv.label.split(' — ')[0], desc: lv.desc, n: changeLog.length }) +
+    (changeLog.slice(0, 12).map(c => '• ' + c).join('\n') || tr('tobe.sinCambios')) +
+    (changeLog.length > 12 ? tr('tobe.yMas', { n: changeLog.length - 12 }) : '') +
+    tr('tobe.editaManual'));
 }
 
 export { openTransformToBeModal };

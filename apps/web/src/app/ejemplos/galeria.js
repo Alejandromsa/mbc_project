@@ -1,5 +1,6 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { $ } from '../dom.js';
+import { tr } from '../i18n.js';
 import { maybeFitOnLoad } from '../lienzo/zoom.js';
 import { openModal } from '../ui/modal.js';
 import { loadComplexDemo, loadComplexDemo10, loadComplexDemo11, loadComplexDemo12, loadComplexDemo2, loadComplexDemo3, loadComplexDemo4, loadComplexDemo5, loadComplexDemo6, loadComplexDemo7, loadComplexDemo8, loadComplexDemo9, loadDemoProcess } from './ejemplos.js';
@@ -23,10 +24,11 @@ function openExamplesModal() {
     { fn: loadComplexDemo11, t: '★ Crédito PYME — showcase (Banca)', d: 'TODOS los elementos BPMN: doc ▤ + data ▱ + XOR/AND/OR + señal ▲ + terminación ⬤ + timer ⏱ + 3 marcadores · 9 actores, 27 nodos' },
     { fn: loadComplexDemo12, t: 'Fulfillment E-commerce SLA (Retail)', d: 'Eventos de borde ◎ (boundary timer no-interrumpente) para escalamiento por SLA · 6 actores' }
   ];
-  const html = `<p class="panel-hint">Elige un proceso de ejemplo pre-cargado (con pains, KPIs y simulación) para explorar las capacidades.</p>
+  // Los ejemplos (nombres, descripciones y procesos) no se traducen: solo el diálogo
+  const html = `<p class="panel-hint">${tr('ejemplos.intro')}</p>
       <div class="examples-list">${examples.map((e, i) =>
         `<button class="example-item" data-ex="${i}"><span class="example-t">${e.t}</span><span class="example-d">${e.d}</span></button>`).join('')}</div>`;
-  openModal('Procesos de ejemplo', html, () => {});
+  openModal(tr('ejemplos.titulo'), html, () => {});
   setTimeout(() => {
     document.querySelectorAll('.example-item').forEach(b => b.addEventListener('click', () => {
       examples[+b.dataset.ex].fn();

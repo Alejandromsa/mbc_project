@@ -2,6 +2,7 @@
 import { $ } from '../dom.js';
 import { SHAPE_DEFAULTS, state } from '../estado.js';
 import { autoLayout } from '../layout/auto-layout.js';
+import { ayudaEjecucion, tr } from '../i18n.js';
 import { getNode } from '../lienzo/interaccion.js';
 import { render } from '../lienzo/render.js';
 import { persist } from '../persistencia.js';
@@ -187,20 +188,20 @@ function showLabelHint(value) {
   if (v.length > 50 || words > 8) {
     hint.hidden = false;
     hint.className = 'field-hint warn';
-    hint.textContent = `Demasiado larga (${v.length} car, ${words} pal). Máx 50 car / 8 palabras — considera descomponer.`;
+    hint.textContent = tr('props.larga', { car: v.length, pal: words });
     return;
   }
 
   if (!isAllowed) {
     hint.hidden = false;
     hint.className = 'field-hint warn';
-    hint.textContent = `"${firstWord}" no está en el catálogo MBB. Prefiere: registrar, validar, aprobar, escalar, notificar, calcular…`;
+    hint.textContent = tr('props.fueraCatalogo', { verbo: firstWord });
     return;
   }
 
   hint.hidden = false;
   hint.className = 'field-hint ok';
-  hint.textContent = 'Naming OK · verbo permitido + longitud adecuada';
+  hint.textContent = tr('props.namingOk');
 }
 
 function showExecHint(value) {
@@ -211,7 +212,7 @@ function showExecHint(value) {
   if (!t) { hint.hidden = true; return; }
   hint.hidden = false;
   hint.className = 'field-hint info';
-  hint.textContent = t.desc;
+  hint.textContent = ayudaEjecucion(t);
 }
 
 function renderProperties() {

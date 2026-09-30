@@ -2,6 +2,7 @@
 import { copilotPost } from '../copiloto/copiloto.js';
 import { $ } from '../dom.js';
 import { state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { persist } from '../persistencia.js';
 import { openModal } from '../ui/modal.js';
 import { escapeHtml } from '../util.js';
@@ -25,7 +26,7 @@ function renderKpiLibrary() {
     return okInd && okQ;
   });
   if (filtered.length === 0) {
-    list.innerHTML = '<div class="panel-hint">Sin coincidencias.</div>';
+    list.innerHTML = '<div class="panel-hint">' + tr('kpis.sinCoincidencias') + '</div>';
     return;
   }
   filtered.forEach(k => {
@@ -37,13 +38,13 @@ function renderKpiLibrary() {
           <span class="kpi-tag">${escapeHtml(k.industry)}</span>
           <span class="kpi-tag">${escapeHtml(k.macroprocess)}</span>
         </div>
-        <div class="kpi-bench">Benchmark: ${escapeHtml(k.benchmark)}</div>
+        <div class="kpi-bench">${tr('kpis.benchmark', { valor: escapeHtml(k.benchmark) })}</div>
         <div class="kpi-desc">${escapeHtml(k.description)}</div>`;
     // KPI status badge si ya fue capturado
     state._kpiValues = state._kpiValues || {};
     const captured = state._kpiValues[k.id];
     if (captured) {
-      card.innerHTML += `<div style="margin-top:6px;padding:4px 8px;background:#FFF3E0;border-radius:3px;font-size:11px;color:#E65100"><strong>Valor actual:</strong> ${escapeHtml(captured.value)} · <strong>Gap:</strong> ${escapeHtml(captured.gap || '—')}</div>`;
+      card.innerHTML += `<div style="margin-top:6px;padding:4px 8px;background:#FFF3E0;border-radius:3px;font-size:11px;color:#E65100"><strong>${tr('kpis.valorActual')}</strong> ${escapeHtml(captured.value)} · <strong>${tr('kpis.gap')}</strong> ${escapeHtml(captured.gap || '—')}</div>`;
     }
     card.addEventListener('click', () => {
       openKpiCaptureModal(k);
@@ -60,20 +61,20 @@ function openKpiCaptureModal(k) {
       <div style="margin-bottom:10px"><strong>${escapeHtml(k.name)}</strong> <span style="color:#7A7A7A">(${escapeHtml(k.unit)})</span></div>
       <div style="background:#F8F8F8;padding:10px;border-radius:4px;margin-bottom:12px;font-size:12px">
         ${escapeHtml(k.description)}
-        <div style="margin-top:6px;color:#5B4FCF;font-weight:600">Benchmark sectorial: ${escapeHtml(k.benchmark)}</div>
+        <div style="margin-top:6px;color:#5B4FCF;font-weight:600">${tr('kpis.benchmarkSectorial', { valor: escapeHtml(k.benchmark) })}</div>
       </div>
-      <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:600">Valor actual del cliente
-        <input type="text" id="kpiActualValue" value="${escapeHtml(current.value || '')}" placeholder="ej. 6.2" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:3px;margin-top:3px" />
+      <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:600">${tr('kpis.valorCliente')}
+        <input type="text" id="kpiActualValue" value="${escapeHtml(current.value || '')}" placeholder="${tr('kpis.valorEjemplo')}" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:3px;margin-top:3px" />
       </label>
-      <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:600">Gap vs benchmark (calculado o manual)
-        <input type="text" id="kpiGap" value="${escapeHtml(current.gap || '')}" placeholder="ej. -2.2 pp (por encima del benchmark)" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:3px;margin-top:3px" />
+      <label style="display:block;margin-bottom:8px;font-size:12px;font-weight:600">${tr('kpis.gapBenchmark')}
+        <input type="text" id="kpiGap" value="${escapeHtml(current.gap || '')}" placeholder="${tr('kpis.gapEjemplo')}" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:3px;margin-top:3px" />
       </label>
-      <label style="display:block;font-size:12px;font-weight:600">Fuente del dato
-        <input type="text" id="kpiSource" value="${escapeHtml(current.source || '')}" placeholder="ej. Dashboard SBS, reporte interno BO 04/2026" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:3px;margin-top:3px" />
+      <label style="display:block;font-size:12px;font-weight:600">${tr('kpis.fuente')}
+        <input type="text" id="kpiSource" value="${escapeHtml(current.source || '')}" placeholder="${tr('kpis.fuenteEjemplo')}" style="width:100%;padding:7px;border:1px solid #ddd;border-radius:3px;margin-top:3px" />
       </label>
-      <p class="panel-hint" style="margin-top:10px">Los KPIs capturados aparecen en el slide PPTX con su gap. El gap se calcula automáticamente si valor y benchmark son numéricos.</p>`;
+      <p class="panel-hint" style="margin-top:10px">${tr('kpis.capturadosPista')}</p>`;
 
-  openModal('Capturar valor actual · KPI', html, () => {
+  openModal(tr('kpis.capturarTitulo'), html, () => {
     const v = $('#kpiActualValue').value.trim();
     let g = $('#kpiGap').value.trim();
     const src = $('#kpiSource').value.trim();
@@ -94,7 +95,7 @@ function openKpiCaptureModal(k) {
     }
     persist();
     renderKpiLibrary();
-    copilotPost('ai', `KPI capturado: **${k.name}** = ${v || '—'} (gap ${g || '—'}). Se incluirá en el slide de KPIs del PPTX.`);
+    copilotPost('ai', tr('kpis.capturado', { kpi: k.name, valor: v || '—', gap: g || '—' }));
   });
 }
 

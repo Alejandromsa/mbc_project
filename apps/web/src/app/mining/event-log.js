@@ -3,6 +3,7 @@ import { EVENT_LOG_MUESTRA, descubrirProceso, parseCsv } from '@processiq/mining
 import { copilotPost } from '../copiloto/copiloto.js';
 import { $ } from '../dom.js';
 import { SHAPE_DEFAULTS, state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { maybeFitOnLoad } from '../lienzo/zoom.js';
 import { activateTab } from '../paneles/cajon.js';
@@ -32,7 +33,7 @@ function previewCsv(parsed) {
   const sample = parsed.rows.slice(0, 6);
   let txt = parsed.headers.join(' | ') + '\n' + '-'.repeat(60) + '\n';
   sample.forEach(r => { txt += parsed.headers.map(h => r[h]).join(' | ') + '\n'; });
-  txt += `\n(${parsed.rows.length} filas totales)`;
+  txt += tr('mineria.filas', { n: parsed.rows.length });
   preview.textContent = txt;
 
   // Llena mapping selects
@@ -40,7 +41,7 @@ function previewCsv(parsed) {
   ['mapCase', 'mapAct', 'mapTs', 'mapRes'].forEach(id => {
     const sel = $('#' + id);
     sel.innerHTML = '';
-    if (id === 'mapRes') sel.insertAdjacentHTML('beforeend', '<option value="">(ninguna)</option>');
+    if (id === 'mapRes') sel.insertAdjacentHTML('beforeend', '<option value="">' + tr('mineria.ninguna') + '</option>');
     parsed.headers.forEach(h => sel.insertAdjacentHTML('beforeend', `<option value="${h}">${h}</option>`));
   });
   $('#mapCase').value = guess(['case', 'id']);
@@ -68,14 +69,10 @@ function buildProcessFromEventLog(parsed, map) {
   maybeFitOnLoad();   // encuadra el proceso descubierto si desborda la pantalla
 
   activateTab('copilot');
-  copilotPost('ai',
-    `**Process discovery completado** desde event log.\n\n` +
-    `• **${r.totalCasos} casos** analizados\n` +
-    `• **${r.actividades} actividades únicas** detectadas\n` +
-    `• **${r.transiciones} transiciones** descubiertas (mostrando las más frecuentes)\n` +
-    `• Top inicio: *${r.topInicio || '—'}*\n` +
-    `• Top fin: *${r.topFin || '—'}*\n\n` +
-    `El número en cada conexión = frecuencia observada. Las actividades con alta frecuencia que reaparecen son indicio de **reprocesos** (pain candidato).`);
+  copilotPost('ai', tr('mineria.completado', {
+    casos: r.totalCasos, actividades: r.actividades, transiciones: r.transiciones,
+    inicio: r.topInicio || '—', fin: r.topFin || '—'
+  }));
 }
 
 export { buildProcessFromEventLog, handleCsvFile, loadCsvSample };

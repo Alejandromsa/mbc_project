@@ -2,6 +2,7 @@
 import { medirCalidad } from '@processiq/motor';
 import { copilotPost } from '../copiloto/copiloto.js';
 import { state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { astReset, invalidarRutas, smartEdgePath } from './ruteo.js';
 import { maybeFitOnLoad } from './zoom.js';
@@ -22,7 +23,7 @@ function diagramQuality() {
 // Prueba variantes de disposición y se queda con la mejor
 function autoFitDiagram(opts) {
   opts = opts || {};
-  if (state.nodes.length === 0) { if (!opts.silent) alert('No hay diagrama que ajustar.'); return null; }
+  if (state.nodes.length === 0) { if (!opts.silent) alert(tr('autoajuste.sinDiagrama')); return null; }
   const variantes = [undefined, true, false];   // wrap: auto / forzado / desactivado
   let mejor = null;
   variantes.forEach(w => {
@@ -39,11 +40,11 @@ function autoFitDiagram(opts) {
     const L = state._lanes || {};
     const limpio = (q.sobreCajas === 0 && q.cruces === 0);
     copilotPost('ai',
-      `**Diagrama autoajustado.**\n\n` +
+      tr('autoajuste.titulo') +
       (limpio
-        ? `Sin flechas sobre cajas ni cruces. Disposición: ${L.wrap ? `${L.bands} bandas de hasta ${L.wrapAt} columnas` : 'una sola banda'}, ${(L.list || []).length} carriles.\n\n`
-        : `Quedan **${q.sobreCajas} flecha(s) sobre cajas** y **${q.cruces} cruce(s)**; es la mejor de ${variantes.length} disposiciones probadas. Suele deberse a varias ramas que apuntan al mismo nodo final.\n\n`) +
-      `Tamaño: ${q.ancho} × ${q.alto} px. Pulsa **deshacer** (Ctrl+Z) si prefieres la disposición anterior.`);
+        ? tr('autoajuste.limpio', { disposicion: L.wrap ? tr('autoajuste.bandas', { bandas: L.bands, columnas: L.wrapAt }) : tr('autoajuste.unaBanda'), carriles: (L.list || []).length })
+        : tr('autoajuste.defectos', { sobreCajas: q.sobreCajas, cruces: q.cruces, variantes: variantes.length })) +
+      tr('autoajuste.tamano', { ancho: q.ancho, alto: q.alto }));
   }
   return q;
 }
