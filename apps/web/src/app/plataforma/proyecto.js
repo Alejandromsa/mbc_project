@@ -423,6 +423,7 @@ function activarPresencia() {
     base: () => ctx.base,
     ultima: () => ctx.ultima,
     alRevisionNueva: (r) => { ctx.ultima = { id: r.id, numero: r.numero }; pintarBarra(); },
+    alEstadoBase: (estado) => { if (ctx.base) { ctx.base.estado = estado; pintarBarra(); } },
     cargarRevision,
     avisar,
     preguntar

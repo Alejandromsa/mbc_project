@@ -29,6 +29,14 @@ function colorDe(usuarioId) {
   return h % COLORES;
 }
 
+/** « (v3)» o « (v3, versión anterior)», como en la página del proceso del shell; vacío si solo está en el shell. */
+function versionesAbiertas(p) {
+  const lista = Array.isArray(p.revisiones) ? p.revisiones : [];
+  if (!lista.length) return '';
+  const versiones = lista.map((r) => tr(r.ultima ? 'colab.versionAbierta' : 'colab.versionAnterior', { n: r.numero })).join(' · ');
+  return ' ' + tr('colab.enVersion', { versiones });
+}
+
 /** «Ana», «Ana y Luis», «Ana y 2 más». */
 function enumerar(personas) {
   const n = personas.map((p) => nombreCorto(p.nombre));
@@ -40,7 +48,8 @@ function enumerar(personas) {
 /**
  * o: {
  *   procesoId, contenedor (elemento de la barra para los avatares),
- *   sucio(), guardando(), base() -> { id, numero } | null, ultima() -> { id, numero } | null,
+ *   sucio(), guardando(), base() -> { id, numero, estado } | null, ultima() -> { id, numero } | null,
+ *   alEstadoBase(estado)  cambió el estado de la revisión abierta (evento `estado` del SSE),
  *   alRevisionNueva(revision)  la barra pasa a decir «la última es la vN»,
  *   cargarRevision(id, descartar)  abre esa revisión (descartar = borra antes el borrador local),
  *   avisar(tipo, texto, detalles, enlace, acciones) -> cerrar,  preguntar({ titulo, texto, si, no }) -> boolean
@@ -71,6 +80,13 @@ export function activarColaboracion(o) {
     alRevision(revision) {
       ultimaRecibida = revision;
       revisar();
+    },
+    // Estado de todas las revisiones: si cambió el de la abierta (enviada a revisión, aprobada,
+    // devuelta), la barra lo dice al momento
+    alEstado(revisiones) {
+      const base = o.base();
+      const suya = base && (revisiones || []).find((r) => r.id === base.id);
+      if (suya && suya.estado !== base.estado && o.alEstadoBase) o.alEstadoBase(suya.estado);
     }
   });
 
@@ -135,7 +151,7 @@ export function activarColaboracion(o) {
       li.className = `piq-avatar piq-avatar-c${colorDe(p.usuarioId)}`;
       if (p.estado === 'editando') li.classList.add('piq-avatar-editando');
       li.textContent = iniciales(p.nombre);
-      li.title = tr(p.estado === 'editando' ? 'colab.editandoEn' : 'colab.viendoEn', { nombre: p.nombre, donde: dondeEsta(p) });
+      li.title = tr(p.estado === 'editando' ? 'colab.editandoEn' : 'colab.viendoEn', { nombre: p.nombre, donde: dondeEsta(p) }) + versionesAbiertas(p);
       li.setAttribute('aria-label', li.title);
       lista.appendChild(li);
     });
