@@ -36,7 +36,7 @@ Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 |---|---|---|---|---|---|
 | Fronteras | Node | [herramientas/fronteras.mjs](../../herramientas/fronteras.mjs) | 1 comprobación (9 paquetes), con 10 casos de ejemplo del extractor de imports | Nada | Segundos |
 | Tipos | `tsc --noEmit` | Cada paquete y app | — | Nada | — |
-| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 149 | Nada | Segundos |
+| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 151 | Nada | Segundos |
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
 | Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 132 | Postgres de desarrollo | — |
 | Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 39 | Web construida, Chromium, internet | ~2,5 min |
