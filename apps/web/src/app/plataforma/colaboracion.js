@@ -22,6 +22,14 @@ function dondeEsta(p) {
 const MAX_AVATARES = 4;
 const COLORES = 5;
 
+/** « (v3)» o « (v2, versión anterior)»: las revisiones que la persona tiene abiertas en el editor. */
+function versionesDe(p) {
+  const abiertas = Array.isArray(p.revisiones) ? p.revisiones : [];
+  if (!abiertas.length) return '';
+  const lista = abiertas.map((r) => (r.ultima ? `v${r.numero}` : tr('colab.versionAnterior', { n: r.numero }))).join(', ');
+  return tr('colab.versiones', { lista });
+}
+
 /** Color estable por persona (la clase piq-avatar-cN). */
 function colorDe(usuarioId) {
   let h = 0;
@@ -143,7 +151,7 @@ export function activarColaboracion(o) {
       li.className = `piq-avatar piq-avatar-c${colorDe(p.usuarioId)}`;
       if (p.estado === 'editando') li.classList.add('piq-avatar-editando');
       li.textContent = iniciales(p.nombre);
-      li.title = tr(p.estado === 'editando' ? 'colab.editandoEn' : 'colab.viendoEn', { nombre: p.nombre, donde: dondeEsta(p) });
+      li.title = tr(p.estado === 'editando' ? 'colab.editandoEn' : 'colab.viendoEn', { nombre: p.nombre, donde: dondeEsta(p) }) + versionesDe(p);
       li.setAttribute('aria-label', li.title);
       lista.appendChild(li);
     });
