@@ -36,11 +36,11 @@ Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 |---|---|---|---|---|---|
 | Fronteras | Node | [herramientas/fronteras.mjs](../../herramientas/fronteras.mjs) | 1 comprobación (9 paquetes), con 10 casos de ejemplo del extractor de imports | Nada | Segundos |
 | Tipos | `tsc --noEmit` | Cada paquete y app | — | Nada | — |
-| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 116 | Nada | Segundos |
+| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 141 | Nada | Segundos |
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
-| Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 117 | Postgres de desarrollo | — |
+| Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 132 | Postgres de desarrollo | — |
 | Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 37 | Web construida, Chromium, internet | ~2,5 min |
-| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 41 | Web construida, Chromium, Postgres de desarrollo | ~5 min |
+| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 49 | Web construida, Chromium, Postgres de desarrollo | ~6 min |
 | Imágenes | `docker compose build` | [infra/](../../infra) | — | Docker | — |
 | Banco de calidad | Consola del navegador | [bench/](../../bench/README.md) | Manual | Procesos reales fuera del repositorio | — |
 

@@ -751,6 +751,8 @@ export const en = {
   'colab.tambien': 'Also have this process open',
   'colab.editandoEn': '{nombre}: editing {donde}',
   'colab.viendoEn': '{nombre}: viewing {donde}',
+  'colab.versiones': ' ({lista})',
+  'colab.versionAnterior': 'v{n}, earlier version',
   'colab.estaEditando': '{quien} is editing',
   'colab.estanEditando': '{quien} are editing',
   'colab.estaEditandoTambien': '{quien} is also editing',

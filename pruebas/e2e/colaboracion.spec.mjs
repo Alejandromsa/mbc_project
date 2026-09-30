@@ -70,7 +70,8 @@ test('dos navegadores se ven, saben quién edita y, cuando uno guarda, el otro c
 
   // Cada uno ve al otro, no a sí mismo; la propietaria cuenta una vez aunque tenga dos pestañas
   await expect(avatares(page)).toHaveText(['PP']);
-  await expect(avatares(page)).toHaveAttribute('title', 'Propietario de Prueba: viendo en el editor y en la página del proceso');
+  // El título dice también qué versión tiene abierta en el editor
+  await expect(avatares(page)).toHaveAttribute('title', 'Propietario de Prueba: viendo en el editor y en la página del proceso (v3)');
   await expect(avatares(editorB)).toHaveText(['EP']);
   await expect(editando(page)).toHaveCount(0);
 

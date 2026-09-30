@@ -131,6 +131,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22s. **La prueba de humo pasó contra la versión anterior de staging.** Lancé el sondeo a mano justo cuando la tarea programada ya estaba desplegando: el mío respondió «otro sondeo en curso» y la prueba de humo corrió enseguida contra lo que aún había, no contra la versión nueva.
     → **Regla:** antes de la prueba de humo, comprobar la versión de staging (`infra/sondear-main.sh --estado`) y esperar a que no haya cerrojo. La prueba vale para la versión que se va a promover, no para «lo que haya».
 
+22w. **Una E2E pasaba en el PC y fallaba en la CI esperando una descarga.** El editor cierra el menú «Exportar» al terminar cada exportación; a veces lo hacía justo después de que la prueba lo reabriera, y el clic se quedaba esperando una opción ya invisible. Primero le di más tiempo a la prueba, pero eso no lo arreglaba: con `--repeat-each` fallaba también en local.
+    → **Regla:** si una E2E falla solo en la CI, descargar el artefacto (`gh run download`) y leer la traza antes de tocar tiempos. Las acciones sobre menús que se abren y cierran solos van dentro del mismo reintento (`expect(…).toPass`), abrir y pulsar juntos. Antes de dar por buena una prueba de interfaz, ejecutarla con `--repeat-each`.
+
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 

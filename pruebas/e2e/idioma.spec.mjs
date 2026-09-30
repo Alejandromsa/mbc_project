@@ -30,7 +30,8 @@ test('el shell se usa en inglés y vuelve a español; la preferencia persiste y 
   await idioma.getByRole('button', { name: 'English' }).click();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByText('Sign in with your account to work on your team’s projects.')).toBeVisible();
-  await expect(page.getByRole('link', { name: 'use the editor without an account' })).toHaveAttribute('title', /editor opens in Spanish/);
+  // El editor ya está en inglés: los enlaces no avisan de que abre en español
+  await expect(page.getByRole('link', { name: 'use the editor without an account' })).not.toHaveAttribute('title', /Spanish/);
   expect(await page.evaluate(() => localStorage.getItem('processiq.idioma'))).toBe('en');
   // La otra pestaña lo sigue sin recargar
   await expect(otra.getByRole('button', { name: 'Sign in' })).toBeVisible();
@@ -52,7 +53,7 @@ test('el shell se usa en inglés y vuelve a español; la preferencia persiste y 
   await expect(page.locator('.usuario-nombre small')).toHaveText('Administrator');
   await expect(menu(page).getByRole('link', { name: 'Portfolio' })).toBeVisible();
   await expect(menu(page).getByRole('link', { name: 'Knowledge' })).toBeVisible();
-  await expect(menu(page).getByRole('link', { name: 'Standalone editor' })).toHaveAttribute('title', /The editor is in Spanish/);
+  await expect(menu(page).getByRole('link', { name: 'Standalone editor' })).toHaveAttribute('title', 'The editor without a project (work is saved in this browser).');
   await expect(page.getByRole('link', { name: /Siniestros — Seguros Andinos/ })).toContainText(fechaEnIngles);
   await expect(page.getByRole('link', { name: /Siniestros — Seguros Andinos/ })).toContainText('Owner');
   await menu(page).getByText('Admin', { exact: true }).click();
@@ -67,7 +68,7 @@ test('el shell se usa en inglés y vuelve a español; la preferencia persiste y 
   await expect(page.getByRole('heading', { name: 'Members', level: 2 })).toBeVisible();
   const fila = page.getByRole('row', { name: /Gestión de siniestros/ });
   await expect(fila).toContainText('v3 Draft');
-  await expect(fila.getByRole('link', { name: 'Open in editor' })).toHaveAttribute('title', /editor opens in Spanish/);
+  await expect(fila.getByRole('link', { name: 'Open in editor' })).not.toHaveAttribute('title', /Spanish/);
   await page.getByRole('button', { name: 'New process' }).click();
   const dialogo = page.getByRole('dialog', { name: 'New process' });
   await expect(dialogo.getByLabel('Start from')).toContainText('An empty process');
