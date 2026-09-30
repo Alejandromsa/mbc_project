@@ -14,13 +14,15 @@
 // - una barra sobre el lienzo dice qué se está editando y si hay cambios sin guardar.
 import { CLAVES_EFIMERAS, migrarProyecto } from '@processiq/dominio';
 import { api, ErrorApi } from '../../shell/api';
-import { ESTADOS, ROLES_PROYECTO, fecha } from '../../shell/formato';
+import { fecha as fechaEnIdioma, textosDominio } from '../../shell/formato';
+import { mensajeDeError } from '../../shell/mensajes';
 import { capturarErrores } from '../../shell/observabilidad';
 import { puede } from '../../shell/permisos';
 import { alCambiar } from '../cambios.js';
 import { $ } from '../dom.js';
 import { normalizeFicha, state, usarClaveAlmacen } from '../estado.js';
 import { resetHistory } from '../historial.js';
+import { alCambiarIdioma, idioma, traducirDe, tr } from '../i18n.js';
 import { updateAiUi } from '../ia/ajustes.js';
 import { buildProcessFromAiSpec } from '../ia/generacion.js';
 import { usarIaRemota } from '../ia/remota.js';
@@ -30,12 +32,22 @@ import { render } from '../lienzo/render.js';
 import { maybeFitOnLoad } from '../lienzo/zoom.js';
 import { renderProperties } from '../paneles/propiedades.js';
 import { persist } from '../persistencia.js';
+import { ETIQUETAS_FUENTE_EN } from '../textos/en.js';
 import { runLinter } from '../validacion/lint.js';
 import { updateViewUi } from '../vistas/comparador.js';
 import './barra.css';
 import { aplicarCatalogos } from './catalogos.js';
 import { activarColaboracion } from './colaboracion.js';
 import { crearIaRemota } from './ia.js';
+
+// Fechas, estados y roles en el idioma del editor (en español, los de siempre)
+const fecha = (iso) => fechaEnIdioma(iso, idioma());
+const estadoDe = (e) => textosDominio(idioma()).estados[e] || e;
+const rolDe = (r) => textosDominio(idioma()).rolesProyecto[r] || r;
+/** El mensaje de un error de la API: en español, el de siempre; en inglés, su traducción si se conoce. */
+const mensajeError = (e, porDefecto) => (idioma() === 'es' ? ((e && e.message) || porDefecto) : mensajeDeError(e, 'en', porDefecto));
+/** Etiqueta de la fuente de una generación (dato en español), para mostrarla. */
+const etiquetaVisible = (etiqueta) => traducirDe(ETIQUETAS_FUENTE_EN, etiqueta);
 
 const parametros = new URLSearchParams(location.search);
 const pedidoRevision = parametros.get('revision');
@@ -234,7 +246,7 @@ async function abrir() {
     try {
       aplicarCatalogos(await api.catalogos());
     } catch {
-      avisar('atencion', 'No se pudieron cargar los catálogos de la organización: se usan los de por defecto.');
+      avisar('atencion', tr('proyecto.sinCatalogos'));
     }
     Object.assign(ctx, {
       proceso: datos.proceso, proyecto, rol: datos.rol,
@@ -253,14 +265,14 @@ async function abrir() {
     if (borrador && infoBase && huellaDe(borrador) !== infoBase.huella) {
       const deOtra = infoBase.revisionId !== (revision ? revision.id : null);
       const suya = datos.revisiones.find((r) => r.id === infoBase.revisionId) || null;
-      const nombreSuya = suya ? `la v${suya.numero}` : 'el proceso vacío';
+      const nombreSuya = suya ? tr('proyecto.laVersion', { n: suya.numero }) : tr('proyecto.procesoVacio');
       recuperado = await preguntar({
-        titulo: 'Tienes cambios sin guardar',
+        titulo: tr('proyecto.tienesCambios'),
         texto: deOtra
-          ? `En este navegador hay cambios sobre ${nombreSuya} de este proceso que no se guardaron en el proyecto (último cambio: ${fecha(borrador.savedAt)}). Si abres ${revision ? `la v${revision.numero}` : 'esta versión'}, se perderán.`
-          : `En este navegador hay cambios sobre esta versión que no se guardaron en el proyecto (último cambio: ${fecha(borrador.savedAt)}).`,
-        si: deOtra ? `Seguir con mis cambios sobre ${nombreSuya}` : 'Recuperar mis cambios',
-        no: 'Descartarlos'
+          ? tr('proyecto.borradorOtra', { version: nombreSuya, fecha: fecha(borrador.savedAt), abres: revision ? tr('proyecto.laVersion', { n: revision.numero }) : tr('proyecto.estaVersion') })
+          : tr('proyecto.borradorMisma', { fecha: fecha(borrador.savedAt) }),
+        si: deOtra ? tr('proyecto.seguirConMios', { version: nombreSuya }) : tr('proyecto.recuperar'),
+        no: tr('proyecto.descartarlos')
       });
       if (recuperado) {
         contenido = borrador;
@@ -301,8 +313,8 @@ function errorAlAbrir(e) {
   if (e instanceof ErrorApi && e.estado === 401) { location.assign(volverA('/proyectos/entrar')); return; }
   if (e instanceof ErrorApi && e.codigo === 'CAMBIAR_CLAVE') { location.assign(volverA('/proyectos/clave')); return; }
   const mensaje = e instanceof ErrorApi && e.estado === 404
-    ? 'No se encontró ese proceso o no tienes acceso a él.'
-    : (e && e.message) || 'No se pudo abrir el proceso.';
+    ? tr('proyecto.noEncontrado')
+    : mensajeError(e, tr('proyecto.noAbierto'));
   pintarBarra({ error: mensaje });
 }
 
@@ -334,8 +346,8 @@ function puedeGuardar() {
 }
 
 function motivoSoloLectura() {
-  if (ctx.proyecto && ctx.proyecto.archivado) return 'El proyecto está archivado: puedes ver el proceso, pero no guardar cambios.';
-  return `Tu rol en el proyecto (${ROLES_PROYECTO[ctx.rol] || ctx.rol}) no permite guardar revisiones: los cambios que hagas aquí no se guardarán en el proyecto.`;
+  if (ctx.proyecto && ctx.proyecto.archivado) return tr('proyecto.archivado');
+  return tr('proyecto.rolSinGuardar', { rol: rolDe(ctx.rol) });
 }
 
 async function guardar() {
@@ -345,7 +357,7 @@ async function guardar() {
   const mensaje = await pedirMensaje({
     siguiente: (ctx.ultima ? ctx.ultima.numero : 0) + 1,
     aviso: noEsLaUltima
-      ? `Estás trabajando sobre la v${partida.numero}, pero la última es la v${ctx.ultima.numero}: la versión nueva no incluirá los cambios de la v${ctx.ultima.numero}.`
+      ? tr('proyecto.noEsLaUltima', { base: partida.numero, ultima: ctx.ultima.numero })
       : ''
   });
   if (mensaje === null) return;
@@ -363,7 +375,7 @@ async function guardarContenido(mensaje, ejecucionIaId = null) {
   const contenido = normalizado(snapshotDelEstado());
   if (!contenido) {
     const r = migrarProyecto(contenidoDe(snapshotDelEstado()));
-    avisar('error', 'El proceso tiene errores y no se puede guardar:', r.ok ? [] : r.errores);
+    avisar('error', tr('proyecto.conErrores'), r.ok ? [] : r.errores);
     return;
   }
   ctx.guardando = true;
@@ -377,17 +389,17 @@ async function guardarContenido(mensaje, ejecucionIaId = null) {
     ctx.huellaGuardada = hash(JSON.stringify(contenido));
     escribir(claveBorrador(ctx.proceso.id) + '.base', { revisionId: ctx.base.id, huella: ctx.huellaGuardada });
     history.replaceState(null, '', `/?revision=${encodeURIComponent(res.revision.id)}`);
-    const que = ejecucionIaId ? 'Proceso generado con IA y guardado' : 'Guardada';
+    const que = ejecucionIaId ? tr('proyecto.guardadaIa') : tr('proyecto.guardada');
     if (res.conflicto) {
-      avisar('atencion', `${que} como v${res.revision.numero}. Mientras trabajabas, alguien guardó la v${res.ultimaAnterior ? res.ultimaAnterior.numero : '?'}: esta versión no incluye esos cambios. Revisa las dos en el proyecto.`);
+      avisar('atencion', tr('proyecto.conflicto', { que, n: res.revision.numero, otra: res.ultimaAnterior ? res.ultimaAnterior.numero : '?' }));
     } else {
-      avisar('ok', `${que} como v${res.revision.numero} (borrador).`);
+      avisar('ok', tr('proyecto.guardadaComo', { que, n: res.revision.numero }));
     }
   } catch (e) {
     if (e instanceof ErrorApi && (e.estado === 401 || e.codigo === 'CAMBIAR_CLAVE')) {
-      avisar('error', 'Tu sesión caducó. Tus cambios siguen guardados en este navegador: entra de nuevo y vuelve a pulsar «Guardar revisión».', [], { texto: 'Entrar', href: volverA('/proyectos/entrar') });
+      avisar('error', tr('proyecto.sesionCaducada'), [], { texto: tr('proyecto.entrar'), href: volverA('/proyectos/entrar') });
     } else {
-      avisar('error', (e && e.message) || 'No se pudo guardar.', e instanceof ErrorApi && Array.isArray(e.detalles) ? e.detalles : []);
+      avisar('error', mensajeError(e, tr('proyecto.noGuardado')), e instanceof ErrorApi && Array.isArray(e.detalles) ? e.detalles : []);
     }
   } finally {
     ctx.guardando = false;
@@ -439,10 +451,10 @@ async function activarIa() {
   usarIaRemota(crearIaRemota({
     procesoId: ctx.proceso.id,
     estado,
-    soloLectura: puedeGuardar() ? '' : 'Tu rol o el estado del proyecto no permiten usar la IA aquí.',
+    soloLectura: puedeGuardar() ? '' : tr('proyecto.iaSoloLectura'),
     contenidoActual: () => normalizado(snapshotDelEstado()) || contenidoDe(snapshotDelEstado()),
     // Tras dibujar lo generado (el resto de la ingesta es síncrono), se guarda como revisión
-    alGenerar: (ejecucionId, etiqueta) => { setTimeout(() => { guardarContenido(`Proceso generado con IA desde ${etiqueta}`, ejecucionId); }, 0); },
+    alGenerar: (ejecucionId, etiqueta) => { setTimeout(() => { guardarContenido(tr('proyecto.mensajeIa', { etiqueta: etiquetaVisible(etiqueta) }), ejecucionId); }, 0); },
     avisar
   }));
   updateAiUi();
@@ -457,17 +469,17 @@ async function ofrecerGeneracionPendiente() {
   if (!e || !e.resultado) return;
   const etiqueta = (e.parametros && e.parametros.etiqueta) || 'documento';
   const dibujar = await preguntar({
-    titulo: 'Hay un proceso generado con IA sin guardar',
-    texto: `El ${fecha(e.terminadoEn)} la IA generó este proceso desde «${etiqueta}», pero no llegó a guardarse en el proyecto (se cerró la pestaña antes). ¿Lo dibujamos ahora? Se guardará como una versión nueva; las anteriores no cambian.`,
-    si: 'Dibujarlo y guardarlo',
-    no: 'Descartarlo'
+    titulo: tr('proyecto.pendienteTitulo'),
+    texto: tr('proyecto.pendienteTexto', { fecha: fecha(e.terminadoEn), etiqueta: etiquetaVisible(etiqueta) }),
+    si: tr('proyecto.dibujarlo'),
+    no: tr('proyecto.descartarlo')
   });
   if (!dibujar) { await api.descartarIa(e.id).catch(() => {}); return; }
   buildProcessFromAiSpec(e.resultado, etiqueta);
   const vista = Number(e.parametros && e.parametros.vista) || 3;
   if (vista < 3) aplicarNivel(vista, { silent: true });
   maybeFitOnLoad();
-  await guardarContenido(`Proceso generado con IA desde ${etiqueta}`, e.id);
+  await guardarContenido(tr('proyecto.mensajeIa', { etiqueta: etiquetaVisible(etiqueta) }), e.id);
 }
 
 // =================== Barra, avisos y diálogos ===================
@@ -480,16 +492,15 @@ function crearBarra() {
   barra = document.createElement('div');
   barra.className = 'piq-proyecto';
   barra.setAttribute('role', 'region');
-  barra.setAttribute('aria-label', 'Proceso del proyecto');
   barra.innerHTML = `
-    <a class="piq-proyecto-volver" data-ref="volver" href="/proyectos/" title="Volver al proyecto" aria-label="Volver al proyecto">←</a>
+    <a class="piq-proyecto-volver" data-ref="volver" href="/proyectos/">←</a>
     <div class="piq-proyecto-texto">
       <span class="piq-proyecto-ruta" data-ref="ruta"></span>
       <span class="piq-proyecto-detalle" data-ref="detalle"></span>
     </div>
     <div class="piq-presencia" data-ref="presencia" hidden></div>
-    <span class="piq-proyecto-cambios" data-ref="cambios" hidden>Cambios sin guardar</span>
-    <button type="button" class="piq-proyecto-guardar" data-ref="guardar" hidden title="Crea una versión nueva en el proyecto (Ctrl+S)">Guardar revisión</button>`;
+    <span class="piq-proyecto-cambios" data-ref="cambios" hidden></span>
+    <button type="button" class="piq-proyecto-guardar" data-ref="guardar" hidden></button>`;
   barra.querySelector('[data-ref="guardar"]').addEventListener('click', () => guardar());
   avisoEl = document.createElement('div');
   avisoEl.className = 'piq-proyecto-aviso';
@@ -502,9 +513,16 @@ function pintarBarra(opciones = {}) {
   if (!barra) crearBarra();
   const ref = (n) => barra.querySelector(`[data-ref="${n}"]`);
   const ruta = ref('ruta'), detalle = ref('detalle'), cambios = ref('cambios'), boton = ref('guardar'), volver = ref('volver');
+  // Textos fijos de la barra, en el idioma actual (se repinta al cambiarlo)
+  barra.setAttribute('aria-label', tr('barra.aria'));
+  volver.title = tr('barra.volver');
+  volver.setAttribute('aria-label', tr('barra.volver'));
+  cambios.textContent = tr('proyecto.cambiosSinGuardar');
+  boton.title = tr('barra.guardarTitulo');
+  boton.textContent = tr('barra.guardar');
   barra.classList.toggle('piq-proyecto-error', !!opciones.error);
   if (opciones.error) {
-    ruta.textContent = 'No se pudo abrir el proceso';
+    ruta.textContent = tr('barra.noAbierto');
     detalle.textContent = opciones.error;
     volver.href = '/proyectos/';
     cambios.hidden = true;
@@ -512,35 +530,40 @@ function pintarBarra(opciones = {}) {
     return;
   }
   if (!ctx.proceso) {
-    ruta.textContent = 'Abriendo el proceso…';
+    ruta.textContent = tr('barra.abriendo');
     detalle.textContent = '';
     return;
   }
   volver.href = `/proyectos/proceso/${encodeURIComponent(ctx.proceso.id)}`;
   ruta.textContent = '';
   const proyecto = document.createElement('span');
-  proyecto.textContent = ctx.proyecto ? ctx.proyecto.nombre : 'Proyecto';
+  proyecto.textContent = ctx.proyecto ? ctx.proyecto.nombre : tr('barra.proyecto');
   const nombre = document.createElement('strong');
   nombre.textContent = ctx.proceso.nombre;
   ruta.append(proyecto, ' › ', nombre);
 
   const partes = [];
   if (ctx.base) {
-    partes.push(`v${ctx.base.numero} · ${ESTADOS[ctx.base.estado] || ctx.base.estado}`);
-    if (ctx.ultima && ctx.ultima.id !== ctx.base.id) partes.push(`la última es la v${ctx.ultima.numero}`);
+    partes.push(`v${ctx.base.numero} · ${estadoDe(ctx.base.estado)}`);
+    if (ctx.ultima && ctx.ultima.id !== ctx.base.id) partes.push(tr('barra.laUltima', { n: ctx.ultima.numero }));
   } else {
-    partes.push('sin revisiones todavía');
+    partes.push(tr('barra.sinRevisiones'));
   }
-  partes.push(puedeGuardar() ? `tu rol: ${ROLES_PROYECTO[ctx.rol] || ctx.rol}` : 'solo lectura');
+  partes.push(puedeGuardar() ? tr('barra.tuRol', { rol: rolDe(ctx.rol) }) : tr('barra.soloLectura'));
   detalle.textContent = partes.join(' · ');
 
   cambios.hidden = !ctx.sucio;
   boton.hidden = !puedeGuardar();
   boton.disabled = ctx.guardando;
-  boton.textContent = ctx.guardando ? 'Guardando…' : 'Guardar revisión';
+  boton.textContent = ctx.guardando ? tr('barra.guardando') : tr('barra.guardar');
   boton.classList.toggle('piq-proyecto-guardar-destacado', ctx.sucio);
   if (colaboracion) colaboracion.actualizar();
 }
+
+// Al cambiar de idioma se repinta la barra (salvo si muestra un error al abrir: su mensaje ya está escrito)
+alCambiarIdioma(() => {
+  if (barra && !barra.classList.contains('piq-proyecto-error')) pintarBarra();
+});
 
 let ocultarAviso = null;
 let numeroAviso = 0;
@@ -585,7 +608,7 @@ function avisar(tipo, texto, detalles = [], enlace = null, acciones = []) {
   const cerrar = document.createElement('button');
   cerrar.type = 'button';
   cerrar.className = 'piq-aviso-cerrar';
-  cerrar.setAttribute('aria-label', 'Cerrar aviso');
+  cerrar.setAttribute('aria-label', tr('barra.cerrarAviso'));
   cerrar.textContent = '×';
   cerrar.addEventListener('click', () => { avisoEl.hidden = true; });
   avisoEl.appendChild(cerrar);
@@ -643,12 +666,12 @@ function dialogo({ titulo, texto, aviso = '', campo = null, si, no, obligatorio 
 
 async function pedirMensaje({ siguiente, aviso }) {
   const r = await dialogo({
-    titulo: 'Guardar revisión',
-    texto: `Se creará la v${siguiente} de «${ctx.proceso.nombre}», en borrador. Las versiones anteriores no cambian.`,
+    titulo: tr('barra.guardar'),
+    texto: tr('guardar.texto', { n: siguiente, nombre: ctx.proceso.nombre }),
     aviso,
-    campo: '¿Qué cambiaste? (opcional, lo verá el equipo)',
-    si: 'Guardar',
-    no: 'Cancelar'
+    campo: tr('guardar.campo'),
+    si: tr('ajustesIa.guardar'),
+    no: tr('comun.cancelar')
   });
   return r.boton === 'si' ? r.texto : null;
 }
