@@ -4,6 +4,7 @@
 //   generación (max_tokens grande) -> un proceso de 3 elementos
 //   tarea del copiloto              -> markdown
 //   pains                           -> JSON de dolores
+//   matriz RACI o SIPOC (D12)       -> JSON con la forma de la matriz
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { PUERTO_ANTHROPIC, RAIZ, URL_BASE_DATOS } from './entorno.mjs';
@@ -17,6 +18,25 @@ const SPEC = {
   ],
   edges: [{ from: 'a1', to: 'a2' }, { from: 'a2', to: 'a3' }]
 };
+
+// Matrices del copiloto (divergencia D12): el SIPOC, fijo; la RACI, del resumen del proceso
+// que llega en la petición: R/A al rol de cada actividad y la auditoría interna informada.
+// ia.spec.mjs los repite (importar este archivo arrancaría el servidor y el worker).
+const SIPOC_E2E = {
+  suppliers: 'Asegurado, Taller afiliado', inputs: 'Denuncia del siniestro, Póliza vigente',
+  process: 'Registrar, Peritar, Liquidar, Pagar', outputs: 'Indemnización pagada', customers: 'Asegurado, Reaseguros'
+};
+const ROL_E2E = 'Auditoría interna';
+function matriz(contenido) {
+  if (contenido.startsWith('Construye el SIPOC')) return SIPOC_E2E;
+  const raci = {};
+  for (const linea of contenido.split('\n')) {
+    const id = /^id=(\S+) - tipo=(task|system|decision)\b/.exec(linea);
+    const rol = / - rol=(.+?)(?= - |$)/.exec(linea);
+    if (id && rol) raci[id[1]] = { [rol[1]]: 'R/A', [ROL_E2E]: 'I' };
+  }
+  return raci;
+}
 
 const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 const evento = (d) => `event: ${d.type}\ndata: ${JSON.stringify(d)}\n\n`;
@@ -33,7 +53,8 @@ createServer((req, res) => {
     }
     const b = JSON.parse(cuerpo);
     const contenido = String(b.messages?.[0]?.content ?? '');
-    const texto = b.max_tokens >= 16000 ? JSON.stringify(SPEC)
+    const texto = String(b.system ?? '').includes('con la forma exacta que pide la tarea') ? JSON.stringify(matriz(contenido))
+      : b.max_tokens >= 16000 ? JSON.stringify(SPEC)
       : contenido.includes('=== PROCESO A ANALIZAR ===') ? '## Análisis del servidor\n- Resultado de prueba'
       : JSON.stringify({ detectados: [], sectoriales: [{ titulo: 'Fraude en reclamos', descripcion: 'Hipótesis de prueba' }] });
     res.writeHead(200, { 'content-type': 'text/event-stream' });

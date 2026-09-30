@@ -678,8 +678,8 @@ export const es = {
   'sipoc.pista': 'SIPOC pre-llenado desde el diagrama (roles, data nodes). Edita libremente. Se incluirá en el PPTX.',
   'sipoc.guardado': 'SIPOC guardado. Se exportará junto al PPTX.',
   // RACI y SIPOC con IA como matrices editables (divergencia D12)
-  'matriz.armando': '_{tarea}: armando la matriz editable con IA…_',
-  'matriz.alInforme': '_No se pudo armar la matriz editable ({error}). Pido el informe en texto._',
+  'matriz.armando': '*{tarea}: armando la matriz editable con IA…*',
+  'matriz.alInforme': '*No se pudo armar la matriz editable ({error}). Pido el informe en texto.*',
   'matriz.sinResultado': 'el servidor no devolvió la matriz',
   'matriz.guardar': 'Guardar cambios',
   'raci.generadaIa': 'Matriz RACI propuesta por la IA con {n} actividades × {roles} roles. Ya quedó en el proceso y se incluirá en el PPTX: revísala y ajusta lo que haga falta.',
