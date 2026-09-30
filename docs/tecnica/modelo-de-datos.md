@@ -2,7 +2,7 @@
 
 Qué guarda ProcessIQ en Postgres, cómo se relacionan las tablas, cómo evoluciona cada fila y qué forma tiene el JSON de un proceso.
 
-Actualizado: 28-sep-2026.
+Actualizado: 30-sep-2026.
 
 ---
 
@@ -136,6 +136,7 @@ erDiagram
 | `ejecuciones_ia.proceso_id` → `procesos` | `cascade` | …y sus ejecuciones de IA. |
 | `ejecuciones_ia.revision_id` → `revisiones` | `set null` | Borrar la revisión deja la ejecución sin enlace. |
 | `presencias.proceso_id` → `procesos`, `presencias.usuario_id` → `usuarios` | `cascade` | Borrar un proceso o un usuario borra su presencia. |
+| `presencias.revision_id` → `revisiones` | `set null` | Borrar la revisión abierta deja la presencia sin revisión. |
 | `plantillas_proceso.creado_por` → `usuarios`, `plantillas_proceso.origen_revision_id` → `revisiones` | `set null` | La plantilla sobrevive a su autor y a la revisión de la que salió. |
 | Todas las que apuntan a `organizaciones` | `no action` | No se puede borrar una organización con datos. |
 | `proyectos.creado_por`, `procesos.creado_por`, `revisiones.autor_id`, `ejecuciones_ia.usuario_id` → `usuarios` | `no action` | No se puede borrar un usuario que creó algo: se desactiva (`activo = false`). |
@@ -219,7 +220,8 @@ Una fila por sesión abierta (cookie `piq_sesion`).
 | `agente` | text | sí | — | `User-Agent` al entrar. |
 
 - Restricción única `sesiones_token_hash_unique (token_hash)`; índice `sesiones_usuario_idx (usuario_id)`.
-- Se borran al cerrar sesión, al desactivar al usuario, al restablecerle la contraseña (todas) y al cambiarla él mismo (todas menos la actual).
+- Se borran al cerrar sesión, al desactivar al usuario, al restablecerle la contraseña (todas), al cambiarla él mismo (todas menos la actual), cuando la persona las cierra desde «Sesiones» (una, o todas menos la actual) y cuando un administrador cierra las de la cuenta (todas).
+- La API solo las enseña a su dueño (`GET /api/sesion/lista`): id, `creada_en`, `expira_en`, `ip` y un resumen del `agente` (navegador y sistema). Nunca `token_hash`.
 - Una sesión caducada deja de valer (la API filtra `expira_en > now()`) y el worker borra cada hora las filas caducadas (`purgarSesionesCaducadas`).
 
 ### Trabajo
@@ -512,6 +514,7 @@ Una fila por pestaña abierta en un proceso (el editor o la página del proceso 
 | `estado` | text | no | — | `viendo` o `editando` (hay cambios sin guardar). La API solo guarda `editando` si la persona puede escribir en el proyecto y no está archivado. |
 | `desde` | timestamptz | no | `now()` | Cuándo se abrió la pestaña. |
 | `ultimo_latido` | timestamptz | no | `now()` | Último latido. Caduca a los 60 s. |
+| `revision_id` | uuid | sí | — | FK → `revisiones` (`set null`). Revisión que tiene abierta el editor; la API comprueba que es de este proceso. Nula en la página del proceso del shell, en un proceso sin revisiones y en las filas de antes de la migración 0009. |
 
 Clave primaria `(proceso_id, usuario_id, pestana)`; índice `presencias_ultimo_latido_idx (ultimo_latido)` para borrar las caducadas.
 
@@ -523,9 +526,9 @@ Clave primaria `(proceso_id, usuario_id, pestana)`; índice `presencias_ultimo_l
 |---|---|---|---|
 | `ia_cola` | id de la ejecución | La API al encolar | El worker: despierta y mira la cola. |
 | `ia_ejecucion` | id de la ejecución | El worker en cada cambio (estado, progreso) y la API al cancelar | La API, para el SSE `/api/ia/ejecuciones/:id/eventos`. |
-| `procesos_evento` | id del proceso | La API: al guardar una revisión (dentro de la transacción) y cuando cambia la presencia (entra, cambia de estado, se va o caduca) | La API, para el SSE `/api/procesos/:id/eventos` ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)). |
+| `procesos_evento` | id del proceso | La API: al guardar una revisión y al cambiar su estado (las dos, dentro de la transacción), y cuando cambia la presencia (entra, cambia de estado o de revisión abierta, se va o caduca) | La API, para el SSE `/api/procesos/:id/eventos` ([ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)). |
 
-Los avisos solo despiertan. El estado se lee siempre de la tabla, y cada evento SSE envía el estado completo (la fila, o la presencia y la última revisión), así que reconectar es seguro. La API escucha los dos canales en una sola conexión (`Escucha`, [ia/avisos.ts](../../apps/api/src/ia/avisos.ts)). Los que esperan tienen además un sondeo de respaldo (10 s en el worker, 5 s en el SSE).
+Los avisos solo despiertan. El estado se lee siempre de la tabla, y cada evento SSE envía el estado completo (la fila; o la presencia, la última revisión y el estado de todas las revisiones), así que reconectar es seguro. La API escucha los dos canales en una sola conexión (`Escucha`, [ia/avisos.ts](../../apps/api/src/ia/avisos.ts)). Los que esperan tienen además un sondeo de respaldo (10 s en el worker, 5 s en el SSE).
 
 ---
 
@@ -722,7 +725,8 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
 - **Alta y latido:** cada pestaña hace `PUT /api/procesos/:id/presencia` al abrirse, cada 20 s y cuando cambia su estado (*upsert*). Mientras su SSE siga abierto, la API renueva también `ultimo_latido` cada 20 s.
 - **Caducidad:** una fila sin latido en 60 s ya no se muestra; el siguiente latido de cualquiera borra todas las caducadas (y avisa a sus procesos).
 - **Baja:** al cerrar la pestaña, `DELETE …/presencia` con `keepalive`; si no llega, caduca sola. Borrar el proceso o la cuenta también la borra (cascada).
-- **Avisos:** `NOTIFY procesos_evento` cuando entra una pestaña, cambia su estado o se va; y, dentro de la transacción, al guardar una revisión.
+- **Revisión abierta:** el latido del editor lleva la revisión que tiene abierta (`revision_id`); la del shell, ninguna. Al leer la presencia, la API la compara con la última del proceso: si no es la última, la persona tiene abierta una versión anterior.
+- **Avisos:** `NOTIFY procesos_evento` cuando entra una pestaña, cambia su estado o su revisión abierta, o se va; y, dentro de la transacción, al guardar una revisión o cambiar su estado.
 
 ---
 
@@ -739,6 +743,7 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
 | [0006_conocimiento_busqueda.sql](../../packages/db/migraciones/0006_conocimiento_busqueda.sql) | 29-sep-2026 | Extensiones `pg_trgm` y `unaccent`, función `conocimiento_normalizar` (añadidas a mano, [ADR 19](../adr/0019-busqueda-pg-trgm-unaccent.md)). Tablas `conocimiento_indice` y `conocimiento_marco`. |
 | [0007_invitados_enlaces.sql](../../packages/db/migraciones/0007_invitados_enlaces.sql) | 29-sep-2026 | Tablas `invitados_enlaces` e `invitados_comentarios` ([ADR 20](../adr/0020-rutas-publicas-con-token.md)). |
 | [0008_colaboracion_presencias.sql](../../packages/db/migraciones/0008_colaboracion_presencias.sql) | 28-sep-2026 | Tabla `presencias` (colaboración, [ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)) con sus FK en cascada e índice por último latido. |
+| [0009_colaboracion_revision_abierta.sql](../../packages/db/migraciones/0009_colaboracion_revision_abierta.sql) | 29-sep-2026 | Columna `presencias.revision_id` (nulable) y su FK a `revisiones` con `set null`. |
 
 Todas solo añaden: ninguna borra ni renombra. Cada migración tiene su instantánea en `migraciones/meta/NNNN_snapshot.json` y una entrada en [meta/_journal.json](../../packages/db/migraciones/meta/_journal.json) (`idx`, `when` en milisegundos, `tag`).
 

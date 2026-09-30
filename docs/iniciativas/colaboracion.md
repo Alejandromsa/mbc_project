@@ -50,12 +50,14 @@ Núcleo. Toca la integración del editor con la plataforma, la API de procesos y
 | # | Qué entrega | Rama | PR | Estado |
 |---|---|---|---|---|
 | 1 | Presencia, «editando» y aviso de revisión nueva en el editor y en el shell; ADR 21; E2E con dos navegadores | `plataforma/colaboracion` | #15 | en revisión |
+| 2 | Aviso en vivo del cambio de estado de una revisión (`NOTIFY` y evento `estado`); qué versión tiene abierta cada persona («Ana (v3)», «versión anterior») en la página del proceso | `plataforma/sesiones-y-avisos` | — | en revisión |
 
 ## Decisiones
 
 - 28-sep-2026 — SSE y no WebSocket; presencia por pestaña con caducidad a los 60 s; el SSE renueva el latido de su pestaña; «editando» solo para quien puede guardar: [ADR 21](../adr/0021-presencia-y-eventos-por-sse.md).
 - 28-sep-2026 — «Cargar la nueva versión» recarga el editor con `/?revision=<nueva>` (el camino de apertura de siempre) en lugar de cambiar el contenido en sitio: así no quedan paneles con datos de la versión anterior. Con cambios sin guardar pregunta antes y, si se aceptan perder, borra el borrador local para que no se ofrezca recuperarlo.
 - 28-sep-2026 — El shell no importa nada del editor, así que el latido y el SSE viven en `shell/colaboracion.ts` y el editor los importa de ahí, como ya hace con `api.ts`.
+- 29-sep-2026 — El cambio de estado de una revisión avisa con `NOTIFY` dentro de su transacción, como el guardado. El SSE envía un evento aparte, `estado`, con el estado de **todas** las revisiones (no solo la última): aprobar la v2 cuando ya existe la v3 también se ve al momento. La presencia guarda la revisión abierta (`revision_id`, `set null`) y la API marca `ultima: false` si ya hay otra más nueva; la API comprueba que sea del mismo proceso para no enseñar el número de una ajena.
 
 ## Pruebas
 

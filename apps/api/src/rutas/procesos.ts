@@ -175,10 +175,15 @@ export function rutasProcesos() {
     const capacidad = TRANSICIONES[`${rev.estado}>${estado}`];
     if (!capacidad) throw new ErrorHttp(409, `No se puede pasar de "${rev.estado}" a "${estado}".`, 'TRANSICION');
     await accesoProceso(db, c.get('usuario'), rev.procesoId, capacidad);
-    // La condición sobre el estado evita carreras (dos aprobaciones simultáneas)
-    const [act] = await db.update(revisiones).set({ estado })
-      .where(and(eq(revisiones.id, id), eq(revisiones.estado, rev.estado))).returning({ id: revisiones.id, estado: revisiones.estado });
-    if (!act) throw new ErrorHttp(409, 'La revisión cambió mientras tanto. Recarga y vuelve a intentarlo.', 'CONCURRENCIA');
+    const act = await db.transaction(async (tx) => {
+      // La condición sobre el estado evita carreras (dos aprobaciones simultáneas)
+      const [act] = await tx.update(revisiones).set({ estado })
+        .where(and(eq(revisiones.id, id), eq(revisiones.estado, rev.estado))).returning({ id: revisiones.id, estado: revisiones.estado });
+      if (!act) throw new ErrorHttp(409, 'La revisión cambió mientras tanto. Recarga y vuelve a intentarlo.', 'CONCURRENCIA');
+      // Colaboración (ADR 21): quien tiene abierto el proceso ve el estado nuevo al confirmar la transacción
+      await avisarProceso(tx, rev.procesoId);
+      return act;
+    });
     await registrar(c, 'revision.estado', 'revision', id, { de: rev.estado, a: estado });
     return c.json({ revision: act });
   });

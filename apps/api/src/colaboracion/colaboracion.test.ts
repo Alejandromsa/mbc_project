@@ -103,7 +103,7 @@ describe('colaboración: presencia', () => {
     expect(r.status).toBe(200);
     expect(r.json).toMatchObject({ estado: 'editando', latidoS: 20, caducidadS: 60 });
     expect(r.json.presencias).toEqual([
-      { usuarioId: u.ana.id, nombre: 'ana', estado: 'editando', lugares: ['editor'], desde: expect.any(String), yo: true }
+      { usuarioId: u.ana.id, nombre: 'ana', estado: 'editando', lugares: ['editor'], desde: expect.any(String), revisiones: [], yo: true }
     ]);
     // La misma persona en el shell: sigue siendo una entrada, «editando» si alguna pestaña edita
     await latido(c.ana, procesoId, PESTANA.ana2, { lugar: 'shell' });
@@ -181,6 +181,46 @@ describe('colaboración: presencia', () => {
     expect((await latido(c.ana, procesoId, PESTANA.ana, { estado: 'bloqueando' })).status).toBe(400);
   });
 
+  it('cada persona dice qué revisión tiene abierta; si ya no es la última, se marca', async () => {
+    const { c, u, procesoId, v1, otroId } = await escenario();
+    // Ana abre la v1 en el editor; Lola mira la página del proceso (sin revisión)
+    await latido(c.ana, procesoId, PESTANA.ana, { revisionId: v1 });
+    await latido(c.lola, procesoId, PESTANA.lola, { lugar: 'shell' });
+    expect(await presentes(c.luis, procesoId)).toMatchObject([
+      { nombre: 'ana', revisiones: [{ id: v1, numero: 1, ultima: true }] },
+      { nombre: 'lola', revisiones: [] }
+    ]);
+    // Luis guarda la v2: la v1 de Ana pasa a ser una versión anterior
+    const v2 = (await c.luis.post(`/api/procesos/${procesoId}/revisiones`, { contenido: SINIESTROS, mensaje: 'v2', padreId: v1 })).json.revision.id;
+    expect((await presentes(c.lola, procesoId))[0].revisiones).toEqual([{ id: v1, numero: 1, ultima: false }]);
+    // Luis tiene la v2 abierta en dos pestañas y la v1 en otra: una entrada, de la más antigua a la más nueva y sin repetir
+    await latido(c.luis, procesoId, PESTANA.luis, { revisionId: v2 });
+    await latido(c.luis, procesoId, 'pestana-luis-editor-2', { revisionId: v2 });
+    await latido(c.luis, procesoId, 'pestana-luis-editor-3', { revisionId: v1 });
+    expect((await presentes(c.ana, procesoId)).find((p: any) => p.usuarioId === u.luis.id).revisiones).toEqual([
+      { id: v1, numero: 1, ultima: false }, { id: v2, numero: 2, ultima: true }
+    ]);
+    // La revisión tiene que ser de este proceso: si no, 400 y la presencia no cambia
+    const deOtro = (await c.ana.get(`/api/procesos/${otroId}`)).json.revisiones[0].id;
+    const r = await latido(c.ana, procesoId, PESTANA.ana, { revisionId: deOtro });
+    expect(r.status).toBe(400);
+    expect(r.json.error.codigo).toBe('VALIDACION');
+    expect((await latido(c.ana, procesoId, PESTANA.ana, { revisionId: 'no-es-un-uuid' })).status).toBe(400);
+    expect((await presentes(c.lola, procesoId))[0].revisiones).toEqual([{ id: v1, numero: 1, ultima: false }]);
+    // Sin revisionId (una versión anterior de la web, o el shell) queda sin revisión
+    await latido(c.ana, procesoId, PESTANA.ana);
+    expect((await presentes(c.lola, procesoId))[0].revisiones).toEqual([]);
+  });
+
+  it('si se borra la revisión abierta, la presencia sigue sin ella (set null)', async () => {
+    const { c, procesoId, v1 } = await escenario();
+    const v2 = (await c.ana.post(`/api/procesos/${procesoId}/revisiones`, { contenido: SINIESTROS, mensaje: 'v2', padreId: v1 })).json.revision.id;
+    await latido(c.ana, procesoId, PESTANA.ana, { revisionId: v2 });
+    await conexion.pool.query('delete from revisiones where id = $1', [v2]);
+    expect(await filas()).toBe(1);
+    expect(await presentes(c.luis, procesoId)).toMatchObject([{ nombre: 'ana', revisiones: [] }]);
+  });
+
   it('borrar el proceso o la cuenta borra su presencia', async () => {
     const { c, u, procesoId, otroId } = await escenario();
     await latido(c.ana, procesoId, PESTANA.ana);
@@ -220,6 +260,28 @@ describe('colaboración: eventos en vivo (SSE)', () => {
     await sse.esperar((e) => !nombres(ultimo(e, 'presencia')?.presencias).includes('ana'));
     // Cada evento se envía solo si cambió: una revisión por guardado
     expect(sse.eventos.filter((e) => e.event === 'revision')).toHaveLength(2);
+    await sse.cerrar();
+  });
+
+  it('el evento «estado» trae el estado de cada revisión al conectar y cada vez que alguna cambia', async () => {
+    const { c, u, procesoId, proyectoId, v1 } = await escenario();
+    await c.ana.put(`/api/proyectos/${proyectoId}/miembros/${u.pepe.id}`, { rol: 'revisor' });
+    const v2 = (await c.luis.post(`/api/procesos/${procesoId}/revisiones`, { contenido: SINIESTROS, mensaje: 'v2', padreId: v1 })).json.revision.id;
+    const sse = await conectar(c.lola, procesoId);
+    await sse.esperar((e) => !!ultimo(e, 'estado'));
+    expect(ultimo(sse.eventos, 'estado').revisiones).toEqual([
+      { id: v2, numero: 2, estado: 'borrador' }, { id: v1, numero: 1, estado: 'borrador' }
+    ]);
+    // La v1 (que no es la última) pasa a revisión y la aprueban: llega aunque la última no cambie
+    expect((await c.ana.post(`/api/revisiones/${v1}/estado`, { estado: 'en_revision' })).status).toBe(200);
+    await sse.esperar((e) => ultimo(e, 'estado')?.revisiones[1].estado === 'en_revision');
+    expect((await c.pepe.post(`/api/revisiones/${v1}/estado`, { estado: 'aprobada' })).status).toBe(200);
+    await sse.esperar((e) => ultimo(e, 'estado')?.revisiones[1].estado === 'aprobada');
+    expect(sse.eventos.filter((e) => e.event === 'revision')).toHaveLength(1);   // la última (v2) no cambió
+    // Una transición rechazada no cambia nada
+    expect((await c.ana.post(`/api/revisiones/${v2}/estado`, { estado: 'aprobada' })).status).toBe(409);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(sse.eventos.filter((e) => e.event === 'estado')).toHaveLength(3);
     await sse.cerrar();
   });
 
@@ -291,6 +353,34 @@ describe('colaboración: eventos en vivo (SSE)', () => {
       await sse.esperar((e) => nombres(ultimo(e, 'presencia')?.presencias).includes('luis'), 3000);
       await c.luis.post(`/api/procesos/${procesoId}/revisiones`, { contenido: SINIESTROS, mensaje: 'Al momento', padreId: v1 });
       await sse.esperar((e) => ultimo(e, 'revision')?.revision?.mensaje === 'Al momento', 3000);
+      expect(Date.now() - t0).toBeLessThan(3000);
+      await sse.cerrar();
+    } finally {
+      await escucha.cerrar();
+    }
+  });
+
+  it('con LISTEN/NOTIFY, el cambio de estado de una revisión y la revisión abierta llegan al momento', async () => {
+    const { c, u, procesoId, v1 } = await escenario();
+    const escucha = new Escucha(URL_PRUEBAS, [CANAL_PROCESOS]);
+    await escucha.iniciar();
+    try {
+      const app = crearApp(conexion.db, config, { escucha, sondeoMs: 60_000 });
+      await latido(c.luis, procesoId, PESTANA.luis);
+      const sse = await conectar(c.lola, procesoId, undefined, app);
+      await sse.esperar((e) => !!ultimo(e, 'estado') && !!ultimo(e, 'presencia'));
+      const t0 = Date.now();
+      // Enviar a revisión: el aviso sale al confirmar la transacción del cambio de estado
+      await c.ana.post(`/api/revisiones/${v1}/estado`, { estado: 'en_revision' });
+      await sse.esperar((e) => ultimo(e, 'estado')?.revisiones[0].estado === 'en_revision', 3000);
+      expect(ultimo(sse.eventos, 'revision').revision).toMatchObject({ id: v1, estado: 'en_revision' });
+      // Luis abre la v1 en el editor sin cambiar de estado: también avisa
+      await latido(c.luis, procesoId, PESTANA.luis, { revisionId: v1 });
+      await sse.esperar((e) => ultimo(e, 'presencia')?.presencias[0]?.revisiones?.length === 1, 3000);
+      expect(ultimo(sse.eventos, 'presencia').presencias[0]).toMatchObject({ usuarioId: u.luis.id, revisiones: [{ id: v1, numero: 1, ultima: true }] });
+      // Ana guarda la v2: la v1 de Luis pasa a «anterior» en el mismo aviso
+      await c.ana.post(`/api/procesos/${procesoId}/revisiones`, { contenido: SINIESTROS, mensaje: 'v2', padreId: v1 });
+      await sse.esperar((e) => ultimo(e, 'presencia')?.presencias[0]?.revisiones?.[0]?.ultima === false, 3000);
       expect(Date.now() - t0).toBeLessThan(3000);
       await sse.cerrar();
     } finally {

@@ -179,6 +179,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22t. **Una medición salió idéntica a la de referencia porque el editor deshizo el cambio.** Para medir con `quality()` un BPMN importado con las coordenadas de su dibujo, cambié `x`/`y` en `processiq.v1`, puse `lanes: null` y recargué. Dio exactamente lo mismo que el auto-layout: al arrancar, si hay nodos y no hay carriles, `inicio.js` vuelve a aplicar el auto-layout y pisa las coordenadas. Con los carriles presentes (lista vacía), las coordenadas del dibujo dieron 8 flechas sobre cajas.
     → **Regla:** en una comparación, un resultado idéntico al de la otra variante es sospechoso hasta demostrar que la variante se aplicó (una captura, o leer las coordenadas después). Para medir un estado guardado a mano, conservar `lanes` en lo guardado.
 
+22u. **Un `node -e "…"` con comillas invertidas borró texto sin fallar.** Para añadir comentarios con `` `ultima: false` `` a `shell/colaboracion.ts` usé un `node -e` entre comillas dobles. Bash ejecutó como comando lo que iba entre comillas invertidas (`ultima:: command not found`), lo sustituyó por nada y el script siguió: el comentario quedó «Con  = ya hay una más nueva». El typecheck pasaba; se vio por el error perdido entre la salida.
+    → **Regla:** la 1 vale también para `` ` `` y `$`: dentro de comillas dobles (y en un heredoc sin comillas) la shell los interpreta. Un cambio que lleve comillas invertidas o `$` (plantillas de JS, Markdown con código) se hace con la herramienta de edición o con un script escrito a un archivo, y se revisa con `git diff`.
+
 ## Portado de código
 
 12. **Expectativas de pruebas escritas de memoria.** Supuse que "hacer" era un verbo fuera de catálogo (es prohibido), que la ruta crítica incluía el Fin (no, la comparación es estricta) y conté nodos de un escenario que ya incluía las ramas de `ensureDecisionBranches`.

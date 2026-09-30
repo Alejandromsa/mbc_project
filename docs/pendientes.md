@@ -2,7 +2,7 @@
 
 Todo lo que queda por hacer, con quién lo tiene y en qué estado está. Lo mantiene plataforma: el PR que cierra un punto lo marca aquí (✅) y, en la siguiente limpieza, lo quita.
 
-Actualizado: 29-sep-2026.
+Actualizado: 30-sep-2026.
 
 **Estados:** ⏳ en curso · 🔜 siguiente ola · ⛔ bloqueado · 🙋 lo hace una persona · ✅ hecho.
 
@@ -24,6 +24,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Editor (ola 2) | Borradores locales, JSON completo, esquema v1, texto de Lint, tildes, casillas de Word | `plataforma/editor-pendientes` | `apps/web/src/app/`, `packages/dominio` | ✅ PR #17 |
 | Idiomas (ola 3) | La plataforma en español e inglés | `plataforma/i18n-shell` | `apps/web/src/shell/`, pantallas de los módulos | ✅ PR #18 |
 | BPMN | Importador: carriles, subprocesos, tipos y robustez | `plataforma/bpmn-importador` | `packages/bpmn`, `apps/web/src/app/bpmn/` | ✅ PR #20 |
+| Cuentas y avisos (ola 4) | Sesiones visibles y cerrables, aviso en vivo del cambio de estado y versión abierta en la presencia | `plataforma/sesiones-y-avisos` | `rutas/sesion.ts`, el cambio de estado de `rutas/procesos.ts`, `apps/api/src/colaboracion/`, `presencias`, `apps/web/src/shell/`, el latido de `colaboracion.js` | ⏳ en revisión |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -109,8 +110,10 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - 🔜 El auto-layout ordena los carriles por baricentro y no por el orden del archivo importado (en el fixture de Signavio, «Finanzas» sube por encima de «Jefe de compras»). Si se quiere respetar, `calcularLayout` necesitaría un orden preferido como desempate.
 - 🔜 Con subprocesos importados, el nivel Ejecutivo usa la jerarquía explícita (el nivel superior, en un carril) y no tiene el tope de 10 cajas de las etapas deducidas. Si el nivel superior del BPMN es largo, la vista ejecutiva también lo es.
 - ✅ `herramientas/fronteras.mjs` detecta `import './x.js'` sin `from` (`export * from` ya lo detectaba) y comprueba su extractor con casos de ejemplo (PR #16).
-- 🔜 Colaboración: cambiar el estado de la última revisión (enviar a revisión, aprobar) no avisa con `NOTIFY`; la página del proceso lo ve en el sondeo de 5 s del SSE. Añadir el aviso en `POST /api/revisiones/:id/estado` si hace falta al momento.
-- 🔜 Colaboración: la presencia no dice qué versión tiene abierta cada persona (solo si está viendo o editando).
+- ✅ Colaboración: cambiar el estado de una revisión (enviar a revisión, aprobar, devolver) avisa con `NOTIFY` dentro de la transacción y el SSE lo entrega en el evento `estado`; la página del proceso lo refleja al momento (`plataforma/sesiones-y-avisos`). 🔜 Falta que la barra del editor lo refleje: hoy sigue diciendo el estado con el que se abrió la revisión (un cambio pequeño en `app/plataforma/colaboracion.js` y `proyecto.js`, con la fidelidad en verde).
+- ✅ Colaboración: la presencia dice qué versión tiene abierta cada persona en el editor, y si ya no es la última («Ana (v2, versión anterior)») (`plataforma/sesiones-y-avisos`). 🔜 El editor no lo muestra todavía en los avatares de la barra.
+- ✅ Sesiones: cada persona ve sus sesiones abiertas y las cierra (una o todas menos la actual), el administrador cierra las de una cuenta, y cambiar la contraseña y desactivar la cuenta ya las cerraban (`plataforma/sesiones-y-avisos`, [seguridad §4](tecnica/seguridad.md#4-sesión)).
+- 🔜 La semilla de desarrollo deja abiertas las sesiones con las que crea los proyectos de prueba (propietario, editor y revisor): en «Sesiones» salen como «Navegador desconocido» con IP `local`. Bastaría con borrarlas al final de `sembrar()`.
 - ✅ Avisos de la auditoría de pptxgenjs y mammoth ([ADR 17](adr/0017-excepciones-auditoria-dependencias.md)), sin excepciones: mammoth pasa a 1.13.0 (divergencia D6), e `image-size`, que pptxgenjs declara pero no usa, se quita con un override. pptxgenjs sigue en 3.12.0, porque la 4.0.1 no quita el aviso; da el mismo `.pptx` y está evaluada en la ADR.
 - ✅ Con mammoth 1.13 el texto extraído de un Word perdía el símbolo de las casillas (`☒`/`☐`). mammoth no tiene opción para eso en `extractRawText`, así que el editor quita antes la marca de casilla del documento (preproceso con JSZip) y el símbolo se lee como con 1.8.0 (divergencia D6).
 

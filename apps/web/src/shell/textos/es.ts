@@ -62,6 +62,7 @@ export const es = {
   'menu.editorLibre': 'Editor libre',
   'menu.editorLibreTitulo': 'El editor, sin proyecto (trabajo guardado en este navegador)',
   'menu.cambiarClave': 'Cambiar contraseña',
+  'menu.sesiones': 'Sesiones',
   'menu.salir': 'Salir',
   'menu.problemasSistema': 'Hay problemas: revisa «Sistema»',
   'menu.problemasPantalla': 'Hay problemas: revisa la pantalla',
@@ -85,6 +86,28 @@ export const es = {
   'clave.noCoinciden': 'Las dos contraseñas nuevas no coinciden.',
   'clave.guardar': 'Guardar contraseña',
   'claveTemporal.texto': 'Contraseña temporal de <strong>{para}</strong>. Solo se muestra ahora: entrégasela por un canal seguro. Deberá cambiarla al entrar.',
+
+  // ---------------------------------------------------------------- Sesiones abiertas
+  'sesiones.titulo': 'Sesiones',
+  'sesiones.intro': 'Los navegadores donde tu cuenta está abierta ahora. Si no reconoces alguno, cierra esa sesión y cambia tu contraseña.',
+  'sesiones.navegador': 'Navegador',
+  'sesiones.ip': 'IP',
+  'sesiones.inicio': 'Inicio',
+  'sesiones.caduca': 'Caduca',
+  'sesiones.navegadorEn': '{navegador} en {sistema}',
+  'sesiones.desconocido': 'Navegador desconocido',
+  'sesiones.estaSesion': 'Esta sesión',
+  'sesiones.cerrar': 'Cerrar',
+  'sesiones.cerrarDe': 'Cerrar la sesión de {navegador}',
+  'sesiones.cerrarOtras': 'Cerrar las demás sesiones',
+  'sesiones.soloEsta': 'No tienes otras sesiones abiertas.',
+  'sesiones.cerrada': 'Sesión cerrada: ese navegador tendrá que volver a entrar.',
+  'sesiones.cerradas': {
+    cero: 'No había otras sesiones abiertas.',
+    uno: 'Se cerró {n} sesión: ese navegador tendrá que volver a entrar.',
+    otros: 'Se cerraron {n} sesiones: esos navegadores tendrán que volver a entrar.'
+  },
+  'sesiones.nota': 'Cada sesión caduca sola a las pocas horas. Al cambiar la contraseña se cierran todas las demás.',
 
   // ---------------------------------------------------------------- Proyectos
   'proyectos.titulo': 'Proyectos',
@@ -164,6 +187,9 @@ export const es = {
   'proceso.dondeShell': 'en la página del proceso',
   'proceso.presente': '{iniciales} · {nombre}',
   'proceso.presenteEditando': '{iniciales} · {nombre}, editando',
+  'proceso.enVersion': '({versiones})',
+  'proceso.versionAbierta': 'v{n}',
+  'proceso.versionAbiertaAnterior': 'v{n}, versión anterior',
   'proceso.ramificadaTitulo': 'Se guardó a partir de una versión que ya no era la última',
   'proceso.aPartirDe': 'a partir de v{n}',
   'proceso.enviarRevision': 'Enviar a revisión',
@@ -216,6 +242,13 @@ export const es = {
   'usuarios.restablecer': 'Restablecer contraseña',
   'usuarios.desactivar': 'Desactivar',
   'usuarios.reactivar': 'Reactivar',
+  'usuarios.cerrarSesiones': 'Cerrar sesiones',
+  'usuarios.cerrarSesionesConfirmar': '¿Cerrar todas las sesiones de {nombre}? Tendrá que volver a entrar en cada navegador. La cuenta sigue activa.',
+  'usuarios.sesionesCerradas': {
+    cero: '{nombre} no tenía sesiones abiertas.',
+    uno: 'Se cerró {n} sesión de {nombre}.',
+    otros: 'Se cerraron {n} sesiones de {nombre}.'
+  },
   'usuarios.nombreApellido': 'Nombre y apellido',
   'usuarios.explicacionRoles': 'Consultor: crea proyectos. Lector: solo participa donde lo invitan. Administrador: además gestiona usuarios y ve todos los proyectos.',
   'usuarios.crear': 'Crear cuenta',
