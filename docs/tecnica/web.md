@@ -308,7 +308,7 @@ Detalle en [ia.md](ia.md).
 | [ia/remota.js](../../apps/web/src/app/ia/remota.js) | Punto de enganche de la IA del servidor (`usarIaRemota`, `iaRemota`) |
 | [ia/generacion.js](../../apps/web/src/app/ia/generacion.js) | `aiBuildProcess()` y `buildProcessFromAiSpec()` |
 | [ia/pains.js](../../apps/web/src/app/ia/pains.js) | Análisis de dolores con IA |
-| [ia/tareas.js](../../apps/web/src/app/ia/tareas.js) | Tareas analíticas del copiloto con IA |
+| [ia/tareas.js](../../apps/web/src/app/ia/tareas.js) | Tareas analíticas del copiloto con IA. La RACI y el SIPOC piden la matriz editable (`pedirMatrizIa`, o `matriz-raci`/`matriz-sipoc` en el servidor) y, si falla, el informe en texto (D12, [ia.md §3.1](ia.md#31-matrices-raci-y-sipoc)) |
 | [ia/ajustes.js](../../apps/web/src/app/ia/ajustes.js) | Ajustes de IA, oyentes de la ingesta y texto «qué motor se usará» |
 | [ia/dialogos.js](../../apps/web/src/app/ia/dialogos.js) | Código de equipo, nivel de detalle y modelo con coste estimado |
 
@@ -318,8 +318,8 @@ Detalle en [ia.md](ia.md).
 |---|---|
 | [analitica/simulador.js](../../apps/web/src/app/analitica/simulador.js) | Simulador de carga: FTE, lead time y costo |
 | [analitica/avanzada.js](../../apps/web/src/app/analitica/avanzada.js) | What-If, automatización, cuello de botella, variantes, mapa de valor y backlog |
-| [analitica/raci.js](../../apps/web/src/app/analitica/raci.js) | Matriz RACI |
-| [analitica/sipoc.js](../../apps/web/src/app/analitica/sipoc.js) | SIPOC |
+| [analitica/raci.js](../../apps/web/src/app/analitica/raci.js) | Matriz RACI (`state._raci`): la heurística sin IA (`generateRaci`) y la de la IA (`cargarRaciIa`), en el mismo diálogo editable |
+| [analitica/sipoc.js](../../apps/web/src/app/analitica/sipoc.js) | SIPOC (`state._sipoc`): heurística (`generateSipoc`) o de la IA (`cargarSipocIa`), en el mismo diálogo editable |
 | [analitica/impacto-esfuerzo.js](../../apps/web/src/app/analitica/impacto-esfuerzo.js) | Matriz impacto-esfuerzo de los dolores |
 
 #### Exportar, BPMN y ejemplos
@@ -467,7 +467,7 @@ La API asigna el número con `select … for update` sobre el proceso y marca el
 ### 4.7 IA remota
 
 - `activarIa()` pide `GET /api/ia/estado`. Si falla, supone «no configurada».
-- Registra `crearIaRemota(...)` ([plataforma/ia.js](../../apps/web/src/app/plataforma/ia.js)) con `usarIaRemota()` ([ia/remota.js](../../apps/web/src/app/ia/remota.js)). Desde ahí, generación, pains y tareas del copiloto van al servidor.
+- Registra `crearIaRemota(...)` ([plataforma/ia.js](../../apps/web/src/app/plataforma/ia.js)) con `usarIaRemota()` ([ia/remota.js](../../apps/web/src/app/ia/remota.js)). Desde ahí, generación, pains y tareas del copiloto (también las matrices RACI y SIPOC) van al servidor.
 - Pasa en `soloLectura` un motivo si no se puede guardar: quien no escribe tampoco usa la IA del servidor.
 - Tras dibujar una generación, `alGenerar` la guarda como revisión con `ejecucionIaId`.
 

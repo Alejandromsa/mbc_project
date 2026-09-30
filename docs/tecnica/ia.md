@@ -2,7 +2,7 @@
 
 Cómo usa ProcessIQ los modelos Claude: los dos caminos (editor libre y modo proyecto), la cola y el worker del servidor, los costes, el intermediario, cómo se prueba sin gastar y qué hacer ante un incidente.
 
-**Actualizado:** 28-sep-2026.
+**Actualizado:** 30-sep-2026.
 
 ---
 
@@ -17,7 +17,7 @@ La IA hace tres cosas: **generar un proceso** a partir de documentos, **analizar
 | Quién arma el prompt | El navegador, con `@processiq/ia` | El servidor, con `@processiq/ia` |
 | Si se cierra la pestaña | Se pierde la generación | Sigue en el servidor y se ofrece al volver |
 | Reintentos | Uno, ante un fallo de red al conectar | Ese y, además, hasta 3 intentos con esperas de 15 y 60 s |
-| Validación de la respuesta | `extraerJson` | `extraerJson`, esquema Zod y una reparación |
+| Validación de la respuesta | `extraerJson`; las matrices RACI y SIPOC, además, esquema Zod y una reparación | `extraerJson`, esquema Zod y una reparación |
 | Coste | Estimado y registrado en el navegador | Registrado por ejecución, con presupuesto mensual y límite por persona |
 | Gasto a Pulse | Solo en modo equipo, desde el intermediario | Desde el worker |
 | Sin IA disponible | Modo básico por palabras clave | Igual |
@@ -51,6 +51,7 @@ flowchart LR
 | Cliente | [packages/ia/src/cliente.ts](../../packages/ia/src/cliente.ts) | `llamarClaude` (streaming SSE) y `extraerJson` |
 | Costes | [packages/ia/src/costes.ts](../../packages/ia/src/costes.ts) | Modelos, precios, `usd`, estimación previa |
 | Especificación | [packages/ia/src/especificacion.ts](../../packages/ia/src/especificacion.ts) | `validarEspecGeneracion`, `promptReparacion`, `clasificarErrorIa` |
+| Matrices | [packages/ia/src/matrices.ts](../../packages/ia/src/matrices.ts) | RACI y SIPOC editables (sección 3.1): `PROMPT_MATRICES`, `MATRICES_IA`, `validarMatrizIa`, `pedirMatrizIa` |
 | Rutas | [apps/api/src/rutas/ia.ts](../../apps/api/src/rutas/ia.ts) | Endpoints de negocio, SSE, cancelación, consumo |
 | Cola | [apps/api/src/ia/cola.ts](../../apps/api/src/ia/cola.ts) | Tomar un trabajo y reencolar huérfanas |
 | Ejecución | [apps/api/src/ia/ejecutar.ts](../../apps/api/src/ia/ejecutar.ts) | Llamada, validación, reparación, reintentos, coste |
@@ -81,6 +82,7 @@ Los textos viven en [prompts.ts](../../packages/ia/src/prompts.ts) y [construcci
 | `ROL_ANALISTA` + `TAREAS_IA` | Sistema de las tareas del copiloto (Markdown) y la instrucción de cada tarea |
 | `resumenProcesoParaIa(proceso)` y `promptTarea` | Resumen del proceso en orden de flujo que reciben dolores y tareas |
 | `PROMPT_REPARACION` y `promptReparacion(respuesta, problema)` | Solo en el servidor: pide devolver el JSON corregido sin inventar actividades |
+| `PROMPT_MATRICES` + `MATRICES_IA` | Sistema e instrucciones de las matrices RACI y SIPOC en JSON, con su reparación (`sistemaReparacionMatriz`, `promptReparacionMatriz`), en los dos caminos (sección 3.1) |
 
 Tareas del copiloto (`TAREAS_IA`):
 
@@ -88,15 +90,15 @@ Tareas del copiloto (`TAREAS_IA`):
 |---|---|
 | `suggest-kpis` | KPIs aplicables |
 | `propose-tobe` | Reingeniería To-Be (también la usa el botón «Transformar a To-Be») |
-| `raci` | Matriz RACI |
+| `raci` | Matriz RACI. Con IA llega como matriz editable (sección 3.1); este informe es el respaldo |
 | `impact-effort` | Matriz impacto-esfuerzo |
 | `automation` | Oportunidades de automatización |
 | `backlog` | Backlog de iniciativas |
 | `exec-summary` | Resumen ejecutivo |
-| `sipoc` | SIPOC |
+| `sipoc` | SIPOC. Como la RACI: matriz editable y, si falla, este informe |
 | `bottleneck` | Cuello de botella y ruta crítica |
 
-Parámetros de cada llamada (iguales en los dos caminos, salvo la reparación, que solo existe en el servidor):
+Parámetros de cada llamada (iguales en los dos caminos, salvo la reparación de la generación, que solo existe en el servidor; la de las matrices está en los dos):
 
 | Llamada | Sistema | Esfuerzo | `max_tokens` | Inactividad |
 |---|---|---|---|---|
@@ -104,9 +106,36 @@ Parámetros de cada llamada (iguales en los dos caminos, salvo la reparación, q
 | Reparar el JSON (servidor) | `PROMPT_REPARACION` | `low` | 64 000 | 120 s |
 | Dolores | `PROMPT_PAINS` | `high` | 8 000 | 90 s |
 | Tarea del copiloto | `ROL_ANALISTA` | `high` | 8 000 | 90 s |
+| Matriz RACI o SIPOC | `PROMPT_MATRICES` | `high` | 8 000 (`MAX_TOKENS_MATRIZ`) | 90 s |
+| Reparar una matriz | `sistemaReparacionMatriz(tipo)` | `low` | 8 000 | 120 s |
 | Probar conexión (editor libre) | — | `low` | 256 | 90 s |
 
 Con un modelo `claude-opus-5*`, la petición lleva `fallbacks: 'default'`: si los clasificadores declinan, la API de Anthropic repite con el modelo de respaldo en la misma llamada.
+
+### 3.1 Matrices RACI y SIPOC
+
+Con IA disponible, «Generar matriz RACI» y «Generar SIPOC» no piden el informe en Markdown del MVP: piden **la matriz editable** que usan el PPTX, el informe Word y la Ficha (divergencia D12, [fase1-divergencias.md](../fase1-divergencias.md)). Todo está en [matrices.ts](../../packages/ia/src/matrices.ts) y lo usan igual el editor libre y el worker.
+
+| Tipo | Sustituye a | Forma del JSON (la de `state`) | Qué se valida |
+|---|---|---|---|
+| `matriz-raci` | `TAREAS_IA.raci` | `state._raci`: `{ "<id de la actividad>": { "<rol>": "R" \| "A" \| "R/A" \| "C" \| "I" } }` | Las filas son actividades reales (tipo `task`, `system` o `decision`, `actividadesRaci`): las de otros id se descartan y, si no queda ninguna, es un error que dice qué id usar. Letras normalizadas (`a` → `A`, `A/R` o `R, A` → `R/A`, `-` o `null` → vacía); al menos una; hasta 20 roles (`MAX_ROLES_RACI`) |
+| `matriz-sipoc` | `TAREAS_IA.sipoc` | `state._sipoc`: `{ suppliers, inputs, process, outputs, customers }`, textos con los elementos separados por comas | Las cinco columnas, sin vaciar y de hasta 2 000 caracteres; una lista se une con comas; las claves de más se quitan |
+
+`pedirMatrizIa(tipo, { resumen, actividades }, llamar)`:
+
+1. Pide la matriz con `PROMPT_MATRICES` (el analista de las tareas, pero solo JSON) y `promptMatriz(tipo, resumen)`: la instrucción de `MATRICES_IA[tipo]` y el mismo resumen del proceso que las tareas (`resumenProcesoParaIa`), tras `=== PROCESO A ANALIZAR ===`.
+2. `extraerJson` y `validarMatrizIa`.
+3. Si no vale y la respuesta no pasa de `MAX_CHARS_REPARACION`, **una** reparación: `sistemaReparacionMatriz(tipo)` con la forma, y `promptReparacionMatriz`, que añade al pedido de reparación de siempre el proceso (para los id y los roles).
+4. Si tampoco vale, lanza «La IA devolvió una matriz que no se pudo interpretar ni reparar: …», marcado como definitivo. Los errores de la llamada pasan tal cual, con su clase.
+
+`llamar` es `callClaude` en el editor libre y, en el worker, su llamada con el presupuesto comprobado antes de cada intento y el coste sumado (sección 5).
+
+En el editor ([ia/tareas.js](../../apps/web/src/app/ia/tareas.js)), `runAiTask('raci' | 'sipoc')`:
+
+- con IA remota, encola `matriz-raci` o `matriz-sipoc` (sección 5.1); si no, llama a `pedirMatrizIa` desde el navegador;
+- con la matriz, `cargarRaciIa` o `cargarSipocIa` ([analitica/](../../apps/web/src/app/analitica/)) la guardan en el proceso (`persist()`: deshacer la quita), avisan en el copiloto y abren el diálogo editable de siempre, con «Guardar cambios». Las columnas de la RACI son los roles de la IA, primero en el orden de los carriles, y las filas, todas las actividades (vacías si la IA no las trajo);
+- si falla cualquier cosa, el copiloto dice por qué y pide **el informe en texto** de siempre (`TAREAS_IA`), con la misma petición que el MVP;
+- una RACI de un proceso sin actividades va directa al informe; sin IA, las heurísticas.
 
 ---
 
@@ -155,6 +184,7 @@ Cada petición es una fila de `ejecuciones_ia`.
 | `generacion` | — | «Generar proceso» de la ingesta (también una descripción escrita en el copiloto) | El elegido, si está permitido | La especificación del proceso, validada |
 | `pains` | — | «Analizar dolores» | `MODELO_IA_ANALISIS` | `{ datos }`: el JSON de dolores |
 | `tarea` | Una clave de `TAREAS_IA` | Acciones del copiloto y «Transformar a To-Be» | `MODELO_IA_ANALISIS` | `{ markdown }` |
+| `tarea` | `matriz-raci` o `matriz-sipoc` | «Generar matriz RACI» y «Generar SIPOC» (sección 3.1) | `MODELO_IA_ANALISIS` | `{ matriz }`: la de `state._raci` o `state._sipoc`, validada |
 
 Estados: `en_cola`, `ejecutando`, `completada`, `fallida` y `cancelada` (sección 6.1).
 
@@ -165,13 +195,13 @@ Estados: `en_cola`, `ejecutando`, `completada`, `fallida` y `cancelada` (secció
 | Petición | Campos |
 |---|---|
 | `POST /api/ia/generaciones` | `procesoId`, `texto` (las fuentes ya combinadas; 1 a 1 000 000 caracteres), `etiqueta` (hasta 200), `vista` (1, 2 o 3), `roles` (persona → rol, de las transcripciones), `variasFuentes`, `fuentes` (nombre, tipo y caracteres de cada una; hasta 50), `modelo` (opcional) |
-| `POST /api/ia/analisis` | `procesoId`, `tipo` (`pains` o una clave de `TAREAS_IA`), `contenido` (el proceso del editor, normalizado a v1) |
+| `POST /api/ia/analisis` | `procesoId`, `tipo` (`pains`, una clave de `TAREAS_IA`, `matriz-raci` o `matriz-sipoc`), `contenido` (el proceso del editor, normalizado a v1) |
 
 El servidor decide:
 
 | Decisión | Cómo |
 |---|---|
-| Prompt | El de `@processiq/ia` para cada tipo (sección 3). En los análisis, el resumen lo calcula el servidor a partir de `contenido`, validado con `migrarProyecto` |
+| Prompt | El de `@processiq/ia` para cada tipo (sección 3). En los análisis, el resumen lo calcula el servidor a partir de `contenido`, validado con `migrarProyecto`. En las matrices guarda además en `parametros.actividades` los id de las actividades, contra los que valida el worker; una `matriz-raci` sin actividades se rechaza con 400 `PROCESO_SIN_ACTIVIDADES`, antes de gastar |
 | Modelo de la generación | El pedido si está en `MODELOS_IA_PERMITIDOS`. Si no lo está, el primero permitido, y la respuesta lo dice en `modeloSustituido: { pedido, usado }`: el editor muestra el aviso en la barra y en el progreso. Sin pedir, el primero permitido |
 | Modelo de los análisis | Siempre `MODELO_IA_ANALISIS` |
 | Esfuerzo, `max_tokens`, inactividad | Los de la tabla de la sección 3 |
@@ -263,7 +293,7 @@ En [plataforma/ia.js](../../apps/web/src/app/plataforma/ia.js):
   - registra el coste en `processiq.ia.costes`, para calibrar la estimación del navegador;
   - dibuja con `buildProcessFromAiSpec` (el mismo código que el MVP);
   - llama a `alGenerar`, que programa el guardado como revisión con el mensaje «Proceso generado con IA desde…» y el `ejecucionIaId`. La ingesta aplica antes el nivel elegido (es síncrona), así que se guarda la vista de ese nivel.
-- **`analizar(tipo)`** envía el proceso actual y devuelve `resultado.markdown` (tareas) o `resultado.datos` (dolores), que el editor interpreta igual que en el MVP.
+- **`analizar(tipo)`** envía el proceso actual y devuelve el `resultado`: `markdown` (tareas) o `datos` (dolores), que el editor interpreta igual que en el MVP, o `matriz` (RACI y SIPOC, sección 3.1).
 - **Si la IA no está disponible** (sin clave, presupuesto o límite agotados, o rol sin `escribir`): `lista()` es falso, la ingesta avisa y sigue en modo básico, y el copiloto usa sus heurísticas. «Ajustes de IA» solo informa: estado, modelos, modelo de análisis y gasto del mes de la organización y tuyo.
 
 ### 5.6 Generaciones pendientes
@@ -341,14 +371,16 @@ stateDiagram-v2
 
 ### 6.7 Validación y reparación
 
-Solo en las generaciones ([ejecutar.ts](../../apps/api/src/ia/ejecutar.ts)):
+En las generaciones ([ejecutar.ts](../../apps/api/src/ia/ejecutar.ts)):
 
 1. `extraerJson()` toma el primer objeto JSON (tolera bloques de código y prosa alrededor).
 2. `validarEspecGeneracion()` comprueba con Zod la forma mínima que necesita el editor: `nodes` con al menos un elemento y `k` en cada uno; `edges` opcional con `from` y `to`; `meta` y `ficha` opcionales. Admite campos de más. Devuelve hasta 10 errores.
 3. Si falla y la respuesta tiene como mucho 200 000 caracteres (`MAX_CHARS_REPARACION`), hace **una** llamada de reparación con la respuesta y el problema.
 4. Si la reparación tampoco valida, o la respuesta era más grande, la ejecución falla.
 
-Los dolores solo pasan por `extraerJson`; las tareas devuelven Markdown sin validar.
+Las matrices RACI y SIPOC siguen los mismos pasos con `pedirMatrizIa` (sección 3.1), validadas contra `parametros.actividades`. Si no se consigue la matriz, la ejecución falla con un error definitivo (sin reintentos) y el editor pide el informe en texto, que es otra ejecución.
+
+Los dolores solo pasan por `extraerJson`; las demás tareas devuelven Markdown sin validar.
 
 ### 6.8 Avisos (`LISTEN/NOTIFY`) y SSE
 
@@ -514,13 +546,13 @@ Staging usa topes más bajos y una sola ejecución a la vez ([ADR 16](../adr/001
 
 | Nivel | Archivo | Cómo evita la red | Qué cubre |
 |---|---|---|---|
-| Unitarias del paquete | [packages/ia/src/ia.test.ts](../../packages/ia/src/ia.test.ts) | `fetch` falso | Modos de `llamarClaude`, respaldo, reintento de red, errores, `extraerJson`, costes y estimación, prompts, validación y clasificación de errores |
+| Unitarias del paquete | [packages/ia/src/ia.test.ts](../../packages/ia/src/ia.test.ts) y [matrices.test.ts](../../packages/ia/src/matrices.test.ts) | `fetch` falso o `llamar` falso | Modos de `llamarClaude`, respaldo, reintento de red, errores, `extraerJson`, costes y estimación, prompts, validación y clasificación de errores; esquema, validación contra el proceso y reparación de las matrices |
 | Intermediario | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | `fetch` falso | `health`, orígenes, código, modelos, JSON, tope de `max_tokens`, `fallbacks`, 401 → 502 |
-| Fidelidad | [pruebas/fidelidad/interacciones.spec.mjs](../../pruebas/fidelidad/interacciones.spec.mjs) | Playwright intercepta la URL del intermediario | Editor libre: generación, niveles, tareas y dolores, con las **peticiones** comparadas byte a byte con el MVP |
-| Integración de la API | [apps/api/src/ia.test.ts](../../apps/api/src/ia.test.ts) | `fetch` falso que imita el SSE de Anthropic; esperas instantáneas; vigilancia cada 20 ms | Contra Postgres real: generar, reintentar, reparar, errores definitivos, cancelar, permisos y presupuesto, análisis, SSE, consumo y huérfanas |
-| E2E | [pruebas/e2e/ia.spec.mjs](../../pruebas/e2e/ia.spec.mjs) con [anthropic-falso.mjs](../../pruebas/e2e/src/anthropic-falso.mjs) | Servidor HTTP local que responde `/v1/messages` en SSE, en trozos y con pausas | Con la web construida, la API, Postgres y el **worker real** (apuntado al falso con `ANTHROPIC_BASE_URL`): generación guardada como revisión, generación pendiente, copiloto y dolores, consumo, y que quien solo lee no usa la IA |
+| Fidelidad | [pruebas/fidelidad/interacciones.spec.mjs](../../pruebas/fidelidad/interacciones.spec.mjs) y [divergencias.spec.mjs](../../pruebas/fidelidad/divergencias.spec.mjs) | Playwright intercepta la URL del intermediario | Editor libre: generación, niveles, tareas y dolores, con las **peticiones** comparadas byte a byte con el MVP. La RACI y el SIPOC, en `D12`: la matriz, el diálogo, el PPTX y, si falla, la misma petición del informe que el MVP |
+| Integración de la API | [apps/api/src/ia.test.ts](../../apps/api/src/ia.test.ts) | `fetch` falso que imita el SSE de Anthropic; esperas instantáneas; vigilancia cada 20 ms | Contra Postgres real: generar, reintentar, reparar, errores definitivos, cancelar, permisos y presupuesto, análisis (también las matrices, con su reparación y su fallo), SSE, consumo y huérfanas |
+| E2E | [pruebas/e2e/ia.spec.mjs](../../pruebas/e2e/ia.spec.mjs) con [anthropic-falso.mjs](../../pruebas/e2e/src/anthropic-falso.mjs) | Servidor HTTP local que responde `/v1/messages` en SSE, en trozos y con pausas | Con la web construida, la API, Postgres y el **worker real** (apuntado al falso con `ANTHROPIC_BASE_URL`): generación guardada como revisión, generación pendiente, copiloto y dolores, la RACI y el SIPOC editables y en el PPTX, consumo, y que quien solo lee no usa la IA |
 
-- El Anthropic falso elige la respuesta según la petición: un proceso de 3 elementos para la generación, Markdown para una tarea y un JSON de dolores para el análisis.
+- El Anthropic falso elige la respuesta según la petición: un proceso de 3 elementos para la generación, Markdown para una tarea, un JSON de dolores para el análisis y, con el sistema de las matrices, un SIPOC fijo o una RACI hecha con el resumen que recibe (R/A al rol de cada actividad y la auditoría interna informada).
 - Para gastar de verdad en local: `pnpm --filter @processiq/api worker` con `ANTHROPIC_API_KEY` en `.env.dev`.
 
 ---
@@ -547,7 +579,8 @@ Resumen de [runbooks/incidente-ia.md](../runbooks/incidente-ia.md). Mira primero
 ## 13. Diferencias con la arquitectura y puntos por confirmar
 
 - **Rutas distintas de las de [arquitectura.md §8](../arquitectura.md).** La tabla «Endpoints de negocio» nombra `POST /api/ia/analisis/pains` y `POST /api/ia/analisis/{tipo}`, y un SSE en `/api/ia/generaciones/{id}/eventos` con `Last-Event-ID`. El código usa `POST /api/ia/analisis` con `tipo` en el cuerpo y `/api/ia/ejecuciones/:id/eventos`, que no usa `Last-Event-ID` porque cada evento lleva el estado completo.
-- **No implementado todavía** (lo prevé la arquitectura): salida estructurada, caché de prompts y `sourceRefs`. Tampoco hay versión de prompt en `ejecuciones_ia`.
+- **No implementado todavía** (lo prevé la arquitectura): salida estructurada, caché de prompts y `sourceRefs`. Tampoco hay versión de prompt en `ejecuciones_ia`. Las matrices RACI y SIPOC (sección 3.1) piden JSON en el prompt y lo validan con Zod y una reparación, como la generación: no usan la salida estructurada de la API de Anthropic.
+- **«Consumo de IA» nombra las matrices por su clave.** Para `matriz-raci` y `matriz-sipoc`, la pantalla del shell dice «Análisis (matriz-raci)», porque solo busca la etiqueta en `TAREAS_IA`.
 - **Salida de las respuestas cortadas.** Desde el 28-sep-2026 se suma la entrada de una llamada cortada ([§7](#7-cliente-de-claude-llamarclaude)), pero su salida casi nunca se conoce: el consumo registrado puede quedar algo por debajo del real. Para acercarlo habría que estimar la salida a partir del texto recibido.
 - **Datos personales en `parametros`.** Al terminar una ejecución (completada, fallida o cancelada) se borran el texto y `parametros.roles` (nombres de los participantes). Quedan los nombres de los archivos de las fuentes. Por confirmar con la política de datos pendiente con Legal.
 - **Modelo elegido y permitido.** En modo proyecto, el diálogo ofrece Opus 5 y Sonnet 5 con la estimación del navegador, aunque el servidor permita otros. Si pide uno no permitido, el servidor usa el primero permitido y el editor lo avisa (`modeloSustituido`).
