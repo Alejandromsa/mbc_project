@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { eq, sql } from 'drizzle-orm';
 import { ejecucionesIa, type Conexion } from '@processiq/db';
-import { PROMPT_GENERACION, PROMPT_REPARACION, ROL_ANALISTA, usd } from '@processiq/ia';
+import { MATRICES_IA, PROMPT_GENERACION, PROMPT_MATRICES, PROMPT_REPARACION, ROL_ANALISTA, sistemaReparacionMatriz, usd } from '@processiq/ia';
 import { despertador } from './ia/avisos.js';
 import { reencolarHuerfanas, tomarSiguiente } from './ia/cola.js';
 import { ejecutar } from './ia/ejecutar.js';
@@ -339,6 +339,63 @@ describe('IA en el servidor', () => {
     for (const tipo of ['constructor', 'toString', '__proto__']) {
       expect((await c.ana.post('/api/ia/analisis', { procesoId: proceso.id, tipo, contenido: EXPORT_MVP })).status).toBe(400);
     }
+  });
+
+  it('análisis: RACI y SIPOC como matriz editable, validada contra el proceso y con una reparación (D11)', async () => {
+    const { c, proceso } = await equipo();
+    const analizar = (tipo: string, contenido: unknown = EXPORT_MVP, quien = c.ana) =>
+      quien.post('/api/ia/analisis', { procesoId: proceso.id, tipo, contenido });
+
+    const raci = await analizar('matriz-raci');
+    expect(raci.status).toBe(202);
+    expect(raci.json.ejecucion).toMatchObject({ tipo: 'tarea', tarea: 'matriz-raci', modelo: 'claude-sonnet-5' });
+    // El worker valida contra las actividades del proceso (tareas, de sistema y decisiones): sus id van en los parámetros
+    expect((await fila(raci.json.ejecucion.id)).parametros).toEqual({
+      nodos: 18, actividades: ['n2', 'n3', 'n4', 'n6', 'n7', 'n9', 'n10', 'n12', 'n13', 'n14', 'n15', 'n17', 'n19']
+    });
+    // Primero una tabla Markdown (no vale); la reparación trae JSON con una fila del inicio (n1) y otra inventada (x9)
+    const f = fetchFalso(
+      () => respuestaClaude('| Actividad | Contact Center |\n|---|---|\n| Registrar | R/A |', { modelo: 'claude-sonnet-5' }),
+      () => respuestaClaude(JSON.stringify({ n1: { Asegurado: 'R' }, n2: { 'Contact Center': 'r/a', Asegurado: 'I' }, x9: { Perito: 'R' } }), { modelo: 'claude-sonnet-5' })
+    );
+    await procesarCola(f);
+    expect(f).toHaveBeenCalledTimes(2);
+    expect(cuerpoDe(f, 0)).toMatchObject({ model: 'claude-sonnet-5', system: PROMPT_MATRICES, max_tokens: 8000, output_config: { effort: 'high' } });
+    const pedido = cuerpoDe(f, 0).messages[0].content;
+    expect(pedido.startsWith(MATRICES_IA['matriz-raci'].instruccion + '\n\n=== PROCESO A ANALIZAR ===\n')).toBe(true);
+    expect(pedido).toContain('id=n2 - tipo=task');
+    expect(cuerpoDe(f, 1).system).toBe(sistemaReparacionMatriz('matriz-raci'));
+    expect(cuerpoDe(f, 1).messages[0].content).toContain('Problema detectado: La IA no devolvió JSON.');
+    const e = (await c.ana.get(`/api/ia/ejecuciones/${raci.json.ejecucion.id}`)).json.ejecucion;
+    expect(e).toMatchObject({ estado: 'completada', intentos: 1, error: null, resultado: { matriz: { n2: { 'Contact Center': 'R/A', Asegurado: 'I' } } } });
+    expect(Object.keys(e.resultado.matriz)).toEqual(['n2']);
+    expect(e.costeUsd).toBeCloseTo(2 * usd(1000, 500, 'claude-sonnet-5'), 6);   // se cobran las dos llamadas
+
+    // SIPOC válido a la primera
+    const SIPOC = { suppliers: 'Asegurado, Perito', inputs: 'Denuncia, Póliza', process: 'Registrar, Evaluar, Pagar', outputs: 'Pago', customers: 'Asegurado' };
+    const sipoc = await analizar('matriz-sipoc');
+    const f2 = fetchFalso(() => respuestaClaude(JSON.stringify(SIPOC)));
+    await procesarCola(f2);
+    expect(f2).toHaveBeenCalledTimes(1);
+    expect((await fila(sipoc.json.ejecucion.id)).resultado).toEqual({ matriz: SIPOC });
+
+    // Sin arreglo tras la reparación: fallida y sin reintentos (el editor pide entonces el informe en texto)
+    const mala = await analizar('matriz-sipoc');
+    const f3 = fetchFalso(() => respuestaClaude('El SIPOC, en prosa.'));
+    await procesarCola(f3);
+    expect(f3).toHaveBeenCalledTimes(2);
+    expect(await fila(mala.json.ejecucion.id)).toMatchObject({
+      estado: 'fallida', intentos: 1, texto: null, error: 'La IA devolvió una matriz que no se pudo interpretar ni reparar: La IA no devolvió JSON.'
+    });
+
+    // Una RACI sin actividades se rechaza antes de gastar; quien solo revisa no la pide
+    const soloEventos = { ...EXPORT_MVP, nodes: EXPORT_MVP.nodes.filter((n: any) => n.type === 'start' || n.type === 'end'), edges: [] };
+    const sin = await analizar('matriz-raci', soloEventos);
+    expect(sin.status).toBe(400);
+    expect(sin.json.error.codigo).toBe('PROCESO_SIN_ACTIVIDADES');
+    expect((await analizar('matriz-sipoc', soloEventos)).status).toBe(202);   // el SIPOC no necesita actividades
+    expect((await analizar('matriz-raci', EXPORT_MVP, c.rosa)).json.error.codigo).toBe('PERMISO');
+    expect((await analizar('matriz-inventada')).status).toBe(400);
   });
 
   it('el progreso se sigue por SSE hasta el estado final, con el resultado en el último evento', async () => {

@@ -6,8 +6,8 @@ import { eq, sql } from 'drizzle-orm';
 import { ejecucionesIa, type BaseDeDatos } from '@processiq/db';
 import {
   GEN_MAX_TOKENS, MAX_CHARS_REPARACION, PROMPT_GENERACION, PROMPT_PAINS, PROMPT_REPARACION, ROL_ANALISTA, TAREAS_IA,
-  clasificarErrorIa, extraerJson, llamarClaude, marcarErrorIa, promptGeneracion, promptReparacion, promptTarea, timeoutGeneracion,
-  usd, validarEspecGeneracion, type OpcionesLlamada, type UsoIa
+  clasificarErrorIa, esTipoMatrizIa, extraerJson, llamarClaude, marcarErrorIa, pedirMatrizIa, promptGeneracion, promptReparacion, promptTarea,
+  timeoutGeneracion, usd, validarEspecGeneracion, type OpcionesLlamada, type UsoIa
 } from '@processiq/ia';
 import type { TopesIa } from '../config.js';
 import { CANAL_EJECUCION, avisar } from './avisos.js';
@@ -77,6 +77,13 @@ async function analizar(llamar: Llamar, e: EjecucionIa): Promise<unknown> {
   if (e.tipo === 'pains') {
     const respuesta = await llamar(e.texto ?? '', { system: PROMPT_PAINS, effort: 'high', maxTokens: 8000 });
     return { datos: extraerJson(respuesta) };
+  }
+  // RACI y SIPOC como matriz editable (D11): validada contra el proceso y con una reparación.
+  // Si no se consigue, la ejecución falla (error definitivo) y el editor pide el informe en texto.
+  if (esTipoMatrizIa(e.tarea)) {
+    const p = e.parametros as { actividades?: string[] } | null;
+    const matriz = await pedirMatrizIa(e.tarea, { resumen: e.texto ?? '', actividades: p?.actividades ?? [] }, llamar);
+    return { matriz };
   }
   const tarea = e.tarea && Object.hasOwn(TAREAS_IA, e.tarea) ? TAREAS_IA[e.tarea] : undefined;
   if (!tarea) throw new Error(`Tarea de IA desconocida: ${e.tarea}`);
