@@ -240,15 +240,18 @@ export function sse(texto, { entrada = 1200, salida = 900, modelo = 'claude-opus
   return s;
 }
 
-function respuestaPara(cuerpo) {
+export function respuestaPara(cuerpo) {
   const sistema = JSON.stringify(cuerpo.system ?? '');
   if (sistema.includes('Reconstruyes flujos')) return JSON.stringify(SPEC_IA);
   if (sistema.includes('detectados')) return JSON.stringify(PAINS_IA);
   return '**Respuesta simulada.**\n\n| Columna A | Columna B |\n|---|---|\n| uno | dos |\n\n- Punto 1\n- Punto 2';
 }
 
-/** Configura la IA en modo equipo contra un intermediario simulado y registra las peticiones. */
-export async function prepararIa(ctx, peticiones) {
+/**
+ * Configura la IA en modo equipo contra un intermediario simulado y registra las peticiones.
+ * `responder(cuerpo)` da el texto de cada respuesta (divergencias.spec.mjs usa el suyo).
+ */
+export async function prepararIa(ctx, peticiones, responder = respuestaPara) {
   await ctx.addInitScript((c) => localStorage.setItem('processiq.ai', JSON.stringify(c)), CONFIG_IA);
   await ctx.route(URL_IA + '/**', async (route) => {
     const req = route.request();
@@ -256,7 +259,7 @@ export async function prepararIa(ctx, peticiones) {
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
     const cuerpo = req.postDataJSON();
     peticiones.push({ url: req.url(), cabeceras: { codigo: req.headers()['x-processiq-code'], clave: req.headers()['x-api-key'] ?? null }, cuerpo });
-    await route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'text/event-stream' }, body: sse(respuestaPara(cuerpo)) });
+    await route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'text/event-stream' }, body: sse(responder(cuerpo)) });
   });
 }
 
@@ -287,11 +290,18 @@ export async function capturarGeneracionIa(page, peticiones) {
   return a;
 }
 
+/**
+ * Tareas cuya petición cambia a propósito: con IA, la RACI y el SIPOC piden la matriz
+ * editable en JSON (divergencia D11). Las prueba divergencias.spec.mjs, que además
+ * compara con el MVP la petición del informe en texto al que caen si la matriz falla.
+ */
+export const TAREAS_IA_DIVERGENTES = ['raci', 'sipoc'];
+
 export async function capturarTareasIa(page, peticiones) {
   const a = {};
   await page.evaluate(() => window.ProcessIQ.loadComplex());
   await asentar(page);
-  const tareas = await page.evaluate(() => window.ProcessIQ.aiTasks());
+  const tareas = (await page.evaluate(() => window.ProcessIQ.aiTasks())).filter((t) => !TAREAS_IA_DIVERGENTES.includes(t));
   for (const t of tareas) {
     peticiones.length = 0;
     const antes = await contarMensajes(page);
