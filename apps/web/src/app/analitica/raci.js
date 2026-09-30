@@ -1,6 +1,7 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { copilotPost } from '../copiloto/copiloto.js';
 import { state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { persist } from '../persistencia.js';
 import { openModal } from '../ui/modal.js';
 import { escapeHtml } from '../util.js';
@@ -10,7 +11,7 @@ import { escapeHtml } from '../util.js';
 // ============================================================
 function generateRaci() {
   const tasks = state.nodes.filter(n => n.type === 'task' || n.type === 'system' || n.type === 'decision');
-  if (tasks.length === 0) { copilotPost('ai', 'Necesito actividades en el diagrama para generar RACI.'); return; }
+  if (tasks.length === 0) { copilotPost('ai', tr('raci.sinActividades')); return; }
 
   // Roles únicos detectados en owner; si no hay, usar genéricos
   let roles = [...new Set(tasks.map(t => t.owner).filter(Boolean))];
@@ -27,7 +28,7 @@ function generateRaci() {
     });
   });
 
-  let html = '<table class="raci-table"><thead><tr><th>Actividad</th>';
+  let html = '<table class="raci-table"><thead><tr><th>' + tr('sim.colActividad') + '</th>';
   roles.forEach(r => html += `<th>${escapeHtml(r)}</th>`);
   html += '</tr></thead><tbody>';
   tasks.forEach(t => {
@@ -36,18 +37,18 @@ function generateRaci() {
       const val = state._raci[t.id][r] || '';
       html += `<td class="cell-center"><select class="raci-pick" data-tid="${t.id}" data-role="${escapeHtml(r)}">
           <option value="">—</option>
-          <option value="R" ${val==='R'?'selected':''}>R · Responsable</option>
+          <option value="R" ${val==='R'?'selected':''}>${tr('raci.r')}</option>
           <option value="A" ${val==='A'?'selected':''}>A · Accountable</option>
           <option value="R/A" ${val==='R/A'?'selected':''}>R/A</option>
-          <option value="C" ${val==='C'?'selected':''}>C · Consulta</option>
-          <option value="I" ${val==='I'?'selected':''}>I · Informado</option>
+          <option value="C" ${val==='C'?'selected':''}>${tr('raci.c')}</option>
+          <option value="I" ${val==='I'?'selected':''}>${tr('raci.i')}</option>
         </select></td>`;
     });
     html += '</tr>';
   });
-  html += '</tbody></table><p class="panel-hint" style="margin-top:8px">R=Responsable · A=Accountable · C=Consultado · I=Informado. La matriz se exportará al PPTX automáticamente.</p>';
+  html += '</tbody></table><p class="panel-hint" style="margin-top:8px">' + tr('raci.pista') + '</p>';
 
-  openModal('Matriz RACI · ' + (state.meta.name || 'Proceso'), html, () => {
+  openModal(tr('raci.titulo', { nombre: state.meta.name || tr('raci.proceso') }), html, () => {
     // Captura cambios
     document.querySelectorAll('.raci-pick').forEach(sel => {
       const tid = sel.dataset.tid, role = sel.dataset.role;
@@ -55,7 +56,7 @@ function generateRaci() {
       state._raci[tid][role] = sel.value;
     });
     persist();
-    copilotPost('ai', `Matriz RACI guardada con ${tasks.length} actividades × ${roles.length} roles. Se incluirá en el próximo export PPTX.`);
+    copilotPost('ai', tr('raci.guardada', { n: tasks.length, roles: roles.length }));
   });
 }
 
