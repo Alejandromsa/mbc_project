@@ -7,6 +7,7 @@ import { CLAVES_JSON_MVP, VIEWPORT, abrirApp, clicExport, descargar, laminasPptx
 import { PUERTO_NUEVA, PUERTO_REFERENCIA } from './src/puertos.mjs';
 import { archivosDeIngesta } from './src/archivos.mjs';
 import { TEXTOS_DIVERGENTES } from './src/textos-divergentes.mjs';
+import { prepararIa, respuestaPara } from './src/interacciones.mjs';
 
 async function abrir(browser, puerto) {
   const ctx = await browser.newContext({ viewport: VIEWPORT, acceptDownloads: true, reducedMotion: 'reduce' });
@@ -280,7 +281,13 @@ test('D9: la interfaz del editor lleva sus tildes, y la lista de textos de la fi
   const nueva = await servido(PUERTO_NUEVA);
   for (const t of TEXTOS_DIVERGENTES) {
     expect(mvp, `${t.d}: el MVP dice «${t.mvp}»`).toContain(t.mvp);
-    expect(mvp, `${t.d}: el MVP no dice «${t.nueva}»`).not.toContain(t.nueva);
+    // `enMvp`: sitios donde el MVP ya usa el texto nuevo; se descuentan (y tienen que seguir ahí)
+    let mvpSinOtros = mvp;
+    for (const otro of t.enMvp ?? []) {
+      expect(mvp, `${t.d}: el MVP dice «${otro}»`).toContain(otro);
+      mvpSinOtros = mvpSinOtros.split(otro).join('');
+    }
+    expect(mvpSinOtros, `${t.d}: el MVP no dice «${t.nueva}»`).not.toContain(t.nueva);
     expect(nueva, `${t.d}: la app nueva dice «${t.nueva}»`).toContain(t.nueva);
     expect(nueva, `${t.d}: la app nueva no dice «${t.mvp}»`).not.toContain(t.mvp);
   }
@@ -370,4 +377,168 @@ test('D10: un BPMN de otra herramienta conserva carriles y subprocesos; un XML q
   expect(await nueva.page.evaluate(() => window.ProcessIQ.snapshot().nodes)).toBe(15);
   expect(nueva.errores).toEqual([]);
   await nueva.ctx.close();
+});
+
+// D12: con IA, «Generar matriz RACI» y «Generar SIPOC» traen la matriz editable (JSON validado,
+// con una reparación) en lugar del informe en Markdown del MVP. La IA se simula como en la
+// fidelidad (prepararIa); este `responder` contesta además las peticiones de matriz.
+const SISTEMA_MATRICES = 'Devuelves EXCLUSIVAMENTE un objeto JSON válido, con la forma exacta que pide la tarea';
+const SISTEMA_REPARACION = 'Eres un validador de JSON.';
+const SEPARADOR = '=== PROCESO A ANALIZAR ===';
+const ROL_EXTRA = 'Comité de riesgos';
+const SIPOC_IA = {
+  suppliers: 'Asegurado, Taller afiliado', inputs: 'Denuncia del siniestro, Póliza vigente',
+  process: 'Registrar, Peritar, Liquidar, Pagar', outputs: 'Indemnización pagada', customers: 'Asegurado, Área de reaseguros'
+};
+
+/** Actividades (task, system, decision) del resumen que recibe la IA, con su rol. */
+function actividadesDelResumen(contenido) {
+  const r = [];
+  for (const linea of contenido.split('\n')) {
+    const id = /^id=(\S+) - tipo=(task|system|decision)\b/.exec(linea);
+    const rol = / - rol=(.+?)(?= - |$)/.exec(linea);
+    if (id && rol) r.push({ id: id[1], rol: rol[1] });
+  }
+  return r;
+}
+/** La RACI «de la IA»: R/A al rol de cada actividad; el comité, I en la primera y «a» (minúscula) en la segunda; y una fila inventada. */
+function raciSimulada(contenido) {
+  const m = {};
+  actividadesDelResumen(contenido).forEach((a, i) => {
+    m[a.id] = { [a.rol]: i === 1 ? 'R' : 'R/A' };
+    if (i === 0) m[a.id][ROL_EXTRA] = 'I';
+    if (i === 1) m[a.id][ROL_EXTRA] = 'a';
+  });
+  m.x99 = { Inventado: 'R' };
+  return m;
+}
+function responderMatrices(cuerpo) {
+  if (!String(cuerpo.system ?? '').includes(SISTEMA_MATRICES)) return respuestaPara(cuerpo);
+  const contenido = String(cuerpo.messages[0].content);
+  return JSON.stringify(contenido.startsWith('Construye el SIPOC') ? SIPOC_IA : raciSimulada(contenido));
+}
+
+async function abrirConIa(browser, puerto, responder) {
+  const ctx = await browser.newContext({ viewport: VIEWPORT, acceptDownloads: true, reducedMotion: 'reduce' });
+  const peticiones = [];
+  await prepararIa(ctx, peticiones, responder);
+  const page = await ctx.newPage();
+  const errores = [];
+  page.on('pageerror', (e) => errores.push(String(e)));
+  await abrirApp(page, `http://127.0.0.1:${puerto}/`);
+  await page.evaluate(() => window.ProcessIQ.loadComplex());
+  return { ctx, page, errores, peticiones, cuerpos: () => peticiones.map((p) => p.cuerpo) };
+}
+const pulsar = (page, accion) => page.evaluate((a) => document.querySelector(`.copilot-action[data-action="${a}"]`).click(), accion);
+const mensajesHtml = (page) => page.evaluate(() => Array.from(document.querySelectorAll('#copilotMessages > .copilot-msg')).map((m) => m.outerHTML));
+const guardadoV1 = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('processiq.v1')));
+const modalAbierto = (page) => page.evaluate(() => !document.querySelector('#modal').hidden);
+/** Lo que el MVP pide y responde con el informe en texto de una tarea (su petición y sus dos últimos mensajes). */
+async function informeDelMvp(browser, tarea) {
+  const mvp = await abrirConIa(browser, PUERTO_REFERENCIA, responderMatrices);
+  await pulsar(mvp.page, tarea);
+  await expect.poll(() => mvp.page.evaluate(() => document.querySelector('#copilotMessages').textContent)).toContain('Respuesta simulada');
+  const r = { cuerpos: mvp.cuerpos(), mensajes: (await mensajesHtml(mvp.page)).slice(-2), guardado: await guardadoV1(mvp.page), modal: await modalAbierto(mvp.page) };
+  expect(mvp.errores).toEqual([]);
+  await mvp.ctx.close();
+  return r;
+}
+
+test('D12: con IA, la RACI y el SIPOC se cargan en su matriz editable y van al PPTX (el MVP daba un informe en texto)', async ({ browser }) => {
+  // MVP, con la misma IA simulada: una petición del informe en Markdown y ninguna matriz
+  const mvp = { raci: await informeDelMvp(browser, 'raci'), sipoc: await informeDelMvp(browser, 'sipoc') };
+  for (const r of Object.values(mvp)) {
+    expect(r.cuerpos).toHaveLength(1);
+    expect(r.cuerpos[0].system).toContain('Usas Markdown');
+    expect(r.modal).toBe(false);
+    expect(r.guardado.raci ?? null).toBeNull();
+    expect(r.guardado.sipoc ?? null).toBeNull();
+  }
+
+  const nueva = await abrirConIa(browser, PUERTO_NUEVA, responderMatrices);
+  // RACI: una petición de matriz, con el mismo proceso y los mismos parámetros que el informe del MVP
+  await pulsar(nueva.page, 'raci');
+  await expect.poll(() => modalAbierto(nueva.page)).toBe(true);
+  expect(nueva.cuerpos()).toHaveLength(1);
+  const pedido = nueva.cuerpos()[0];
+  expect(pedido.system).toContain(SISTEMA_MATRICES);
+  expect(pedido.messages[0].content.startsWith('Construye la matriz RACI del proceso.')).toBe(true);
+  expect(pedido.messages[0].content.split(SEPARADOR)[1]).toBe(mvp.raci.cuerpos[0].messages[0].content.split(SEPARADOR)[1]);
+  const sinTexto = ({ system: _s, messages: _m, ...resto }) => resto;
+  expect(sinTexto(pedido)).toEqual(sinTexto(mvp.raci.cuerpos[0]));   // modelo, max_tokens, esfuerzo, respaldo, stream
+
+  // La matriz guardada: una fila por actividad del resumen (la inventada no), las letras de la IA
+  // normalizadas («a» -> «A») y vacías las demás celdas; los roles, los de la IA
+  const actividades = actividadesDelResumen(pedido.messages[0].content);
+  const deIa = raciSimulada(pedido.messages[0].content);
+  const raci = (await guardadoV1(nueva.page)).raci;
+  expect(Object.keys(raci).sort()).toEqual(actividades.map((a) => a.id).sort());
+  const roles = [...new Set([...actividades.map((a) => a.rol), ROL_EXTRA])];
+  for (const a of actividades) {
+    expect(Object.keys(raci[a.id]).sort(), a.id).toEqual([...roles].sort());
+    for (const rol of roles) expect(raci[a.id][rol], `${a.id} / ${rol}`).toBe((deIa[a.id][rol] || '').toUpperCase());
+  }
+  expect(raci[actividades[1].id][ROL_EXTRA]).toBe('A');
+  // El diálogo editable muestra exactamente esa matriz
+  const celdas = await nueva.page.evaluate(() => Array.from(document.querySelectorAll('.raci-pick')).map((s) => [s.dataset.tid, s.dataset.role, s.value]));
+  expect(celdas).toHaveLength(actividades.length * roles.length);
+  for (const [tid, rol, valor] of celdas) expect(valor, `${tid} / ${rol}`).toBe(raci[tid][rol]);
+  expect(await nueva.page.locator('#modalOk').textContent()).toBe('Guardar cambios');
+  // Se edita como la de siempre
+  await nueva.page.evaluate((id) => {
+    const sel = document.querySelector(`.raci-pick[data-tid="${id}"][data-role="Comité de riesgos"]`);
+    sel.value = 'C';
+    document.querySelector('#modalOk').click();
+  }, actividades[0].id);
+  await expect.poll(async () => (await guardadoV1(nueva.page)).raci[actividades[0].id][ROL_EXTRA]).toBe('C');
+  const textoChat = await nueva.page.evaluate(() => document.querySelector('#copilotMessages').textContent);
+  expect(textoChat).toContain(`Matriz RACI propuesta por la IA con ${actividades.length} actividades × ${roles.length} roles.`);
+  expect(textoChat).toContain(`Matriz RACI guardada con ${actividades.length} actividades × ${roles.length} roles.`);
+
+  // SIPOC: la matriz de la IA, tal cual, en el diálogo y en el proceso
+  await pulsar(nueva.page, 'sipoc');
+  await expect.poll(() => modalAbierto(nueva.page)).toBe(true);
+  expect(nueva.cuerpos()).toHaveLength(2);
+  expect(nueva.cuerpos()[1].messages[0].content.split(SEPARADOR)[1]).toBe(mvp.sipoc.cuerpos[0].messages[0].content.split(SEPARADOR)[1]);
+  expect((await guardadoV1(nueva.page)).sipoc).toEqual(SIPOC_IA);
+  const columnas = await nueva.page.evaluate(() => Object.fromEntries(Array.from(document.querySelectorAll('[data-sipoc]')).map((t) => [t.dataset.sipoc, t.value])));
+  expect(columnas).toEqual(SIPOC_IA);
+  await nueva.page.evaluate(() => document.querySelector('#modalCancel').click());
+
+  // El PPTX lleva las dos láminas con lo de la IA
+  const laminas = Object.values(await laminasPptx((await descargar(nueva.page, () => clicExport(nueva.page, 'pptx', 'mbc'))).datos));
+  const laminaRaci = laminas.find((xml) => xml.includes('>Matriz RACI<'));
+  expect(laminaRaci, 'lámina RACI').toBeTruthy();
+  expect(laminaRaci).toContain(`>${ROL_EXTRA}<`);
+  expect(laminaRaci).toContain('>R/A<');
+  const laminaSipoc = laminas.find((xml) => xml.includes('>SIPOC — alcance del proceso<'));
+  expect(laminaSipoc, 'lámina SIPOC').toBeTruthy();
+  for (const v of Object.values(SIPOC_IA)) expect(laminaSipoc).toContain(v);
+  expect(nueva.errores).toEqual([]);
+  await nueva.ctx.close();
+});
+
+test('D12: si la matriz no se puede reparar, cae al informe en texto del MVP (la misma petición y el mismo mensaje)', async ({ browser }) => {
+  for (const tarea of ['raci', 'sipoc']) {
+    // La IA de la fidelidad contesta Markdown a todo: ni la matriz ni su reparación son JSON
+    const mvp = await informeDelMvp(browser, tarea);
+    const nueva = await abrirConIa(browser, PUERTO_NUEVA, respuestaPara);
+    await pulsar(nueva.page, tarea);
+    await expect.poll(() => nueva.peticiones.length).toBe(3);
+    await expect.poll(() => nueva.page.evaluate(() => document.querySelector('#copilotMessages').textContent)).toContain('Respuesta simulada');
+    const [matriz, reparacion, informe] = nueva.cuerpos();
+    expect(matriz.system).toContain(SISTEMA_MATRICES);
+    expect(reparacion.system.startsWith(SISTEMA_REPARACION)).toBe(true);
+    expect(reparacion.messages[0].content.startsWith('Problema detectado: La IA no devolvió JSON.')).toBe(true);
+    expect(JSON.stringify(informe), `${tarea}: la petición del informe es la del MVP`).toBe(JSON.stringify(mvp.cuerpos[0]));
+    const mensajes = await mensajesHtml(nueva.page);
+    expect(mensajes.slice(-2), `${tarea}: el informe se ve como en el MVP`).toEqual(mvp.mensajes);
+    expect(mensajes.at(-3)).toContain('No se pudo armar la matriz editable (La IA devolvió una matriz que no se pudo interpretar ni reparar: La IA no devolvió JSON.). Pido el informe en texto.');
+    expect(await modalAbierto(nueva.page)).toBe(false);
+    const guardado = await guardadoV1(nueva.page);
+    expect(guardado.raci ?? null).toBeNull();
+    expect(guardado.sipoc ?? null).toBeNull();
+    expect(nueva.errores).toEqual([]);
+    await nueva.ctx.close();
+  }
 });

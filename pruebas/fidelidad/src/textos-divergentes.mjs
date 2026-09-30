@@ -28,7 +28,14 @@ export const TEXTOS_DIVERGENTES = [
   { d: 'D9', mvp: 'Anadir otro documento, transcripcion o diagrama', nueva: 'Añadir otro documento, transcripción o diagrama' },
   { d: 'D9', mvp: '+ Anadir otra fuente', nueva: '+ Añadir otra fuente' },
   { d: 'D9', mvp: 'Se combinaran en un solo AS-IS. Ante contradicciones prevalece la fuente mas reciente (p. ej. la transcripcion del levantamiento',
-    nueva: 'Se combinarán en un solo AS-IS. Ante contradicciones prevalece la fuente más reciente (p. ej. la transcripción del levantamiento' }
+    nueva: 'Se combinarán en un solo AS-IS. Ante contradicciones prevalece la fuente más reciente (p. ej. la transcripción del levantamiento' },
+  // D9: títulos de las tareas de IA del copiloto (etiqueta de TAREAS_IA; no van en la petición).
+  // `enMvp`: sitios donde el MVP ya escribe el texto nuevo (el botón del copiloto y el título del
+  // diálogo de la automatización sin IA); la prueba D9 los descuenta antes de exigir que el MVP no lo tenga.
+  { d: 'D9', mvp: 'Proponer reingenieria To-Be', nueva: 'Proponer reingeniería To-Be' },
+  { d: 'D9', mvp: 'Oportunidades de automatizacion', nueva: 'Oportunidades de automatización',
+    enMvp: ['</span>Oportunidades de automatización</button>', '🤖 Oportunidades de automatización'] },
+  { d: 'D9', mvp: 'Cuello de botella y ruta critica', nueva: 'Cuello de botella y ruta crítica' }
 ];
 
 /** Un artefacto del MVP con los textos nuevos de la app (para compararlo con el de la app nueva). */

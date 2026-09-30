@@ -134,6 +134,12 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 22w. **Una E2E pasaba en el PC y fallaba en la CI esperando una descarga.** El editor cierra el menú «Exportar» al terminar cada exportación; a veces lo hacía justo después de que la prueba lo reabriera, y el clic se quedaba esperando una opción ya invisible. Primero le di más tiempo a la prueba, pero eso no lo arreglaba: con `--repeat-each` fallaba también en local.
     → **Regla:** si una E2E falla solo en la CI, descargar el artefacto (`gh run download`) y leer la traza antes de tocar tiempos. Las acciones sobre menús que se abren y cierran solos van dentro del mismo reintento (`expect(…).toPass`), abrir y pulsar juntos. Antes de dar por buena una prueba de interfaz, ejecutarla con `--repeat-each`.
 
+22x. **Dos textos nuevos junto a otros heredados del MVP copiaron sus defectos o chocaron con ellos** (RACI y SIPOC con IA, D12).
+    - Los avisos nuevos del copiloto («*RACI: armando la matriz editable con IA…*») copiaron el `_…_` del mensaje vecino «_…: analizando el proceso con IA…_». Pero `formatMd` del copiloto solo entiende `**…**` y `*…*`: los guiones bajos se ven tal cual (en el mensaje heredado se quedan, porque la fidelidad lo compara). Las pruebas pasaban; se vio en la captura del chat.
+    - La prueba D9 falló al añadir «Oportunidades de automatización» a `textos-divergentes.mjs`: el MVP ya lo escribe así en el botón del copiloto y en el diálogo sin IA. Estaba en la salida del `grep`, y solo miré la línea del diálogo.
+
+    → **Regla:** un texto nuevo del copiloto usa la sintaxis de `formatMd` (`*cursiva*`, `**negrita**`), no la del mensaje de al lado, y se revisa en una captura del chat. Antes de añadir una entrada a `textos-divergentes.mjs`, contar las apariciones del texto nuevo en todo `referencia-mvp/` (HTML y JS) y declarar en `enMvp` cada sitio donde el MVP ya lo tenga.
+
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 

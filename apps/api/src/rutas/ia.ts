@@ -8,7 +8,7 @@ import { and, desc, eq, gte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { ejecucionesIa, usuarios } from '@processiq/db';
 import { migrarProyecto } from '@processiq/dominio';
-import { MODELOS_IA, PRECIOS_IA, TAREAS_IA, resumenProcesoParaIa } from '@processiq/ia';
+import { MODELOS_IA, PRECIOS_IA, TAREAS_IA, actividadesRaci, esTipoMatrizIa, resumenProcesoParaIa } from '@processiq/ia';
 import { registrar } from '../auditoria.js';
 import { ErrorHttp, type Entorno, type UsuarioSesion } from '../contexto.js';
 import { CANAL_COLA, CANAL_EJECUCION, avisar, despertador } from '../ia/avisos.js';
@@ -36,9 +36,9 @@ const GeneracionEsquema = z.object({
 
 const AnalisisEsquema = z.object({
   procesoId: z.string().uuid(),
-  /** 'pains' o una tarea del copiloto (suggest-kpis, raci…). */
+  /** 'pains', una tarea del copiloto (suggest-kpis, raci…) o una matriz (matriz-raci, matriz-sipoc: JSON editable, D12). */
   // Object.hasOwn: 'constructor' o 'toString' no son tareas aunque existan en el prototipo
-  tipo: z.string().refine((t) => t === 'pains' || Object.hasOwn(TAREAS_IA, t), 'Análisis desconocido.'),
+  tipo: z.string().refine((t) => t === 'pains' || Object.hasOwn(TAREAS_IA, t) || esTipoMatrizIa(t), 'Análisis desconocido.'),
   /** El proceso tal como está en el editor (se valida con el esquema del dominio). */
   contenido: z.unknown()
 });
@@ -124,13 +124,19 @@ export function rutasIa(opciones: { sondeoMs?: number } = {}) {
     const m = migrarProyecto(d.contenido);
     if (!m.ok) throw new ErrorHttp(400, 'El proceso no es válido.', 'PROCESO_INVALIDO', m.errores);
     if (m.proyecto.nodes.length === 0) throw new ErrorHttp(400, 'No hay proceso que analizar.', 'PROCESO_VACIO');
-    await exigirIaDisponible(c, yo);
     const p = m.proyecto;
+    // Una matriz se valida contra las actividades del proceso: el worker necesita sus id
+    const actividades = esTipoMatrizIa(d.tipo) ? actividadesRaci(p.nodes) : null;
+    if (d.tipo === 'matriz-raci' && !actividades!.length) {
+      throw new ErrorHttp(400, 'El proceso no tiene actividades para la matriz RACI.', 'PROCESO_SIN_ACTIVIDADES');
+    }
+    await exigirIaDisponible(c, yo);
     const resumen = resumenProcesoParaIa({ meta: p.meta, nodes: p.nodes, edges: p.edges, lanes: (p.lanes as never) ?? null });
     const e = await encolar(c, {
       organizacionId: yo.organizacionId, procesoId: proceso.id, usuarioId: yo.id,
       tipo: d.tipo === 'pains' ? 'pains' : 'tarea', tarea: d.tipo === 'pains' ? null : d.tipo,
-      modelo: c.get('config').ia.modeloAnalisis, parametros: { nodos: p.nodes.length }, texto: resumen
+      modelo: c.get('config').ia.modeloAnalisis,
+      parametros: { nodos: p.nodes.length, ...(actividades ? { actividades } : {}) }, texto: resumen
     });
     await registrar(c, 'ia.analisis', 'proceso', proceso.id, { ejecucionId: e.id, tipo: d.tipo });
     return c.json({ ejecucion: publica(e, false) }, 202);
