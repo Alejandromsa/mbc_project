@@ -29,14 +29,6 @@ function colorDe(usuarioId) {
   return h % COLORES;
 }
 
-/** « (v3)» o « (v3, versión anterior)», como en la página del proceso del shell; vacío si solo está en el shell. */
-function versionesAbiertas(p) {
-  const lista = Array.isArray(p.revisiones) ? p.revisiones : [];
-  if (!lista.length) return '';
-  const versiones = lista.map((r) => tr(r.ultima ? 'colab.versionAbierta' : 'colab.versionAnterior', { n: r.numero })).join(' · ');
-  return ' ' + tr('colab.enVersion', { versiones });
-}
-
 /** «Ana», «Ana y Luis», «Ana y 2 más». */
 function enumerar(personas) {
   const n = personas.map((p) => nombreCorto(p.nombre));
@@ -151,7 +143,7 @@ export function activarColaboracion(o) {
       li.className = `piq-avatar piq-avatar-c${colorDe(p.usuarioId)}`;
       if (p.estado === 'editando') li.classList.add('piq-avatar-editando');
       li.textContent = iniciales(p.nombre);
-      li.title = tr(p.estado === 'editando' ? 'colab.editandoEn' : 'colab.viendoEn', { nombre: p.nombre, donde: dondeEsta(p) }) + versionesAbiertas(p);
+      li.title = tr(p.estado === 'editando' ? 'colab.editandoEn' : 'colab.viendoEn', { nombre: p.nombre, donde: dondeEsta(p) });
       li.setAttribute('aria-label', li.title);
       lista.appendChild(li);
     });

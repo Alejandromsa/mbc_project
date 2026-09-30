@@ -269,8 +269,8 @@ test.describe('plataforma', () => {
     await contexto.close();
   });
 
-  // Colaboración (evento `estado` del SSE y versión abierta en la presencia, PR #21)
-  test('la barra del editor refleja al momento el cambio de estado de la revisión abierta; los avatares dicen qué versión tiene abierta cada uno', async ({ page, browser }) => {
+  // Colaboración (evento `estado` del SSE, PR #21)
+  test('la barra del editor refleja al momento el cambio de estado de la revisión abierta, en los dos idiomas', async ({ page, browser }) => {
     const entrar = async (p, usuario) => {
       await p.goto('/proyectos/entrar');
       await p.getByLabel('Correo').fill(correo(usuario));
@@ -285,12 +285,12 @@ test.describe('plataforma', () => {
     const barra = page.locator('.piq-proyecto');
     await expect(barra).toContainText('v3 · Borrador');
 
-    // Otra persona abre la misma versión en el editor: su avatar dice cuál
+    // Otra persona tiene abierta la misma versión en el editor
     const otro = await browser.newContext();
     const propietaria = await otro.newPage();
     await entrar(propietaria, 'propietario');
     await expect(propietaria.locator('.piq-proyecto')).toContainText('v3 · Borrador');
-    await expect(barra.locator('.piq-avatar').first()).toHaveAttribute('title', /: viendo en el editor \(v3\)$/);
+    await expect(barra.locator('.piq-avatar').first()).toHaveAttribute('title', 'Propietario de Prueba: viendo en el editor');
 
     // Se envía a revisión la v3 (por la API): la barra del editor lo dice sin recargar
     const id = new URL(page.url()).searchParams.get('revision')
@@ -302,7 +302,7 @@ test.describe('plataforma', () => {
     // Y en inglés, el mismo estado
     await page.getByRole('group', { name: 'Idioma' }).getByRole('button', { name: 'English' }).click();
     await expect(barra).toContainText('v3 · In review');
-    await expect(barra.locator('.piq-avatar').first()).toHaveAttribute('title', /: viewing in the editor \(v3\)$/);
+    await expect(barra.locator('.piq-avatar').first()).toHaveAttribute('title', 'Propietario de Prueba: viewing in the editor');
     await otro.close();
   });
 });
