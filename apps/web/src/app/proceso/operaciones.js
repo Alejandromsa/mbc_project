@@ -5,6 +5,7 @@ import {
 } from '@processiq/motor';
 import { copilotPost } from '../copiloto/copiloto.js';
 import { SHAPE_DEFAULTS, state } from '../estado.js';
+import { tr } from '../i18n.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { persist } from '../persistencia.js';
 
@@ -20,15 +21,12 @@ function insertMergeGateways() {
   state.nextId = r.siguienteId;
   const added = r.insertadas;
   if (!added) {
-    copilotPost('ai', 'No encontré convergencias que necesiten compuerta de cierre: las ramas de este proceso terminan en fines distintos o ya convergen en una compuerta.');
+    copilotPost('ai', tr('convergencia.ninguna'));
     return 0;
   }
   persist();
   autoLayout();
-  copilotPost('ai',
-    `**${added} compuerta(s) de convergencia insertada(s).**\n\n` +
-    `Donde varias ramas volvían a juntarse en una actividad, ahora se dibuja la compuerta de cierre (✕) — es lo que exige el BPMN riguroso y lo que esperan ver los comités.\n\n` +
-    `Nodos: ${before} → ${state.nodes.length}. Si prefieres el merge implícito, usa **deshacer** (Ctrl+Z).`);
+  copilotPost('ai', tr('convergencia.insertadas', { n: added, antes: before, despues: state.nodes.length }));
   return added;
 }
 

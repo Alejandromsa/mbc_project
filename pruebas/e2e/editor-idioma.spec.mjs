@@ -161,6 +161,12 @@ test.describe('editor libre', () => {
     await expect(page.locator('#modalTitle')).toHaveText('Example processes');
     await page.locator('.example-item').filter({ hasText: 'Gestión de Siniestros (Seguros)' }).click();
     await expect(page.locator('#statusNodes')).toHaveText(/^\d+ nodes$/);
+    // Antes de tocar nada (RACI, cuello de botella…): las exportaciones son las mismas que en español
+    const enIngles = await exportaciones(page, 'Export', 'Word · process report', 'BPMN 2.0 · Bizagi/Camunda', 'PPTX · MBC blue, Montserrat');
+    expect(enIngles.word).toBe(enEspanol.word);
+    expect(enIngles.bpmn).toBe(enEspanol.bpmn);
+    expect(Object.keys(enIngles.pptx).length).toBeGreaterThan(3);
+    expect(enIngles.pptx).toEqual(enEspanol.pptx);
     await page.locator('.tab[data-tab="validations"]').click();
     await expect(page.locator('#drawerTitle')).toHaveText('MBB validations · linter');
     await expect(page.locator('#lintScore')).toContainText('MBB score');
@@ -177,12 +183,6 @@ test.describe('editor libre', () => {
     await page.screenshot({ path: `${CAPTURAS}/dialogo.png` });
     await page.locator('#modalCancel').click();
 
-    // Las exportaciones son las mismas que en español: no se traducen
-    const enIngles = await exportaciones(page, 'Export', 'Word · process report', 'BPMN 2.0 · Bizagi/Camunda', 'PPTX · MBC blue, Montserrat');
-    expect(enIngles.word).toBe(enEspanol.word);
-    expect(enIngles.bpmn).toBe(enEspanol.bpmn);
-    expect(Object.keys(enIngles.pptx).length).toBeGreaterThan(3);
-    expect(enIngles.pptx).toEqual(enEspanol.pptx);
 
     // 6. Persiste al recargar
     await page.reload();

@@ -607,6 +607,8 @@ export const es = {
   'heur.hola': '¡Hola! ¿En qué proceso te ayudo hoy?',
   'heur.interpretando': 'Interpretando tu descripción con IA…',
   'heur.generico': 'Entiendo tu pedido. En el MVP el copiloto trabaja con plantillas locales — al conectar Claude API en v1 daré respuestas contextualizadas a tu diagrama, industria y entregables previos del área.\n\nPrueba con las acciones rápidas arriba: generar, detectar pains, sugerir KPIs, to-be, o resumen ejecutivo.',
+  'convergencia.ninguna': 'No encontré convergencias que necesiten compuerta de cierre: las ramas de este proceso terminan en fines distintos o ya convergen en una compuerta.',
+  'convergencia.insertadas': '**{n} compuerta(s) de convergencia insertada(s).**\n\nDonde varias ramas volvían a juntarse en una actividad, ahora se dibuja la compuerta de cierre (✕) — es lo que exige el BPMN riguroso y lo que esperan ver los comités.\n\nNodos: {antes} → {despues}. Si prefieres el merge implícito, usa **deshacer** (Ctrl+Z).',
   // ---------------------------------------------------------------- Analítica avanzada, RACI, SIPOC e impacto-esfuerzo
   'analitica.sinActividades': 'No hay actividades para analizar.',
   'cuello.sinDatos': 'Captura **tiempo** y **volumen** en las actividades (pestaña Props o wizard del simulador) para detectar el cuello de botella.',

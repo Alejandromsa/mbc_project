@@ -606,6 +606,8 @@ export const en = {
   'heur.hola': 'Hi! Which process can I help you with today?',
   'heur.interpretando': 'Interpreting your description with AI…',
   'heur.generico': 'Got it. Without AI the copilot works with local templates — with Claude connected, it answers in the context of your diagram, industry and the area’s previous deliverables.\n\nTry the quick actions above: generate, detect pain points, suggest KPIs, to-be, or executive summary.',
+  'convergencia.ninguna': 'I found no merge points that need a closing gateway: this process’s branches end in different end events or already merge at a gateway.',
+  'convergencia.insertadas': '**{n} merging gateway(s) inserted.**\n\nWhere several branches came back together at an activity, the closing gateway (✕) is now drawn — this is what rigorous BPMN requires and what committees expect to see.\n\nNodes: {antes} → {despues}. If you prefer the implicit merge, use **undo** (Ctrl+Z).',
   // ---------------------------------------------------------------- Advanced analytics, RACI, SIPOC and impact–effort
   'analitica.sinActividades': 'There are no activities to analyze.',
   'cuello.sinDatos': 'Capture **time** and **volume** for the activities (Props tab or the simulator wizard) to find the bottleneck.',
