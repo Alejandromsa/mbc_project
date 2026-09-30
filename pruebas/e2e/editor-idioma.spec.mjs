@@ -79,9 +79,15 @@ async function laminas(buffer) {
 
 /** Word, BPMN y láminas PPTX del proceso abierto, desde el menú Exportar. */
 async function exportaciones(page, textoMenu, textoWord, textoBpmn, textoPptx) {
+  // El editor cierra el menú cuando termina la exportación anterior, a veces justo después
+  // de que la prueba lo reabriera: el clic se quedaba esperando una opción invisible (pasaba
+  // en la CI, más lenta, y en local al repetir). Abrir y pulsar van juntos en el reintento.
   const exportar = async (texto) => {
-    await page.getByRole('button', { name: textoMenu, exact: true }).click();
-    await page.locator('#exportDropdown').getByRole('button', { name: texto }).click();
+    const opcion = page.locator('#exportDropdown').getByRole('button', { name: texto });
+    await expect(async () => {
+      if (!(await opcion.isVisible())) await page.getByRole('button', { name: textoMenu, exact: true }).click();
+      await opcion.click({ timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
   };
   return {
     word: (await descargar(page, () => exportar(textoWord))).toString('utf8'),
