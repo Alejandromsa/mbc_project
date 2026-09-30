@@ -24,7 +24,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Editor (ola 2) | Borradores locales, JSON completo, esquema v1, texto de Lint, tildes, casillas de Word | `plataforma/editor-pendientes` | `apps/web/src/app/`, `packages/dominio` | ✅ PR #17 |
 | Idiomas (ola 3) | La plataforma en español e inglés | `plataforma/i18n-shell` | `apps/web/src/shell/`, pantallas de los módulos | ✅ PR #18 |
 | BPMN | Importador: carriles, subprocesos, tipos y robustez | `plataforma/bpmn-importador` | `packages/bpmn`, `apps/web/src/app/bpmn/` | ✅ PR #20 |
-| Cuentas y avisos (ola 4) | Sesiones visibles y cerrables, aviso en vivo del cambio de estado y versión abierta en la presencia | `plataforma/sesiones-y-avisos` | `rutas/sesion.ts`, el cambio de estado de `rutas/procesos.ts`, `apps/api/src/colaboracion/`, `presencias`, `apps/web/src/shell/`, el latido de `colaboracion.js` | ⏳ en revisión |
+| Cuentas y avisos (ola 4) | Sesiones visibles y cerrables, aviso en vivo del cambio de estado y versión abierta en la presencia | `plataforma/sesiones-y-avisos` | `rutas/sesion.ts`, el cambio de estado de `rutas/procesos.ts`, `apps/api/src/colaboracion/`, `presencias`, `apps/web/src/shell/`, el latido de `colaboracion.js` | ⏳ PR #21 |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 

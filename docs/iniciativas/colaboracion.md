@@ -50,7 +50,7 @@ Núcleo. Toca la integración del editor con la plataforma, la API de procesos y
 | # | Qué entrega | Rama | PR | Estado |
 |---|---|---|---|---|
 | 1 | Presencia, «editando» y aviso de revisión nueva en el editor y en el shell; ADR 21; E2E con dos navegadores | `plataforma/colaboracion` | #15 | en revisión |
-| 2 | Aviso en vivo del cambio de estado de una revisión (`NOTIFY` y evento `estado`); qué versión tiene abierta cada persona («Ana (v3)», «versión anterior») en la página del proceso | `plataforma/sesiones-y-avisos` | — | en revisión |
+| 2 | Aviso en vivo del cambio de estado de una revisión (`NOTIFY` y evento `estado`); qué versión tiene abierta cada persona («Ana (v3)», «versión anterior») en la página del proceso | `plataforma/sesiones-y-avisos` | #21 | en revisión |
 
 ## Decisiones
 
