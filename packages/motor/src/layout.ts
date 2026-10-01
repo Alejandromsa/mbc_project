@@ -145,8 +145,8 @@ export function calcularLayout(
     const resto = laneOrder.filter((l) => !preferido.includes(l));
     laneOrder.length = 0;
     preferido.concat(resto).forEach((l) => laneOrder.push(l));
-  // 3) Anti-cruces: reordena los carriles por baricentro (Sugiyama simplificado)
   } else if (laneOrder.length > 2) {
+    // 3) Anti-cruces: reordena los carriles por baricentro (Sugiyama simplificado)
     const link: Record<string, Record<string, number>> = {};
     edges.forEach((e) => {
       const a = nodo(e.from), b = nodo(e.to);

@@ -113,8 +113,9 @@ Producción (`https://mbc.asissoft.com`) y staging (`https://staging.mbc.asissof
 
 ```bash
 git switch main && git pull
-infra/desplegar.sh staging        # construye el commit y lo levanta en staging
-infra/desplegar.sh produccion     # la misma imagen a producción (revertir: produccion <version>)
+infra/desplegar.sh staging              # construye el commit y lo levanta en staging (lo hace solo el sondeo)
+infra/promover.sh <version>             # prueba de humo en staging y, si pasa entera, la misma imagen a producción
+infra/desplegar.sh produccion <version> # revertir a una versión anterior
 ```
 
 Runbooks: [servidor](docs/runbooks/servidor-local.md), [despliegue](docs/runbooks/despliegue.md), [rotación de secretos](docs/runbooks/rotacion-secretos.md) e [incidente de IA](docs/runbooks/incidente-ia.md). Cambios por versión: [CHANGELOG.md](CHANGELOG.md).

@@ -158,7 +158,7 @@ async function laminasPptx(page) {
   return Promise.all(nombres.map((f) => zip.file(f).async('string')));
 }
 
-test('la RACI y el SIPOC con la IA del servidor llegan como matrices editables y van al PPTX (D12)', async ({ page }) => {
+test('la RACI y el SIPOC con la IA del servidor llegan como matrices editables y van al PPTX (D12)', async ({ page, browser }) => {
   test.setTimeout(150_000);
   await entrar(page, 'editor');
   await irAlProceso(page, 'Gestión de siniestros');
@@ -218,6 +218,17 @@ test('la RACI y el SIPOC con la IA del servidor llegan como matrices editables y
   const sipoc = laminas.find((xml) => xml.includes('>SIPOC — alcance del proceso<'));
   expect(sipoc, 'lámina SIPOC').toBeTruthy();
   for (const v of Object.values(SIPOC_E2E)) expect(sipoc).toContain(v);
+
+  // «Consumo de IA» las nombra como su tarea del copiloto, no por su tipo interno
+  const admin = await (await browser.newContext()).newPage();
+  await entrar(admin, 'admin');
+  await admin.getByRole('navigation', { name: 'Secciones' }).getByText('Administración').click();
+  await admin.getByRole('navigation', { name: 'Secciones' }).getByRole('link', { name: 'IA' }).click();
+  const ultimas = admin.getByRole('table').last();
+  await expect(ultimas).toContainText('Matriz RACI');
+  await expect(ultimas).toContainText('SIPOC');
+  await expect(ultimas).not.toContainText('matriz-');
+  await ultimas.screenshot({ path: 'resultados/ia-matrices-consumo.png' });
 });
 
 test('quien solo lee no usa la IA del servidor', async ({ page }) => {

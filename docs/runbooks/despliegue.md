@@ -18,10 +18,17 @@ Todo se hace en el servidor, en la carpeta del repositorio, con Git Bash. El dis
 3. **Validar en staging:** entrar, abrir un proceso, guardar una revisión y mirar «Sistema». Anotar la versión validada (`infra/desplegar.sh versiones`).
 4. **Promover a producción la MISMA imagen** (no reconstruye), con la versión validada:
    ```bash
-   infra/desplegar.sh produccion <version>
+   infra/promover.sh <version>
    ```
-   Sin versión, promueve la que tenga staging **en ese momento**. Con el sondeo activo puede ser otra más nueva que llegó mientras validabas: indica siempre la versión.
-   La API aplica las migraciones nuevas al arrancar.
+   [infra/promover.sh](../../infra/promover.sh) solo promueve si todo lo anterior sale bien; si algo falla, se detiene y producción no cambia:
+   - espera a que el sondeo termine si está desplegando;
+   - comprueba que staging está en esa versión, con sus cinco contenedores en marcha, la API sana y respondiendo desde fuera;
+   - pasa la **prueba de humo** ([infra/humo.mjs](../../infra/humo.mjs), 26 comprobaciones de la API: proyectos, plantillas, KPIs, módulos, invitados sin sesión, presencia, sesiones, IA y «Sistema») con una cuenta de administrador temporal, que queda desactivada al terminar pase lo que pase. La salida queda en `.git/processiq-humo.salida`;
+   - promueve con `infra/desplegar.sh produccion <version>` y comprueba que producción responde.
+
+   Indica siempre la versión: con el sondeo activo, staging puede tener ya otra más nueva que llegó mientras validabas. La API aplica las migraciones nuevas al arrancar.
+
+   **No promuevas con `infra/desplegar.sh produccion` encadenado tras una prueba a mano** (lección 23): si la prueba falla, la promoción corre igual. `desplegar.sh produccion` directo queda para revertir.
 5. Comprobar `https://mbc.asissoft.com/proyectos/admin/sistema`.
 
 `infra/desplegar.sh versiones` muestra qué versión corre en cada entorno y el registro de despliegues (`despliegues.log`).
@@ -75,7 +82,7 @@ infra/desplegar.sh versiones                 # ver la versión anterior
 infra/desplegar.sh produccion <version>      # vuelve a esa imagen
 ```
 
-Las imágenes anteriores siguen en el servidor, así que revertir tarda lo que tarda arrancar un contenedor.
+Las imágenes anteriores siguen en el servidor, así que revertir tarda lo que tarda arrancar un contenedor. Revertir no pasa por `infra/promover.sh`: va directo, sin prueba de humo.
 
 **Condición:** las migraciones deben ser compatibles con la versión anterior. Se añaden columnas y tablas; no se borran ni se renombran en el mismo despliegue en que el código deja de usarlas. Si una migración no lo es, **antes de promover**:
 - hacer una copia manual (ver «Copias de seguridad» en `servidor-local.md`);

@@ -2,7 +2,7 @@
 
 Todo lo que queda por hacer, con quién lo tiene y en qué estado está. Lo mantiene plataforma: el PR que cierra un punto lo marca aquí (✅) y, en la siguiente limpieza, lo quita.
 
-Actualizado: 30-sep-2026.
+Actualizado: 1-oct-2026.
 
 **Estados:** ⏳ en curso · 🔜 siguiente ola · ⛔ bloqueado · 🙋 lo hace una persona · ✅ hecho.
 
@@ -24,7 +24,11 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Editor (ola 2) | Borradores locales, JSON completo, esquema v1, texto de Lint, tildes, casillas de Word | `plataforma/editor-pendientes` | `apps/web/src/app/`, `packages/dominio` | ✅ PR #17 |
 | Idiomas (ola 3) | La plataforma en español e inglés | `plataforma/i18n-shell` | `apps/web/src/shell/`, pantallas de los módulos | ✅ PR #18 |
 | BPMN | Importador: carriles, subprocesos, tipos y robustez | `plataforma/bpmn-importador` | `packages/bpmn`, `apps/web/src/app/bpmn/` | ✅ PR #20 |
-| Cuentas y avisos (ola 4) | Sesiones visibles y cerrables, aviso en vivo del cambio de estado y versión abierta en la presencia | `plataforma/sesiones-y-avisos` | `rutas/sesion.ts`, el cambio de estado de `rutas/procesos.ts`, `apps/api/src/colaboracion/`, `presencias`, `apps/web/src/shell/`, el latido de `colaboracion.js` | ⏳ PR #21 |
+| Cuentas y avisos (ola 4) | Sesiones visibles y cerrables, aviso en vivo del cambio de estado y versión abierta en la presencia | `plataforma/sesiones-y-avisos` | `rutas/sesion.ts`, el cambio de estado de `rutas/procesos.ts`, `apps/api/src/colaboracion/`, `presencias`, `apps/web/src/shell/`, el latido de `colaboracion.js` | ✅ PR #21 |
+| Editor en inglés (ola 4) | El editor en español e inglés; en español, ni un byte distinto | `plataforma/i18n-editor` | `apps/web/src/app/` (textos), `app/i18n.js` | ✅ PR #22 (seguimiento: #23) |
+| Matrices con IA (ola 5) | RACI y SIPOC con IA como matrices editables que llegan al PPTX (D12) | `plataforma/ia-matrices` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `app/ia/` | ✅ PR #24 |
+| Motor (ola 5) | Fines «Caso no procede» en compuertas de convergencia, tope del nivel Ejecutivo con subprocesos importados y orden de carriles del BPMN importado | `plataforma/motor-ajustes` | `packages/motor`, `apps/web/src/app/{layout,lienzo,proceso}/` | ✅ PR #26 |
+| Copiloto en inglés (ola 5) | Comandos del copiloto en inglés («add X after Y»), su ayuda y su `placeholder` | `plataforma/copiloto-ingles` | `apps/web/src/app/copiloto/` y sus textos | ⏳ |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -91,6 +95,8 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - ✅ `HORAS_SESION` y `PORT` validadas; `RESPALDO_ESPERA_INICIAL_S` llega al contenedor; `desplegar.sh` lee `RED_BORDE` también de los `.env`.
 - ✅ Despliegue automático a staging desde `main`, por sondeo desde el servidor (`infra/sondear-main.sh`; sin runners propios: [ADR 18](adr/0018-repositorio-publico.md)). Producción sigue siendo manual. 🙋 Falta instalar la tarea programada en el servidor (`infra/instalar-sondeo.ps1`).
 - ✅ `Content-Security-Policy` obligatoria y `Permissions-Policy` en Caddy; Montserrat servida desde la propia web; la E2E corre con la CSP y falla con cualquier violación (PR #16). Queda `style-src 'unsafe-inline'`, que necesita el editor portado ([seguridad.md §16](tecnica/seguridad.md#16-qué-no-está-cubierto-todavía)).
+- ✅ A producción solo con `infra/promover.sh`: staging sano y prueba de humo entera en verde, o no promueve ([despliegue.md](runbooks/despliegue.md#flujo-normal), lección 23).
+- 🔜 Nada avisa si los contenedores están parados. El 30-sep-2026 alguien paró producción y staging desde Docker Desktop y siguieron así hasta el día siguiente: el sondeo seguía diciendo «sin cambios» y «Sistema» no carga si la API está parada. Que el sondeo compruebe también que producción y staging están en marcha y lo deje en su estado, y avise cuando haya canal (punto siguiente).
 - 🔜 Alertas por correo o webhook (necesita el SMTP o el webhook).
 - 🔜 `CODEOWNERS` real y revisión obligatoria (necesita el equipo).
 
@@ -115,6 +121,7 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 
   Medirlo con BPMN reales de cliente (§2) antes de darlo por bueno en procesos grandes.
 - ✅ Con la jerarquía explícita (subprocesos importados, o una IA que marca muchos pasos de nivel 1), el nivel Ejecutivo también tiene el techo de 10 cajas: se agrupa en etapas como el deducido (divergencia D14, PR #26). Medido con el banco: Camunda pasa de 19 a 9 cajas y Signavio de 14 a 9; el nombre de la etapa sigue siendo el de su primer paso, que en Camunda es un evento («Cancelación por el cliente (+2 pasos)»), igual que con las etapas deducidas.
+- 🔜 **Nombre de las etapas del Ejecutivo.** Una etapa se llama como su primer paso aunque sea un evento («Cancelación por el cliente (+2 pasos)» en el BPMN de Camunda), y así se presenta a un comité. Mejor el nombre de su primera tarea, si la tiene. Cambia el Ejecutivo de los ejemplos frente al MVP: es una divergencia, con su prueba.
 - 🔜 **Tras «Ajustar», el inicio queda debajo de la columna de nombres de carril** (también en el MVP). Diagnóstico: `zoomToFit` (`lienzo/zoom.js`) encuadra solo la extensión de los nodos y lleva el desplazamiento a `(minX − 80) · zoom`; la columna de nombres (140 px desde `x = 30`) es fija y `updateStickyHeaders` la traslada con el desplazamiento, así que tapa la primera columna del flujo (`x = 200`). Además traslada en unidades del dibujo lo que son píxeles de pantalla (`scrollLeft` sin dividir por el zoom): por debajo del 100 % la columna se corta por la izquierda. Tras «Ajustar», el inicio (el círculo o su nombre) queda en parte bajo la columna en 13 de los 14 ejemplos; en `loadDemo`, 80 px en pantalla. Arreglo propuesto: con carriles, encuadrar desde `x = 0` (incluida la columna) y trasladar `scrollLeft / zoom`. No se aplicó: el SVG serializado lleva esa traslación, así que cambiaría el SVG de unos 10 de los 14 ejemplos en la fidelidad (y el SVG/PNG exportado, que hoy depende de dónde estaba el desplazamiento: otro defecto a corregir con él).
 - 🔜 **La etiqueta «Sí» de algunas compuertas no se ve** (también en el MVP). Diagnóstico: `edgeLabelPoint` (`lienzo/render.js`) pone la etiqueta de una flecha hacia delante con codo en el primer cuarto del tramo de salida, a la altura del origen: todas las ramas con codo de una compuerta comparten ese punto y el fondo opaco de la última («No») tapa a la primera («Sí»). Si una rama va recta y la otra con codo, quedan a un cuarto del hueco y se solapan unos 8 px. En Detalle hay etiquetas solapadas en 13 de los 14 ejemplos, y una tapa del todo a otra en 5 (`loadDemo`, `loadComplex7`, `loadComplex11`, `loadComplex12`, `loadFichaVentaLotes`). Arreglo propuesto: poner la etiqueta de cada rama con codo en su propio tramo (tras el codo) o separar las que coinciden. No se aplicó: cambia el SVG de 13 de los 14 ejemplos. El PPTX no tiene el defecto: coloca sus etiquetas por su cuenta.
 - 🔜 `bench/harness.js` captura el PPTX en `writeFile`, pero el export usa `pres.write()` desde que se post-procesa con JSZip: las métricas del PPTX salen vacías («sin captura») sin ningún error ([lección 22y](lecciones-aprendidas.md)). Para medir, `write` tiene que llamar antes a la captura. Además, su paleta y su detección de cajas (`E4E3DD`) son las del tema Pruno: con el tema MBC, `fueraDePaleta` no sirve y `txtSobreTxt` cuenta el texto de las cajas.
