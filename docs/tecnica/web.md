@@ -284,7 +284,7 @@ Todos en [src/app/](../../apps/web/src/app/). «Portado» significa copiado del 
 | Módulo | Qué hace |
 |---|---|
 | [copiloto/copiloto.js](../../apps/web/src/app/copiloto/copiloto.js) | Chat y acciones rápidas. Con IA lista, las acciones que tienen tarea de IA van a `runAiTask` |
-| [copiloto/comandos.js](../../apps/web/src/app/copiloto/comandos.js) | Edición del diagrama con comandos en lenguaje natural |
+| [copiloto/comandos.js](../../apps/web/src/app/copiloto/comandos.js) | Edición del diagrama con comandos en lenguaje natural; con el editor en inglés, también en inglés (sección 5.11) |
 | [copiloto/heuristicas.js](../../apps/web/src/app/copiloto/heuristicas.js) | Respuestas sin IA: pains, KPIs, To-Be y resumen por reglas |
 
 #### Ingesta y minería
@@ -702,7 +702,26 @@ El editor (`/`, también en modo proyecto y la vista del invitado) usa el **mism
 | Ejemplos (`ejemplos/`): nombres, descripciones y procesos | Datos de demostración en español |
 | Catálogos: KPIs, verbos del Playbook, industrias, macroprocesos | Datos de la organización. El linter y las sugerencias de verbos siguen en español porque las actividades se escriben en español |
 | Lo que el editor escribe dentro del proceso | Etiquetas de nodos nuevos, ramas Sí/No, «Autoservicio:», valores por defecto del SIPOC, sugerencias de rol de la transcripción y la etiqueta de la fuente que va al prompt: son datos (en los mensajes, la etiqueta se muestra traducida) |
-| Comandos del copiloto en lenguaje natural | El intérprete entiende español («agregar X después de Y»); el `placeholder` en inglés lo dice |
+| Los nombres en las órdenes del copiloto | Son datos: se buscan por coincidencia con la etiqueta y los nuevos se escriben tal cual (ver abajo) |
+
+**El copiloto en inglés** (ola 5, divergencia D15). Con el editor en inglés, el cuadro del copiloto entiende las órdenes de edición en inglés **y también las de siempre en español** (alguien puede escribir en español con la interfaz en inglés), y responde en inglés. Con el editor en español entiende solo español, exactamente como el MVP: lo compara la fidelidad, también con órdenes en inglés, que en español no se interpretan.
+
+- [comandos.js](../../apps/web/src/app/copiloto/comandos.js): `tryNlCommand` prueba primero `ordenEnIngles` (solo si `enIngles()`) y después las órdenes españolas del MVP, intactas. Las acciones (`agregar`, `eliminar`, `renombrar`, `conectar`, `marcar`) son el código del MVP sacado a funciones, compartidas por las dos lenguas: una orden en inglés deja el proceso exactamente igual que su equivalente en español. Las respuestas son las claves `comando.*` de siempre, en el idioma del editor.
+
+  | Español (el MVP) | Inglés |
+  |---|---|
+  | `agregar`, `añadir`, `insertar`, `crear` [`paso`, `actividad`, `tarea`] X `después de` / `antes de` Y | `add`, `insert`, `create` [`a`, `the`, `new`] [`step`, `activity`, `task`] X `after` / `before` Y |
+  | `eliminar`, `borrar`, `quitar`, `remover` X | `delete`, `remove`, `erase` X |
+  | `renombrar`, `cambiar` X `a` / `por` Y | `rename`, `change`, `change the name of`, `replace` X `to` / `as` / `into` / `with` Y |
+  | `conectar`, `une`, `unir` X `con` / `a` / `hacia` / `y` Y | `connect`, `link`, `join` X `to` / `with` / `and` / `towards` Y |
+  | `marcar`, `poner`, `cambiar tipo de` X `como` automático, manual, sistema, rpa, bot, ia, correo, email, teléfono, documental | `mark`, `set`, `flag`, `change the type of` X `as` / `to` automatic (automated), manual, system, rpa, bot, ai, email, phone, document |
+
+- **Los nombres no se traducen.** En inglés se escriben tal cual, con sus mayúsculas («add Validar en SAP after …» crea «Validar en SAP»); solo se quitan las comillas y un «the / step / activity / task» delante, y la primera letra va en mayúscula. En español se sigue haciendo lo del MVP, que interpreta la orden ya en minúsculas («Validar en sap»): cambiarlo sería otra divergencia ([pendientes §5.3](../pendientes.md#53-editor-y-dominio)).
+- **No se portan dos trampas del MVP a las órdenes en inglés:** «change the owner of X to Ana» no renombra X, y «remove the connection between A and B» no borra A; las dos reciben la respuesta genérica. En español, «cambia el responsable de X a Ana» sigue renombrando X, como el MVP.
+- [heuristicas.js](../../apps/web/src/app/copiloto/heuristicas.js): las frases que lanzan un análisis entienden además, en inglés, saludos («hi», «hello»), «draw» y «map out» (generar), «indicators» (KPIs), «redesign» (to-be) y «summary» o «executive» (resumen). «generate», «pain», «kpi» y «to-be» ya las cubrían las palabras del MVP.
+- **La ayuda** es el `placeholder` del cuadro (`html.copiloto.comandos`): en inglés, las órdenes en inglés con los nombres de ejemplo sin traducir («add Validar score after Registrar», «mark X as automatic»…).
+
+**Pruebas del copiloto.** [copiloto-ingles.spec.mjs](../../pruebas/e2e/copiloto-ingles.spec.mjs): 16 pares de órdenes (las cinco, con variantes, una conexión repetida y nombres que no existen) dejan el mismo proceso guardado (`processiq.v1`) en inglés que en español, después de cada orden, y responden en inglés; las órdenes en español con el editor en inglés, igual; los nombres tal cual; lo que no es una orden no toca el proceso; la ayuda en inglés y sus ejemplos funcionan. En la fidelidad, «comandos: variantes, errores y órdenes en inglés con el editor en español» compara con el MVP cada rama del intérprete y 13 frases en inglés.
 
 **Pruebas.** [editor-idioma.spec.mjs](../../pruebas/e2e/editor-idioma.spec.mjs): que `en.js` tenga todas las claves de `es.js` con las mismas variables y que cada texto de `html.js` sea, exacto, el de `index.html`; que al pasar a inglés no quede ningún texto de `index.html` sin traducir (salvo una lista de iguales: siglas, marcas, teclas); que al volver a español el volcado de textos sea idéntico; exportaciones idénticas en los dos idiomas; que persiste al recargar y lo siguen el shell y el editor abierto; sin desbordes a 1024–1440 px; y, en modo proyecto, la barra, «Guardar revisión», el aviso de guardado y la vista del invitado en inglés.
 

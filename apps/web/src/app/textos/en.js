@@ -270,7 +270,7 @@ export const en = {
   'html.copiloto.relayout': 'Rearrange diagram (compact)',
   'html.copiloto.mergeGateways': 'Insert merging gateways',
   'html.copiloto.execSummary': 'Executive summary',
-  'html.copiloto.comandos': 'Commands (in Spanish): \'agregar Validar score después de Registrar\', \'eliminar Aprobar\', \'renombrar X a Y\', \'conectar X con Y\', \'marcar X como automático\'…',
+  'html.copiloto.comandos': 'Commands: \'add Validar score after Registrar\', \'delete Aprobar\', \'rename X to Y\', \'connect X to Y\', \'mark X as automatic\'…',
   'html.copiloto.enviar': 'Send',
   'comun.cancelar': 'Cancel',
   'comun.aceptar': 'OK',
