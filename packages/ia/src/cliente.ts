@@ -2,6 +2,7 @@
 // Portado del MVP 3.8.9 (callClaude) con los mismos mensajes de error. Lo que
 // dependía del navegador (configuración en localStorage, cancelación de la
 // ingesta, dominio actual) llega como parámetro.
+import type { TokensCache } from './costes.js';
 
 export interface ConfigIa {
   /**
@@ -16,7 +17,13 @@ export interface ConfigIa {
   model?: string;
 }
 
-export interface UsoIa { modelo: string; entrada: number; salida: number }
+/**
+ * Consumo de una llamada. `entrada` son todos los tokens de entrada, también
+ * los de la caché de prompts; los campos de caché (TokensCache) dicen cuántos
+ * se escribieron o se leyeron de ella y solo aparecen si Anthropic los informa
+ * distintos de cero. El coste se calcula con usd(entrada, salida, modelo, uso).
+ */
+export interface UsoIa extends TokensCache { modelo: string; entrada: number; salida: number }
 
 export interface OpcionesLlamada {
   system?: string;
@@ -24,6 +31,11 @@ export interface OpcionesLlamada {
   maxTokens?: number;
   /** Límite de INACTIVIDAD (ms sin recibir datos); por defecto 90 s. */
   timeoutMs?: number;
+  /**
+   * Es la llamada de reparación de una respuesta que no se pudo validar. No
+   * cambia la petición: solo lo lee quien cuenta las reparaciones (el worker).
+   */
+  reparacion?: boolean;
   onProgress?: (caracteres: number) => void;
   /** Se llama antes de los errores: una respuesta cortada también se cobra. */
   onUsage?: (uso: UsoIa) => void;
@@ -170,6 +182,16 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
   let texto = '', stop: string | null = null, errorSse: string | null = null, tipoErrorSse = '', buf = '';
   const uso: UsoIa = { modelo: body.model, entrada: 0, salida: 0 };
   const tokensEntrada = (u: Record<string, number>) => (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+  // La caché de prompts se cobra a otro precio: se guarda aparte (dentro de la entrada) y solo si la hubo
+  const leerCache = (u: Record<string, any>) => {
+    const mayor = (campo: keyof TokensCache, v: unknown) => {
+      const n = Math.max(uso[campo] || 0, +(v as number) || 0);
+      if (n > 0) uso[campo] = n;
+    };
+    mayor('cacheEscritura', u.cache_creation_input_tokens);
+    mayor('cacheEscritura1h', u.cache_creation && u.cache_creation.ephemeral_1h_input_tokens);
+    mayor('cacheLectura', u.cache_read_input_tokens);
+  };
   const lector = res.body!.getReader();
   const dec = new TextDecoder();
   try {
@@ -187,7 +209,7 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
         let d: any;
         try { d = JSON.parse(linea.slice(5).trim()); } catch { continue; }
         if (d.type === 'message_start' && d.message) {
-          if (d.message.usage) uso.entrada = Math.max(uso.entrada, tokensEntrada(d.message.usage));
+          if (d.message.usage) { uso.entrada = Math.max(uso.entrada, tokensEntrada(d.message.usage)); leerCache(d.message.usage); }
           if (d.message.model) uso.modelo = d.message.model;
         } else if (d.type === 'content_block_start' && d.content_block && d.content_block.type === 'fallback') {
           texto = '';
@@ -199,6 +221,7 @@ export async function llamarClaude(userText: string, opts: OpcionesLlamada, cfg:
           if (d.usage) {
             uso.salida = Math.max(uso.salida, d.usage.output_tokens || 0);
             uso.entrada = Math.max(uso.entrada, tokensEntrada(d.usage));
+            leerCache(d.usage);
           }
         } else if (d.type === 'error') {
           errorSse = (d.error && d.error.message) || 'error desconocido';

@@ -8,17 +8,41 @@ export const MODELOS_IA = [
   { id: 'claude-haiku-4-5', label: 'Claude Haiku — ultrarrápido, tareas simples' }
 ] as const;
 
-export interface PrecioModelo { entrada: number; salida: number; nombre: string }
+export interface PrecioModelo {
+  entrada: number;
+  salida: number;
+  nombre: string;
+  /** Caché de prompts: escribir con TTL de 5 minutos (1,25 × la entrada). */
+  escrituraCache: number;
+  /** Caché de prompts: escribir con TTL de 1 hora (2 × la entrada). */
+  escrituraCache1h: number;
+  /** Caché de prompts: leer (0,1 × la entrada en estos modelos). */
+  lecturaCache: number;
+}
 
 /**
- * Precios de LISTA por millón de tokens, en US$ (tabla oficial del 24-jun-2026).
+ * Precios de LISTA por millón de tokens, en US$ (tabla oficial del 24-jun-2026;
+ * los de la caché de prompts, de la documentación de prompt caching del 1-oct-2026).
  * El respaldo automático de Opus 5 usa modelos de la misma tarifa.
  */
 export const PRECIOS_IA: Readonly<Record<string, PrecioModelo>> = {
-  'claude-opus-5':    { entrada: 5, salida: 25, nombre: 'Claude Opus 5' },
-  'claude-sonnet-5':  { entrada: 2, salida: 10, nombre: 'Claude Sonnet 5' },
-  'claude-haiku-4-5': { entrada: 1, salida: 5,  nombre: 'Claude Haiku 4.5' }
+  'claude-opus-5':    { entrada: 5, salida: 25, nombre: 'Claude Opus 5', escrituraCache: 6.25, escrituraCache1h: 10, lecturaCache: 0.5 },
+  'claude-sonnet-5':  { entrada: 2, salida: 10, nombre: 'Claude Sonnet 5', escrituraCache: 2.5, escrituraCache1h: 4, lecturaCache: 0.2 },
+  'claude-haiku-4-5': { entrada: 1, salida: 5,  nombre: 'Claude Haiku 4.5', escrituraCache: 1.25, escrituraCache1h: 2, lecturaCache: 0.1 }
 };
+
+/**
+ * Tokens de entrada de la caché de prompts. Son PARTE de los tokens de entrada
+ * (UsoIa.entrada los suma todos), pero cuestan distinto. Faltan si no los hubo.
+ */
+export interface TokensCache {
+  /** Escritos en la caché (cache_creation_input_tokens), con cualquier TTL. */
+  cacheEscritura?: number;
+  /** De esos, los escritos con TTL de 1 hora (usage.cache_creation.ephemeral_1h_input_tokens). */
+  cacheEscritura1h?: number;
+  /** Leídos de la caché (cache_read_input_tokens). */
+  cacheLectura?: number;
+}
 
 /** Tope de tokens de respuesta de la generación de procesos. */
 export const GEN_MAX_TOKENS = 64000;
@@ -33,9 +57,20 @@ export function precioModelo(m: string | undefined): PrecioModelo {
   return PRECIOS_IA[m ?? ''] || PRECIOS_IA['claude-opus-5']!;
 }
 
-export function usd(tokensEntrada: number, tokensSalida: number, modelo: string | undefined): number {
+/**
+ * Coste en US$. `tokensEntrada` son TODOS los de entrada, también los de la
+ * caché; `cache` dice cuántos de ellos se escribieron o se leyeron de la caché,
+ * que se cobran a su precio (escribir cuesta más que la entrada normal y leer,
+ * mucho menos). Sin `cache`, todo a precio de entrada, como antes.
+ */
+export function usd(tokensEntrada: number, tokensSalida: number, modelo: string | undefined, cache?: TokensCache | null): number {
   const p = precioModelo(modelo);
-  return (tokensEntrada * p.entrada + tokensSalida * p.salida) / 1e6;
+  const escritura = Math.max(0, cache?.cacheEscritura || 0);
+  const escritura1h = Math.min(escritura, Math.max(0, cache?.cacheEscritura1h || 0));
+  const lectura = Math.max(0, cache?.cacheLectura || 0);
+  const normal = Math.max(0, tokensEntrada - escritura - lectura);
+  return (normal * p.entrada + (escritura - escritura1h) * p.escrituraCache + escritura1h * p.escrituraCache1h +
+    lectura * p.lecturaCache + tokensSalida * p.salida) / 1e6;
 }
 
 export function fmtUsd(v: number): string {

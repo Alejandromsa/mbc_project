@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Nodo } from '@processiq/dominio';
 import {
-  GEN_MAX_TOKENS, PROMPT_GENERACION, REGLAS_FUSION, clasificarErrorIa, combinarFuentes, estimarCosteGeneracion, extraerJson,
+  GEN_MAX_TOKENS, PRECIOS_IA, PROMPT_GENERACION, REGLAS_FUSION, clasificarErrorIa, combinarFuentes, estimarCosteGeneracion, extraerJson,
   fmtUsd, interpretarPains, llamarClaude, marcarErrorIa, promptGeneracion, resumenProcesoParaIa, timeoutGeneracion, usd, validarEspecGeneracion
 } from './index.js';
 
@@ -33,6 +33,31 @@ describe('llamarClaude', () => {
       system: 'S', output_config: { effort: 'high' }, fallbacks: 'default', stream: true
     });
     expect(uso).toHaveBeenCalledWith({ modelo: 'claude-opus-5', entrada: 100, salida: 50 });
+  });
+
+  it('el uso separa los tokens de la caché de prompts (dentro de la entrada), solo si los hubo', async () => {
+    const f = vi.fn(async () => flujo(sse([
+      { type: 'message_start', message: { model: 'claude-opus-5', usage: {
+        input_tokens: 200, cache_creation_input_tokens: 300, cache_read_input_tokens: 500,
+        cache_creation: { ephemeral_5m_input_tokens: 200, ephemeral_1h_input_tokens: 100 }, output_tokens: 1 } } },
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: 'ok' } },
+      // message_delta repite el uso acumulado: no se suma dos veces
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: {
+        input_tokens: 200, cache_creation_input_tokens: 300, cache_read_input_tokens: 500, output_tokens: 40 } }
+    ])));
+    const uso = vi.fn();
+    await llamarClaude('p', { onUsage: uso }, equipo, entorno(f as never));
+    const u = { modelo: 'claude-opus-5', entrada: 1000, salida: 40, cacheEscritura: 300, cacheEscritura1h: 100, cacheLectura: 500 };
+    expect(uso).toHaveBeenCalledExactlyOnceWith(u);
+    expect(usd(u.entrada, u.salida, u.modelo, u)).toBeCloseTo((200 * 5 + 200 * 6.25 + 100 * 10 + 500 * 0.5 + 40 * 25) / 1e6, 12);
+    // Sin caché, el uso es el de siempre: ni siquiera aparecen los campos (también con ceros)
+    const g = vi.fn(async () => flujo(sse([
+      { type: 'message_start', message: { model: 'claude-opus-5', usage: { input_tokens: 100, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } } },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 50 } }
+    ])));
+    const uso2 = vi.fn();
+    await llamarClaude('p', { onUsage: uso2 }, equipo, entorno(g as never));
+    expect(uso2).toHaveBeenCalledExactlyOnceWith({ modelo: 'claude-opus-5', entrada: 100, salida: 50 });
   });
 
   it('clave propia: directo a Anthropic con la cabecera beta del respaldo', async () => {
@@ -102,6 +127,26 @@ describe('costes', () => {
     expect(usd(1_000_000, 1_000_000, 'claude-sonnet-5')).toBe(12);
     expect(fmtUsd(0.0291)).toBe('US$ 0.029');
     expect(fmtUsd(1.234)).toBe('US$ 1.23');
+  });
+
+  it('la caché de prompts se cobra a su precio: escribir 1,25 × (2 × con TTL de 1 h) y leer 0,1 × la entrada', () => {
+    // Sin caché, igual que antes (también con los campos a cero o nulos)
+    expect(usd(1000, 500, 'claude-opus-5', {})).toBe(usd(1000, 500, 'claude-opus-5'));
+    expect(usd(1000, 500, 'claude-opus-5', null)).toBe(usd(1000, 500, 'claude-opus-5'));
+    // 1 M de entrada: 200 k normales, 300 k escritos (100 k con TTL de 1 h) y 500 k leídos; sin salida
+    const cache = { cacheEscritura: 300_000, cacheEscritura1h: 100_000, cacheLectura: 500_000 };
+    expect(usd(1_000_000, 0, 'claude-opus-5', cache)).toBeCloseTo(0.2 * 5 + 0.2 * 6.25 + 0.1 * 10 + 0.5 * 0.5, 9);
+    expect(usd(1_000_000, 0, 'claude-sonnet-5', cache)).toBeCloseTo(0.2 * 2 + 0.2 * 2.5 + 0.1 * 4 + 0.5 * 0.2, 9);
+    expect(usd(1_000_000, 0, 'claude-haiku-4-5', cache)).toBeCloseTo(0.2 * 1 + 0.2 * 1.25 + 0.1 * 2 + 0.5 * 0.1, 9);
+    // Los multiplicadores de la documentación de Anthropic, en los tres modelos
+    for (const p of Object.values(PRECIOS_IA)) {
+      expect(p.escrituraCache).toBeCloseTo(p.entrada * 1.25, 9);
+      expect(p.escrituraCache1h).toBeCloseTo(p.entrada * 2, 9);
+      expect(p.lecturaCache).toBeCloseTo(p.entrada * 0.1, 9);
+    }
+    // Todo leído de la caché: una décima parte; un dato incoherente (más caché que entrada) no da negativos
+    expect(usd(1000, 0, 'claude-opus-5', { cacheLectura: 1000 })).toBeCloseTo(usd(1000, 0, 'claude-opus-5') / 10, 12);
+    expect(usd(100, 0, 'claude-opus-5', { cacheLectura: 1000 })).toBeGreaterThan(0);
   });
 
   it('estimación inicial sin historial y máximo exacto', () => {

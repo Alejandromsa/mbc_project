@@ -139,7 +139,8 @@ describe('pedirMatrizIa', () => {
     expect(prompt).toBe(promptReparacionMatriz('| Actividad | Analista |\n|---|---|\n| Registrar | R |', 'La IA no devolvió JSON.', RESUMEN));
     expect(prompt).toContain('=== RESPUESTA A CORREGIR ===');
     expect(prompt.endsWith('=== PROCESO ===\n' + RESUMEN)).toBe(true);
-    expect(opts).toEqual({ system: sistemaReparacionMatriz('matriz-raci'), effort: 'low', maxTokens: 8000, timeoutMs: 120_000 });
+    // `reparacion` no viaja en la petición: lo cuenta el worker (ejecuciones_ia.reparaciones)
+    expect(opts).toEqual({ system: sistemaReparacionMatriz('matriz-raci'), effort: 'low', maxTokens: 8000, timeoutMs: 120_000, reparacion: true });
     expect(opts.system).toContain(MATRICES_IA['matriz-raci'].forma);
   });
 
@@ -184,5 +185,22 @@ describe('pedirMatrizIa', () => {
     const cuerpo = JSON.parse(String((f.mock.calls[0] as unknown as [string, RequestInit])[1].body));
     expect(cuerpo).toMatchObject({ model: 'claude-opus-5', max_tokens: 8000, system: PROMPT_MATRICES, output_config: { effort: 'high' }, stream: true });
     expect(cuerpo.messages[0].content).toBe(promptTarea(MATRICES_IA['matriz-sipoc'].instruccion, RESUMEN));
+  });
+
+  it('con llamarClaude, la reparación pide lo mismo que antes: la marca `reparacion` no viaja', async () => {
+    const sse = (texto: string) => [
+      { type: 'message_start', message: { model: 'claude-opus-5', usage: { input_tokens: 100 } } },
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: texto } },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 50 } }
+    ].map((e) => `event: ${e.type}\ndata: ${JSON.stringify(e)}\n\n`).join('');
+    const respuestas = ['El SIPOC, en prosa.', JSON.stringify(SIPOC)];
+    let i = 0;
+    const f = vi.fn(async () => new Response(sse(respuestas[i++]!), { status: 200, headers: { 'content-type': 'text/event-stream' } }));
+    const entorno = { proxyPorDefecto: 'https://mbc.ejemplo/ia', host: 'mbc.ejemplo', fetch: f as never, esperar: async () => {} };
+    const llamar: LlamarIa = (prompt, opts) => llamarClaude(prompt, opts, { modo: 'equipo', codigo: 'c0d1go', model: 'claude-opus-5' }, entorno);
+    expect(await pedirMatrizIa('matriz-sipoc', CTX, llamar)).toEqual(SIPOC);
+    const cuerpo = JSON.parse(String((f.mock.calls[1] as unknown as [string, RequestInit])[1].body));
+    expect(Object.keys(cuerpo)).toEqual(['model', 'max_tokens', 'messages', 'system', 'output_config', 'fallbacks', 'stream']);
+    expect(cuerpo).toMatchObject({ max_tokens: 8000, system: sistemaReparacionMatriz('matriz-sipoc'), output_config: { effort: 'low' } });
   });
 });

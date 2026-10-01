@@ -117,6 +117,14 @@ export function promptReparacionMatriz(respuesta: string, problema: string, resu
   return promptReparacion(respuesta, problema) + NL + NL + '=== PROCESO ===' + NL + resumen;
 }
 
+/** Parámetros de la petición de una matriz (entran en su versión del prompt, version.ts). */
+export const LLAMADA_MATRIZ = { system: PROMPT_MATRICES, effort: 'high', maxTokens: MAX_TOKENS_MATRIZ } as const;
+
+/** Parámetros de la reparación de una matriz. `reparacion` no viaja en la petición: lo cuenta el worker. */
+export function llamadaReparacionMatriz(tipo: TipoMatrizIa) {
+  return { system: sistemaReparacionMatriz(tipo), effort: 'low', maxTokens: MAX_TOKENS_MATRIZ, timeoutMs: 120_000, reparacion: true } as const;
+}
+
 // ------------------------------------------------------------- validación
 /** 'r' -> 'R', 'A/R' o 'R, A' -> 'R/A', '-' o null -> ''. Lo demás llega tal cual al esquema. */
 function normalizarLetra(v: unknown): unknown {
@@ -224,15 +232,14 @@ export async function pedirMatrizIa(tipo: 'matriz-raci', ctx: ContextoMatriz, ll
 export async function pedirMatrizIa(tipo: 'matriz-sipoc', ctx: ContextoMatriz, llamar: LlamarIa): Promise<SipocIa>;
 export async function pedirMatrizIa(tipo: TipoMatrizIa, ctx: ContextoMatriz, llamar: LlamarIa): Promise<MatrizIa>;
 export async function pedirMatrizIa(tipo: TipoMatrizIa, ctx: ContextoMatriz, llamar: LlamarIa): Promise<MatrizIa> {
-  const respuesta = await llamar(promptMatriz(tipo, ctx.resumen), { system: PROMPT_MATRICES, effort: 'high', maxTokens: MAX_TOKENS_MATRIZ });
+  const respuesta = await llamar(promptMatriz(tipo, ctx.resumen), { ...LLAMADA_MATRIZ });
   const v = leerRespuesta(tipo, respuesta, ctx.actividades);
   if (v.ok) return v.matriz;
   const problema = v.errores.join('; ');
   if (respuesta.length > MAX_CHARS_REPARACION) {
     throw marcarErrorIa(new Error(`La IA devolvió una matriz que no se pudo interpretar (${problema}).`), 'definitivo');
   }
-  const reparada = await llamar(promptReparacionMatriz(respuesta, problema, ctx.resumen),
-    { system: sistemaReparacionMatriz(tipo), effort: 'low', maxTokens: MAX_TOKENS_MATRIZ, timeoutMs: 120_000 });
+  const reparada = await llamar(promptReparacionMatriz(respuesta, problema, ctx.resumen), llamadaReparacionMatriz(tipo));
   const v2 = leerRespuesta(tipo, reparada, ctx.actividades);
   if (v2.ok) return v2.matriz;
   throw marcarErrorIa(new Error(`La IA devolvió una matriz que no se pudo interpretar ni reparar: ${v2.errores.join('; ')}`), 'definitivo');
