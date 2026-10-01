@@ -11,14 +11,19 @@
 #   infra/sondear-main.sh --pausar [motivo]   deja de desplegar hasta --reanudar
 #   infra/sondear-main.sh --reanudar
 #
-# Producción sigue siendo manual: infra/desplegar.sh produccion <version>.
+# Producción sigue siendo manual: infra/promover.sh <version>.
 # Se niega si la carpeta no está en main o tiene cambios. Tiene su propio
 # cerrojo, y un commit cuyo despliegue falló no se reintenta hasta el siguiente.
 # Registro: despliegues.log (despliegues y cambios de situación, no cada consulta).
+#
+# Cada consulta vigila además que producción y staging sigan en marcha, también
+# en pausa. Si un servicio está parado o con la salud en rojo durante más de un
+# minuto, lo apunta en el registro y abre una ventana en la sesión de Windows
+# (msg.exe). Solo avisa cuando cambia la situación, también cuando se recupera.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-uso() { sed -n '2,17p' "$0" | sed -E 's/^# ?//'; }
+uso() { sed -n '2,22p' "$0" | sed -E 's/^# ?//'; }
 
 SIMULAR=0
 case "${1:-}" in
@@ -35,7 +40,10 @@ PAUSA="$GIT_DIR/processiq-sondeo.pausa"       # si existe, no se despliega
 ESTADO="$GIT_DIR/processiq-sondeo.estado"     # fecha y mensaje del último resultado
 FALLIDO="$GIT_DIR/processiq-sondeo.fallido"   # commit cuyo despliegue falló
 SALIDA="$GIT_DIR/processiq-sondeo.salida"     # salida del último despliegue
+VIGILANCIA="$GIT_DIR/processiq-vigilancia.estado"   # último aviso de la vigilancia (vacío: todo en marcha)
 CERROJO_VIEJO_MIN=120                         # la tarea programada se corta a la hora
+SERVICIOS="web api worker intermediario postgres respaldo"
+PROYECTOS="${VIGILAR_PROYECTOS:-processiq processiq-staging}"   # otra lista, solo para probar la vigilancia
 
 ahora() { date -u +%FT%TZ; }
 version_de() { grep -E '^VERSION=' "$1" 2>/dev/null | tail -1 | cut -d= -f2 | tr -d '\r' || true; }
@@ -58,6 +66,54 @@ terminar() {   # codigo nivel mensaje
 
 en_pausa() { echo "en pausa desde $(cat "$PAUSA"); reanudar: infra/sondear-main.sh --reanudar"; }
 
+# ---- Vigilancia de los contenedores (el 30-sep-2026 alguien paró producción y
+# staging desde Docker Desktop y nada avisó hasta el día siguiente)
+nombre_de() { case "$1" in processiq) echo producción ;; processiq-staging) echo staging ;; *) echo "$1" ;; esac; }
+
+problemas_de() {   # proyecto: servicios parados, ausentes o con la salud en rojo
+  local s estado lista=""
+  for s in $SERVICIOS; do
+    estado=$(docker inspect -f '{{.State.Status}}{{if .State.Health}}/{{.State.Health.Status}}{{end}}' "$1-$s-1" 2>/dev/null || echo ausente)
+    case "$estado" in running | running/healthy | running/starting) ;; *) lista="$lista $s" ;; esac
+  done
+  echo "${lista# }"
+}
+
+situacion() {   # vacío si todo está en marcha
+  docker info > /dev/null 2>&1 || { echo "Docker no responde (¿está abierto Docker Desktop?)"; return; }
+  local p lista texto=""
+  for p in $PROYECTOS; do
+    # Con un despliegue de staging en curso, sus contenedores se están recreando
+    if [ "$p" = processiq-staging ] && { [ ! -f .env.staging ] || [ -d "$CERROJO" ]; }; then continue; fi
+    lista=$(problemas_de "$p")
+    [ -z "$lista" ] || texto="${texto:+$texto; }$(nombre_de "$p"): $lista"
+  done
+  [ -z "$texto" ] || echo "parados o sin salud en $texto"
+}
+
+avisar() {   # mensaje: ventana en la sesión de Windows de quien corre el sondeo
+  command -v msg.exe > /dev/null 2>&1 || return 0
+  MSYS_NO_PATHCONV=1 msg.exe "${USERNAME:-*}" /TIME:86400 "ProcessIQ: $1" > /dev/null 2>&1 || true
+}
+
+vigilar() {
+  local ahora_mismo anterior
+  ahora_mismo=$(situacion)
+  # Un despliegue a mano recrea los contenedores unos segundos: se confirma al minuto
+  if [ -n "$ahora_mismo" ] && [ "$SIMULAR" = 0 ]; then sleep "${VIGILAR_ESPERA_S:-60}"; ahora_mismo=$(situacion); fi
+  if [ "$SIMULAR" = 1 ]; then echo "Vigilancia: ${ahora_mismo:-todo en marcha}"; return 0; fi
+  anterior=$(cat "$VIGILANCIA" 2>/dev/null || true)
+  [ "$ahora_mismo" != "$anterior" ] || return 0
+  if [ -n "$ahora_mismo" ]; then
+    echo "$(ahora) vigilancia: ALERTA $ahora_mismo" >> "$REGISTRO"
+    avisar "$ahora_mismo. Para levantarlos: docs/runbooks/servidor-local.md (paso 7)."
+  else
+    echo "$(ahora) vigilancia: de nuevo todo en marcha" >> "$REGISTRO"
+    avisar "producción y staging de nuevo en marcha."
+  fi
+  printf '%s' "$ahora_mismo" > "$VIGILANCIA"
+}
+
 case "${1:-}" in
   --pausar)
     printf '%s %s\n' "$(ahora)" "${2:-sin motivo}" > "$PAUSA"
@@ -71,12 +127,15 @@ case "${1:-}" in
     echo "Pausa:             $(cat "$PAUSA" 2>/dev/null || echo no)"
     echo "Cerrojo:           $([ -d "$CERROJO" ] && echo "sí (pid $(cat "$CERROJO/pid" 2>/dev/null))" || echo no)"
     echo "Commit fallido:    $(cat "$FALLIDO" 2>/dev/null || echo ninguno)"
+    v=$(cat "$VIGILANCIA" 2>/dev/null || true)
+    echo "Vigilancia:        ${v:-todo en marcha} (en la última consulta)"
     echo "Staging:           $(version_de .env.staging)"
     echo "origin/main:       $(corto origin/main) (sin consultar; la próxima consulta hace git fetch)"
-    if [ -f "$REGISTRO" ]; then echo "Registro del sondeo:"; grep ' sondeo: ' "$REGISTRO" | tail -5 || true; fi
+    if [ -f "$REGISTRO" ]; then echo "Registro del sondeo:"; grep -E ' (sondeo|vigilancia): ' "$REGISTRO" | tail -5 || true; fi
     exit 0 ;;
 esac
 
+vigilar
 [ ! -f "$PAUSA" ] || terminar 0 cambio "$(en_pausa)"
 
 rama=$(git symbolic-ref --quiet --short HEAD || echo '(sin rama)')

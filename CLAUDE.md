@@ -42,7 +42,7 @@ pnpm --filter @processiq/db generar             # nueva migración tras cambiar 
 pnpm e2e                                        # build + shell/editor/API/Postgres de punta a punta (Playwright, ~6 min; base processiq_e2e)
 infra/desplegar.sh staging | produccion [version] | versiones   # servidor: staging, promoción y reversión (docs/runbooks/despliegue.md)
 infra/promover.sh <version>   # servidor: prueba de humo en staging (infra/humo.mjs) y, solo si pasa entera, a producción
-infra/sondear-main.sh --estado | --simular | --pausar | --reanudar   # servidor: el sondeo que despliega main en staging cada 10 min
+infra/sondear-main.sh --estado | --simular | --pausar | --reanudar   # servidor: el sondeo que despliega main en staging cada 10 min y vigila que producción y staging sigan en marcha
 ```
 
 ## Estructura

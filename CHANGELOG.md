@@ -41,6 +41,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 - **IA:** con IA, «Generar matriz RACI» y «Generar SIPOC» traen la matriz editable (validada, con una reparación) en lugar de un informe en texto: se abre en su diálogo, se puede ajustar y llega al PPTX, al informe Word y a la Ficha. Igual en el editor libre y en los proyectos (en el servidor); si falla, el informe de siempre (divergencia D12). Los títulos de las tareas de IA del copiloto llevan sus tildes.
 - **Operación:** `infra/promover.sh <version>` pasa a producción una versión de staging solo si staging está en esa versión, en marcha y sano, y si la prueba de humo (`infra/humo.mjs`, 26 comprobaciones con una cuenta temporal que se desactiva al terminar) pasa entera. El runbook del servidor avisa de no parar los contenedores desde Docker Desktop.
 - **IA:** en «Consumo de IA», las matrices RACI y SIPOC con IA se nombran como su tarea («Matriz RACI», «SIPOC») en lugar de «Análisis (matriz-raci)». La referencia de la API y el manual las documentan.
+- **Operación:** el sondeo vigila que producción y staging sigan en marcha. Si un servicio está parado o con la salud en rojo más de un minuto, lo anota en `despliegues.log` y abre una ventana en la sesión de Windows del servidor; avisa también cuando se recupera. `infra/sondear-main.sh --estado` muestra la última situación.
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 

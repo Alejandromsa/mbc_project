@@ -96,8 +96,8 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - ✅ Despliegue automático a staging desde `main`, por sondeo desde el servidor (`infra/sondear-main.sh`; sin runners propios: [ADR 18](adr/0018-repositorio-publico.md)). Producción sigue siendo manual. 🙋 Falta instalar la tarea programada en el servidor (`infra/instalar-sondeo.ps1`).
 - ✅ `Content-Security-Policy` obligatoria y `Permissions-Policy` en Caddy; Montserrat servida desde la propia web; la E2E corre con la CSP y falla con cualquier violación (PR #16). Queda `style-src 'unsafe-inline'`, que necesita el editor portado ([seguridad.md §16](tecnica/seguridad.md#16-qué-no-está-cubierto-todavía)).
 - ✅ A producción solo con `infra/promover.sh`: staging sano y prueba de humo entera en verde, o no promueve ([despliegue.md](runbooks/despliegue.md#flujo-normal), lección 23).
-- 🔜 Nada avisa si los contenedores están parados. El 30-sep-2026 alguien paró producción y staging desde Docker Desktop y siguieron así hasta el día siguiente: el sondeo seguía diciendo «sin cambios» y «Sistema» no carga si la API está parada. Que el sondeo compruebe también que producción y staging están en marcha y lo deje en su estado, y avise cuando haya canal (punto siguiente).
-- 🔜 Alertas por correo o webhook (necesita el SMTP o el webhook).
+- ✅ El sondeo vigila que producción y staging sigan en marcha (el 30-sep-2026 alguien los paró desde Docker Desktop y nada avisó): si un servicio está parado o sin salud más de un minuto, lo anota en `despliegues.log` y abre una ventana en la sesión de Windows del servidor ([vigilancia](runbooks/despliegue.md#vigilancia-de-los-contenedores)). Solo lo ve quien está delante del servidor: el aviso a distancia necesita el punto siguiente.
+- 🔜 Alertas por correo o webhook (necesita el SMTP o el webhook), también para la vigilancia de los contenedores.
 - 🔜 `CODEOWNERS` real y revisión obligatoria (necesita el equipo).
 
 ### 5.3 Editor y dominio
