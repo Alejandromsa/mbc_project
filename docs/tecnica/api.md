@@ -2,7 +2,7 @@
 
 Referencia completa de la API de la plataforma (`/api/*`): convenciones, permisos, cada endpoint con su cuerpo, su respuesta y sus errores, y los códigos de error.
 
-Actualizado: 30-sep-2026.
+Actualizado: 1-oct-2026.
 
 La API está en [apps/api/src](../../apps/api/src) (Hono + Postgres). Todas las rutas se montan en [app.ts](../../apps/api/src/app.ts). El cliente tipado de la web es [api.ts](../../apps/web/src/shell/api.ts). Este documento describe el código tal como está: si algo cambia allí, cambia aquí.
 
@@ -701,15 +701,17 @@ Nunca incluye el texto de las fuentes ni la organización (`publica()` en [rutas
 |---|---|---|
 | `id`, `procesoId`, `usuarioId` | UUID | |
 | `tipo` | `generacion` \| `pains` \| `tarea` | |
-| `tarea` | string \| null | Solo en `tarea`: `suggest-kpis`, `propose-tobe`, `raci`… |
+| `tarea` | string \| null | Solo en `tarea`: `suggest-kpis`, `propose-tobe`, `raci`… o una matriz (`matriz-raci`, `matriz-sipoc`) |
 | `modelo` | string | Modelo usado |
 | `estado` | ver tabla anterior | |
-| `parametros` | objeto | Generación: `etiqueta`, `vista`, `roles`, `variasFuentes`, `fuentes`, `caracteres`. Análisis: `nodos`. |
+| `parametros` | objeto | Generación: `etiqueta`, `vista`, `roles`, `variasFuentes`, `fuentes`, `caracteres`. Análisis: `nodos` y, en una matriz, `actividades`. |
 | `progreso` | número | Caracteres recibidos |
 | `resultado` | JSON | **Solo** en `GET /api/ia/ejecuciones/:id`, en el evento SSE final y en `pendientes`. Generación: la especificación del proceso; `pains`: `{ datos }`; `tarea`: `{ markdown }`, o `{ matriz }` si es `matriz-raci` o `matriz-sipoc` (la forma de `state._raci` o `state._sipoc` del editor). |
 | `error` | string \| null | |
 | `intentos` | número | |
-| `tokensEntrada`, `tokensSalida`, `costeUsd` | número | Acumulados |
+| `tokensEntrada`, `tokensSalida`, `costeUsd` | número | Acumulados. La entrada incluye los tokens de la caché de prompts, si los hubo, y el coste los cobra a su precio ([ia.md §8.1](ia.md#81-precios)) |
+| `versionPrompt` | string \| null | Versión de los prompts con que se ejecutó: 12 caracteres hexadecimales ([ia.md §3.2](ia.md#32-versión-de-los-prompts)). `null` si no llegó a ejecutarse o es anterior al 1-oct-2026 |
+| `reparaciones` | número \| null | Llamadas de reparación del JSON que hizo (todos los intentos). `null` como `versionPrompt` |
 | `revisionId` | UUID \| null | Revisión que la aplicó |
 | `descartada` | boolean | |
 | `cancelar` | boolean | Se pidió cancelar |
@@ -863,11 +865,12 @@ Con `curl`: `curl -N -b cookies.txt "$API/api/ia/ejecuciones/<id>/eventos"`.
   "mes": { "gastadoUsd": 12.4, "presupuestoUsd": 100, "limiteUsuarioUsd": 25 },
   "porUsuario": [ { "usuarioId": "uuid", "nombre": "…", "email": "…", "ejecuciones": 7, "costeUsd": 3.1 } ],
   "recientes": [ { "id", "procesoId", "tipo", "tarea", "modelo", "estado", "error", "intentos",
-                   "tokensEntrada", "tokensSalida", "costeUsd", "creadoEn", "terminadoEn", "usuario": "correo" } ]
+                   "tokensEntrada", "tokensSalida", "costeUsd", "versionPrompt", "reparaciones",
+                   "creadoEn", "terminadoEn", "usuario": "correo" } ]
 }
 ```
 
-`mes` y `porUsuario` son del mes en curso (hora de Lima), por gasto descendente. `recientes` son las 50 últimas ejecuciones de la organización, de cualquier mes.
+`mes` y `porUsuario` son del mes en curso (hora de Lima), por gasto descendente. `recientes` son las 50 últimas ejecuciones de la organización, de cualquier mes. `versionPrompt` y `reparaciones` sirven para comparar coste y reparaciones entre versiones de los prompts; la pantalla «Consumo de IA» todavía no los muestra.
 
 ## Catálogos
 

@@ -219,3 +219,8 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 
 16. **El corte automático de `app.js` separó los comentarios de final de línea** (`const X = 1;  // explicación` quedó en dos líneas). El código funcionaba igual, pero se leía mal.
     → **Regla:** en un codemod que trocea por sentencias, el comentario que está en la MISMA línea que el final de una sentencia pertenece a esa sentencia. Tras cualquier transformación automática, revisar un diff de muestra, no solo que compile y pase las pruebas.
+
+## Documentación externa
+
+27. **El resumen de una página web dio dos cifras distintas para el mismo dato.** Para decidir la caché de prompts hacía falta el mínimo de tokens que se puede cachear en Claude Opus 5. Consulté la documentación de Anthropic con la herramienta que resume páginas: la primera vez dijo 1 024 tokens; la segunda, «citando literalmente», 512; la tercera atribuyó a Opus 5 una línea que no lo nombraba. La herramienta resume con un modelo pequeño y puede mezclar filas de una lista. Bajada la página en crudo (`curl -s <url>.md`) y buscada la línea con `grep`, decía 512 (Sonnet 5, 1 024; Haiku 4.5, 4 096). Con 1 024, el sistema de la generación (≈ 980–1 390 tokens) habría quedado al límite también en Opus 5, y la conclusión de la medición habría cambiado.
+    → **Regla:** un número que decide algo (un límite, un precio, un mínimo) se lee en la fuente en crudo: `curl` del `.md` de la documentación y `grep` de la línea, que se cita. El resumen sirve para orientarse, no como dato.

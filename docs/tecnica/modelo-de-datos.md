@@ -2,7 +2,7 @@
 
 Qué guarda ProcessIQ en Postgres, cómo se relacionan las tablas, cómo evoluciona cada fila y qué forma tiene el JSON de un proceso.
 
-Actualizado: 30-sep-2026.
+Actualizado: 1-oct-2026.
 
 ---
 
@@ -304,26 +304,28 @@ Una llamada de IA que hace el servidor. **La fila es también el trabajo de la c
 | `proceso_id` | uuid | no | — | FK → `procesos` (`cascade`). |
 | `usuario_id` | uuid | no | — | FK → `usuarios` (`no action`). Quien la pidió (límite por persona). |
 | `tipo` | `tipo_ejecucion_ia` | no | — | `generacion` (proceso desde fuentes), `pains` o `tarea` (copiloto). |
-| `tarea` | text | sí | — | Solo en `tarea`: clave de `TAREAS_IA` (`suggest-kpis`, `propose-tobe`, `raci`, `impact-effort`, `automation`, `backlog`, `exec-summary`, `sipoc`, `bottleneck`). |
+| `tarea` | text | sí | — | Solo en `tarea`: clave de `TAREAS_IA` (`suggest-kpis`, `propose-tobe`, `raci`, `impact-effort`, `automation`, `backlog`, `exec-summary`, `sipoc`, `bottleneck`; informe en Markdown) o una matriz editable (`matriz-raci`, `matriz-sipoc`; [ia.md §3.1](ia.md#31-matrices-raci-y-sipoc)). |
 | `modelo` | text | no | — | Modelo de Claude usado (dentro de los permitidos). |
 | `estado` | `estado_ejecucion_ia` | no | `en_cola` | Estado del trabajo. |
-| `parametros` | jsonb | no | `'{}'` | Generación: `{ etiqueta, vista, roles, variasFuentes, fuentes: [{ nombre, tipo, caracteres }], caracteres }`. Análisis: `{ nodos }`. |
+| `parametros` | jsonb | no | `'{}'` | Generación: `{ etiqueta, vista, roles, variasFuentes, fuentes: [{ nombre, tipo, caracteres }], caracteres }`. Análisis: `{ nodos }` y, en una matriz, `actividades` (los id contra los que se valida). |
 | `texto` | text | sí | — | Entrada de la IA: texto de las fuentes (generación) o resumen del proceso (análisis). **Se borra al terminar.** |
 | `progreso` | integer | no | `0` | Caracteres recibidos de la IA. Vuelve a 0 en cada intento. |
-| `resultado` | jsonb | sí | — | Generación: la especificación del proceso validada. Tarea: `{ markdown }`. Pains: `{ datos }`. |
+| `resultado` | jsonb | sí | — | Generación: la especificación del proceso validada. Tarea: `{ markdown }`; matriz: `{ matriz }`. Pains: `{ datos }`. |
 | `error` | text | sí | — | Último error. Mientras espera reintento lleva «(reintento n de 3)». |
 | `intentos` | integer | no | `0` | Intentos consumidos (sube al tomarla de la cola). |
 | `disponible_en` | timestamptz | no | `now()` | No se toma de la cola antes de esta hora (espera entre reintentos). |
 | `cancelar` | boolean | no | `false` | Pedido de cancelación; el worker lo vigila. |
-| `tokens_entrada` | integer | no | `0` | Suma de todas las llamadas (intentos fallidos y reparación incluidos). |
+| `tokens_entrada` | integer | no | `0` | Suma de todas las llamadas (intentos fallidos y reparación incluidos), también los tokens de la caché de prompts si los hubo. |
 | `tokens_salida` | integer | no | `0` | Ídem. |
-| `coste_usd` | double precision | no | `0` | Coste acumulado en US$, con los precios de lista de `@processiq/ia`. |
+| `coste_usd` | double precision | no | `0` | Coste acumulado en US$, con los precios de lista de `@processiq/ia` (la caché de prompts, a su precio: [ia.md §8.1](ia.md#81-precios)). |
 | `revision_id` | uuid | sí | — | FK → `revisiones` (`set null`). Revisión que se guardó con esta generación. |
 | `descartada` | boolean | no | `false` | El usuario no quiso aplicar la generación: deja de ofrecerse. |
 | `creado_en` | timestamptz | no | `now()` | Encolado. Base del consumo mensual. |
 | `iniciado_en` | timestamptz | sí | — | Primera vez que un worker la tomó. |
 | `terminado_en` | timestamptz | sí | — | Llegada a un estado final. |
 | `actualizado_en` | timestamptz | no | `now()` | Latido del worker mientras ejecuta. |
+| `version_prompt` | text | sí | — | Versión de los prompts con que se ejecutó: huella de 12 caracteres hexadecimales de sistema, plantilla y parámetros (`versionPrompt` de `@processiq/ia`, [ia.md §3.2](ia.md#32-versión-de-los-prompts)). La pone el worker en cada intento. Nula en las filas anteriores al 1-oct-2026 y en las que no llegaron a ejecutarse. |
+| `reparaciones` | integer | sí | — | Llamadas de reparación del JSON que hizo (todos los intentos). Mide cuánto haría falta la salida estructurada ([ia.md §3.4](ia.md#34-salida-estructurada-evaluación)). Nula en las filas anteriores al 1-oct-2026 y en las que no llegaron a ejecutarse. |
 
 Índices:
 
@@ -744,6 +746,7 @@ Código: [catalogos.ts](../../apps/api/src/catalogos.ts) y [rutas/catalogos.ts](
 | [0007_invitados_enlaces.sql](../../packages/db/migraciones/0007_invitados_enlaces.sql) | 29-sep-2026 | Tablas `invitados_enlaces` e `invitados_comentarios` ([ADR 20](../adr/0020-rutas-publicas-con-token.md)). |
 | [0008_colaboracion_presencias.sql](../../packages/db/migraciones/0008_colaboracion_presencias.sql) | 28-sep-2026 | Tabla `presencias` (colaboración, [ADR 21](../adr/0021-presencia-y-eventos-por-sse.md)) con sus FK en cascada e índice por último latido. |
 | [0009_colaboracion_revision_abierta.sql](../../packages/db/migraciones/0009_colaboracion_revision_abierta.sql) | 29-sep-2026 | Columna `presencias.revision_id` (nulable) y su FK a `revisiones` con `set null`. |
+| [0010_ia_version_prompt.sql](../../packages/db/migraciones/0010_ia_version_prompt.sql) | 1-oct-2026 | Columnas `ejecuciones_ia.version_prompt` y `ejecuciones_ia.reparaciones` (nulables). |
 
 Todas solo añaden: ninguna borra ni renombra. Cada migración tiene su instantánea en `migraciones/meta/NNNN_snapshot.json` y una entrada en [meta/_journal.json](../../packages/db/migraciones/meta/_journal.json) (`idx`, `when` en milisegundos, `tag`).
 
