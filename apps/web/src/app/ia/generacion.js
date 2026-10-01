@@ -46,8 +46,9 @@ async function aiBuildProcess(sourceText, sourceLabel, statusFn, opts) {
   const raw = await callClaude(prompt, { system: AI_SYSTEM, effort: 'medium', maxTokens: GEN_MAX_TOKENS, timeoutMs,
     onProgress: (n) => setStatus(tr('ia.recibiendo', { n: n.toLocaleString(locale()) })),
     onUsage: (u) => {
+      // D21: los tokens de la caché de prompts, si los hubo, a su precio (el MVP los cobraba como entrada)
       const coste = { fecha: new Date().toISOString(), modelo: u.modelo, nivel: (opts && opts.vista) || 2,
-        chars: prompt.length + AI_SYSTEM.length, entrada: u.entrada, salida: u.salida, usd: usd(u.entrada, u.salida, u.modelo) };
+        chars: prompt.length + AI_SYSTEM.length, entrada: u.entrada, salida: u.salida, usd: usd(u.entrada, u.salida, u.modelo, u) };
       registrarCoste(coste);
       state._ultimoCosteIa = coste;
     } });
