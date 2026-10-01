@@ -34,7 +34,7 @@ Fuentes:
 | Base de datos | `postgres-dev` en `127.0.0.1:5440` | Volumen propio de staging | Volumen de producción |
 | Copias de seguridad | No hay | `CARPETA_RESPALDOS=./respaldos-staging` | `./respaldos` (por defecto) |
 | HTTPS | No (Vite en `http://localhost:5173`) | Lo termina el Caddy de producción; el de staging escucha HTTP en `:80` | Caddy con Let's Encrypt en el 443 |
-| Cómo se despliega | — | Solo, desde `main`, por sondeo (`infra/sondear-main.sh`); a mano, `infra/desplegar.sh staging` | `infra/desplegar.sh produccion [version]` |
+| Cómo se despliega | — | Solo, desde `main`, por sondeo (`infra/sondear-main.sh`); a mano, `infra/desplegar.sh staging` | `infra/promover.sh <version>` (prueba de humo y promoción); para revertir, `infra/desplegar.sh produccion <version>` |
 
 Cómo encajan los tres:
 
