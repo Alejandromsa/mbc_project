@@ -140,6 +140,9 @@ Errores cometidos durante el trabajo en este repositorio y la regla que los evit
 
     → **Regla:** un texto nuevo del copiloto usa la sintaxis de `formatMd` (`*cursiva*`, `**negrita**`), no la del mensaje de al lado, y se revisa en una captura del chat. Antes de añadir una entrada a `textos-divergentes.mjs`, contar las apariciones del texto nuevo en todo `referencia-mvp/` (HTML y JS) y declarar en `enMvp` cada sitio donde el MVP ya lo tenga.
 
+22z. **Una E2E cerró el panel que quería abrir, y la comprobación no lo vio** (copiloto en inglés). Para escribir en el copiloto, la prueba cargaba el ejemplo y hacía clic en la pestaña «IA» del riel. Pero cargar el ejemplo ya deja el copiloto abierto, y un clic en la pestaña activa con el cajón abierto lo cierra (`paneles/cajon.js`). `toBeVisible()` del cuadro pasó igual: el cajón cerrado queda fuera de la vista, no oculto. Las cuatro pruebas fallaron después, al pulsar «Send» bajo el lienzo. Al arreglarlo, `toBeInViewport()` falló por lo contrario: el cuadro está al final del panel, que tiene su propio desplazamiento.
+    → **Regla:** antes de hacer clic en una pestaña del riel en una prueba, comprobar si su panel ya está abierto y activo (`body.panel-open` y `.tab.active`). Para saber si algo del cajón se ve, `scrollIntoViewIfNeeded()` y `toBeInViewport()`, no `toBeVisible()`.
+
 22. **Reincidencia de la 5c:** la API compila la fuente de `@processiq/ia` con los tipos de Node, donde `Response.json()` devuelve `unknown`, y un código que compilaba en su paquete dejó de hacerlo.
     → **Regla:** al hacer que un app nuevo dependa de un paquete, correr su typecheck enseguida. En el código compartido, tipar explícitamente lo que cambia según el entorno (`const j: any = await res.json()`).
 

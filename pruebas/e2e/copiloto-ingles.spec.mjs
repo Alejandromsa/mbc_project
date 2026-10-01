@@ -67,8 +67,14 @@ async function abrirEditor(browser, idioma) {
   await page.waitForFunction(() => !!window.ProcessIQ);
   await expect(page.locator('html')).toHaveAttribute('lang', idioma);
   await page.evaluate(() => window.ProcessIQ.loadDemo());
-  await page.locator('.tab[data-tab="copilot"]').click();
-  await expect(page.locator('#copilotPrompt')).toBeVisible();
+  // Un clic en la pestaña activa con el cajón abierto lo cierra (cajon.js): solo si hace falta
+  const abierto = () => page.evaluate(() => document.body.classList.contains('panel-open') &&
+    document.querySelector('.tab[data-tab="copilot"]').classList.contains('active'));
+  if (!(await abierto())) await page.locator('.tab[data-tab="copilot"]').click();
+  expect(await abierto()).toBe(true);
+  // El cuadro está al final del panel, debajo de las acciones rápidas
+  await page.locator('#btnCopilotSend').scrollIntoViewIfNeeded();
+  await expect(page.locator('#btnCopilotSend')).toBeInViewport();
   return { contexto, page, errores };
 }
 
@@ -191,6 +197,7 @@ test.describe('copiloto con el editor en inglés', () => {
     const page = es1.page;
     const cuadro = page.locator('#copilotPrompt');
     await expect(cuadro).toHaveAttribute('placeholder', es['html.copiloto.comandos']);
+    await page.locator('.copilot-input').screenshot({ path: `${CAPTURAS}/cuadro-es.png` });
 
     await page.getByRole('group', { name: 'Idioma' }).getByRole('button', { name: 'English' }).click();
     await expect(cuadro).toHaveAttribute('placeholder', en['html.copiloto.comandos']);
@@ -198,7 +205,7 @@ test.describe('copiloto con el editor en inglés', () => {
     expect(ayuda).not.toMatch(/Spanish|agregar|después/);
     for (const orden of ['add ', ' after ', 'delete ', 'rename ', 'connect ', 'mark ', ' as automatic']) expect(ayuda).toContain(orden);
     await expect(page.locator('#btnCopilotSend')).toHaveText('Send');
-    await page.locator('[data-panel="copilot"]').screenshot({ path: `${CAPTURAS}/ayuda.png` });
+    await page.locator('.copilot-input').screenshot({ path: `${CAPTURAS}/cuadro-en.png` });
 
     // Cada ejemplo de la ayuda funciona tal como está escrito (con los nombres del ejemplo)
     expect(await enviar(page, 'add Validar score after Registrar reclamo')).toBe('✅ I added "Validar score" after "Registrar reclamo".');
