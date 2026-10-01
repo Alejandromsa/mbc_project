@@ -4,7 +4,8 @@
 
 .DESCRIPTION
   Cada 10 minutos ejecuta infra/sondear-main.sh con Git Bash en la carpeta de
-  este repositorio (la del servidor). Guía: docs/runbooks/despliegue.md.
+  este repositorio (la del servidor): despliega main en staging y vigila que
+  producción y staging sigan en marcha. Guía: docs/runbooks/despliegue.md.
 
   - Corre con la cuenta que lo instala y solo con la sesión iniciada: Docker
     Desktop también la necesita. Sin permisos de administrador.
@@ -54,7 +55,7 @@ $disparador = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -Repet
 $ajustes = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
   -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
-$descripcion = "ProcessIQ: cada $Minutos min, si origin/main avanzo respecto a staging, git pull --ff-only e infra/desplegar.sh staging. Produccion sigue siendo manual. docs/runbooks/despliegue.md"
+$descripcion = "ProcessIQ: cada $Minutos min, si origin/main avanzo respecto a staging, git pull --ff-only e infra/desplegar.sh staging; ademas vigila que produccion y staging sigan en marcha y avisa con una ventana si no. Produccion sigue siendo manual. docs/runbooks/despliegue.md"
 
 Register-ScheduledTask -TaskName $Nombre -Action $accion -Trigger $disparador -Settings $ajustes `
   -Principal $principal -Description $descripcion -Force | Out-Null

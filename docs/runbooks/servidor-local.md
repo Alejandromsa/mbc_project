@@ -143,7 +143,7 @@ Estado al 25-sep-2026: los pasos 1 a 3 y 5 están hechos; falta el 4 (la clave d
    - `https://mbc.asissoft.com/ia/health` responde `"configurado": true, "formatoClave": "ok"`.
 7. **Docker Desktop:** activar *Start Docker Desktop when you sign in* y evitar que el PC entre en suspensión. Los contenedores se reinician solos (`restart: unless-stopped`), pero solo si Docker Desktop está en marcha.
 
-   **No pulses «Stop» en los grupos `processiq`, `processiq-staging` o `processiq-dev` de Docker Desktop.** Un contenedor parado a mano no vuelve a arrancar solo, ni al reiniciar Docker: queda parado hasta que alguien lo levante. El 30-sep-2026 a las 18:29 se pararon así producción, staging y el Postgres de desarrollo, y estuvieron parados hasta el día siguiente sin que nada avisara. El log de Docker Desktop lo registra (`composeStopClicked` en `%LOCALAPPDATA%\Docker\log\host\electron-<fecha>.log`).
+   **No pulses «Stop» en los grupos `processiq`, `processiq-staging` o `processiq-dev` de Docker Desktop.** Un contenedor parado a mano no vuelve a arrancar solo, ni al reiniciar Docker: queda parado hasta que alguien lo levante. El 30-sep-2026 a las 18:29 se pararon así producción, staging y el Postgres de desarrollo, y estuvieron parados hasta el día siguiente sin que nada avisara. Desde el 1-oct-2026 el sondeo lo vigila y abre una ventana en la sesión de Windows a los 10 minutos como mucho ([vigilancia](despliegue.md#vigilancia-de-los-contenedores)). El log de Docker Desktop lo registra (`composeStopClicked` en `%LOCALAPPDATA%\Docker\log\host\electron-<fecha>.log`).
 
    Para levantarlos:
    ```bash
