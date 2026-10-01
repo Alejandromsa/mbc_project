@@ -45,6 +45,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 - **Dependencias:** `drizzle-kit` (solo para generar migraciones) ya no arrastra `esbuild` 0.18 con su aviso moderado GHSA-67mh-4wv8-2f99: un override fuerza la 0.25 en esa ruta (ADR 17). `pnpm audit`, también con las dependencias de desarrollo, queda limpio.
 - **Operación:** el sondeo vigila que producción y staging sigan en marcha. Si un servicio está parado o con la salud en rojo más de un minuto, lo anota en `despliegues.log` y abre una ventana en la sesión de Windows del servidor; avisa también cuando se recupera. `infra/sondear-main.sh --estado` muestra la última situación.
 - **Copiloto:** con el editor en inglés entiende las órdenes de edición en inglés («add X after Y», «delete X», «rename X to Y», «connect X to Y», «mark X as automatic»…) y también las de siempre en español, y responde en inglés; su ayuda sale en inglés. Los nombres de las actividades se escriben tal cual. Con el editor en español no cambia nada (divergencia D15).
+- **Desarrollo:** la semilla cierra al terminar las sesiones con las que crea los proyectos de prueba. `docs/tecnica/pruebas.md` recoge todas las specs E2E (faltaban 12) y los recuentos actuales (fidelidad 42, E2E 57).
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 

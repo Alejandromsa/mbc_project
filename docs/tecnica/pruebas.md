@@ -39,8 +39,8 @@ Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 | Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 168 | Nada | Segundos |
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
 | Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 133 | Postgres de desarrollo | — |
-| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 41 | Web construida, Chromium, internet | ~2,5 min |
-| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 53 | Web construida, Chromium, Postgres de desarrollo | ~6 min |
+| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 42 | Web construida, Chromium, internet | ~2,5 min |
+| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 57 | Web construida, Chromium, Postgres de desarrollo | ~6 min |
 | Imágenes | `docker compose build` | [infra/](../../infra) | — | Docker | — |
 | Banco de calidad | Consola del navegador | [bench/](../../bench/README.md) | Manual | Procesos reales fuera del repositorio | — |
 
@@ -203,6 +203,7 @@ No son tolerancias: son cambios intencionales ([fase1-divergencias.md](../fase1-
 | [fidelidad.spec.mjs](../../pruebas/fidelidad/fidelidad.spec.mjs) | `fidelidad: <ejemplo>` × 14 (`loadDemo`, `loadComplex` a `loadComplex12`, `loadFichaVentaLotes`) | Resumen y calidad del diagrama; nombre de archivo; export JSON, SVG, BPMN, Word y Ficha; láminas PPTX con los temas `mbc` y `bbva`; y, en los niveles 1, 2 y 3, resumen, BPMN y SVG |
 | [interacciones.spec.mjs](../../pruebas/fidelidad/interacciones.spec.mjs) | `copiloto: <ejemplo>` × 4 (`loadDemo`, `loadComplex`, `loadComplex11`, `loadFichaVentaLotes`) | Las 16 acciones del copiloto: mensajes, modal y diagrama resultante |
 | | `comandos en lenguaje natural y deshacer` | Agregar, renombrar, conectar, marcar, eliminar y generar por comando; deshacer dos veces y rehacer |
+| | `comandos: variantes, errores y órdenes en inglés con el editor en español` | 29 órdenes que cubren cada rama del intérprete (sinónimos, «antes de», comillas, nombres que no existen, conexión repetida) y 13 frases en inglés, que con el editor en español reciben la respuesta genérica en las dos apps (D15) |
 | | `minería de event log (muestra)` | Vista previa y mapeo del CSV, proceso descubierto y variantes |
 | | `texto en modo básico: <texto>` × 4 (`reclamos`, `compras`, `primeraPersona`, `transcripcion`) | Proceso que produce el intérprete sin IA |
 | | `importación BPMN de los 14 ejemplos` | Importar el BPMN que exporta el MVP y volver a exportarlo |
@@ -303,6 +304,31 @@ La tabla describe las del núcleo; las de cada iniciativa están en su ficha ([d
 | [motor.spec.mjs](../../pruebas/e2e/motor.spec.mjs) | Convergencias | Un BPMN de Bizagi con carriles y «Insertar compuertas de convergencia», y un BPMN de ProcessIQ con compuertas de cierre reimportado: ningún fin «Caso no procede» (D13) |
 | | Ejecutivo de BPMN con subprocesos | Camunda y Signavio: 10 cajas o menos en etapas, un carril, sin flechas sobre cajas, y Detalle entero al volver (D14) |
 | | Orden de carriles | Con `meta.ordenCarriles` (por «Importar» JSON), el auto-layout respeta ese orden al reorganizar y al cambiar de nivel |
+| [importar-bpmn.spec.mjs](../../pruebas/e2e/importar-bpmn.spec.mjs) | BPMN de otra herramienta (D10) | Se importa con sus carriles y su subproceso, sin perder elementos |
+| | XML que no es BPMN | Da un mensaje claro y no borra el proceso abierto |
+| [plantillas.spec.mjs](../../pruebas/e2e/plantillas.spec.mjs) | Plantillas | Una revisión se guarda como plantilla y de ella nace un proceso con el cliente del proyecto |
+| [portafolio.spec.mjs](../../pruebas/e2e/portafolio.spec.mjs) | Clientes | El administrador ve los clientes, entra en uno y llega a sus procesos |
+| | Archivados y lector | Los archivados solo aparecen si se piden; el lector ve su cliente |
+| | Sin proyectos | Quien no participa en ningún proyecto no ve clientes, ni entrando por la dirección |
+| [conocimiento.spec.mjs](../../pruebas/e2e/conocimiento.spec.mjs) | Búsqueda y APQC | El administrador importa el marco con vista previa; una consultora busca, abre un resultado y ve parecidos y comparativo |
+| [invitados.spec.mjs](../../pruebas/e2e/invitados.spec.mjs) | Enlace del cliente | El editor comparte una versión, el cliente la comenta sin cuenta y el editor lo resuelve; revocado, deja de funcionar |
+| | Solo lectura | Quien solo lee ve los comentarios sin poder compartir ni resolver; un enlace sin comentarios es solo de lectura |
+| [colaboracion.spec.mjs](../../pruebas/e2e/colaboracion.spec.mjs) | Dos navegadores | Se ven, saben quién edita y, cuando uno guarda, el otro carga la versión nueva; el shell se actualiza solo |
+| | Conflicto | «Seguir con la mía» deja guardar con el conflicto marcado; sin cambios propios, «Cargar la nueva versión» no pregunta |
+| | Lector e invitado | Un lector aparece como «viendo» aunque cambie algo; la vista del invitado no da latidos ni abre el SSE |
+| [colaboracion-versiones.spec.mjs](../../pruebas/e2e/colaboracion-versiones.spec.mjs) | Versiones y estado | El shell ve qué versión tiene abierta cada uno, «versión anterior» y los cambios de estado al momento |
+| [sesiones.spec.mjs](../../pruebas/e2e/sesiones.spec.mjs) | Dos navegadores | La misma persona ve sus dos sesiones, cierra la otra y ese navegador vuelve a «Entrar» |
+| | Cambio de contraseña | Cierra las demás sesiones |
+| | Administrador | Cierra todas las sesiones de una cuenta desde «Usuarios» |
+| [idioma.spec.mjs](../../pruebas/e2e/idioma.spec.mjs) | Shell en inglés | Se usa en inglés y vuelve a español; la preferencia persiste y el editor la sigue |
+| [editor-idioma.spec.mjs](../../pruebas/e2e/editor-idioma.spec.mjs) | Diccionarios | `en.js` tiene todas las claves de `es.js`, con las mismas variables |
+| | Editor libre en inglés (D11) | Cabecera, paneles y mensajes en inglés; ejemplo y exportaciones sin traducir; persiste; al volver a español, la página es idéntica |
+| | Proyecto e invitado | Barra, guardar revisión y aviso en inglés; la vista del invitado |
+| | Estado de la revisión | La barra del editor refleja al momento el cambio de estado, en los dos idiomas |
+| [copiloto-ingles.spec.mjs](../../pruebas/e2e/copiloto-ingles.spec.mjs) | Órdenes en inglés (D15) | Cada orden en inglés deja el proceso (`processiq.v1`) igual que su equivalente en español y responde en inglés |
+| | Español con el editor en inglés | Las órdenes de siempre funcionan y responden en inglés |
+| | Nombres y no-órdenes | Los nombres se escriben tal cual; lo que no es una orden no toca el proceso |
+| | Ayuda | Sale en inglés con ejemplos que funcionan; en español vuelve a ser la de siempre |
 
 ### Qué necesita la E2E
 
