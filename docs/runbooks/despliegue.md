@@ -47,6 +47,21 @@ Cada consulta ([infra/sondear-main.sh](../../infra/sondear-main.sh)):
 
 Registro en `despliegues.log`, con líneas `sondeo: …`: cada despliegue (bien o mal) y cada cambio de situación (pausa, rechazo). Las consultas sin cambios no se anotan, y un rechazo que se repite se anota una sola vez.
 
+### Vigilancia de los contenedores
+
+Antes de todo lo anterior, también con el sondeo en pausa, cada consulta comprueba que producción y staging siguen en marcha:
+- **Qué mira:** los seis servicios de cada uno (`web`, `api`, `worker`, `intermediario`, `postgres`, `respaldo`), que estén `running` y sin la salud en `unhealthy`. Si Docker no responde, también avisa.
+- **Excepciones:** staging no se mira mientras el sondeo lo está desplegando. El Postgres de desarrollo no se vigila.
+- **Falsas alarmas:** si algo falla, vuelve a mirar al minuto. Así un despliegue a mano, que recrea los contenedores unos segundos, no da aviso.
+- **Cómo avisa:** solo cuando cambia la situación, al pararse y al recuperarse:
+  - una línea `vigilancia: ALERTA …` o `vigilancia: de nuevo todo en marcha` en `despliegues.log`;
+  - una ventana en la sesión de Windows de quien instaló la tarea (`msg.exe`), que queda abierta hasta que alguien la cierre.
+- **Dónde se ve:** la última situación, en `infra/sondear-main.sh --estado` («Vigilancia»).
+
+El script va entero dentro de un bloque `{ …; exit; }`, porque se actualiza a sí mismo con `git pull` mientras corre ([lección 24](../lecciones-aprendidas.md)). Si alguna vez se cambia ese bloque, despliega ese cambio con el sondeo en pausa.
+
+Avisa solo a quien está delante del servidor. Las alertas por correo o webhook siguen pendientes ([pendientes.md](../pendientes.md#52-seguridad-y-operación)).
+
 ```bash
 infra/sondear-main.sh --estado            # último resultado, pausa, cerrojo, commit fallido y versiones
 infra/sondear-main.sh --simular           # qué haría ahora, sin pull ni despliegue (sí hace git fetch)
