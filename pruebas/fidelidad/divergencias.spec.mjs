@@ -542,3 +542,99 @@ test('D12: si la matriz no se puede reparar, cae al informe en texto del MVP (la
     await nueva.ctx.close();
   }
 });
+
+// D13: una compuerta de convergencia no es una decisión. Es lo que cambia en los
+// artefactos «merge-gateways/*» del copiloto (artefactos-divergentes.mjs): aquí se
+// comprueba que la única diferencia con el MVP son los fines inventados.
+const MODELO = (s) => ({
+  nodos: s.nodes.map((n) => ({ id: n.id, type: n.type, label: n.label, owner: n.owner, gatewayType: n.gatewayType, merge: !!n._merge, codigo: n.activityCode })),
+  aristas: s.edges.map((e) => ({ id: e.id, from: e.from, to: e.to, label: e.label }))
+});
+
+test('D13: «Insertar compuertas de convergencia» ya no deja fines «Caso no procede» colgando', async ({ browser }) => {
+  for (const demo of ['loadComplex', 'loadComplex11', 'loadFichaVentaLotes']) {
+    const res = {};
+    for (const [nombre, puerto] of [['mvp', PUERTO_REFERENCIA], ['nueva', PUERTO_NUEVA]]) {
+      const app = await abrir(browser, puerto);
+      await app.page.evaluate((d) => window.ProcessIQ[d](), demo);
+      await app.page.waitForTimeout(300);
+      const antes = await app.page.evaluate(() => JSON.parse(localStorage.getItem('processiq.v1')).nodes.length);
+      await app.page.evaluate(() => document.querySelector('.copilot-action[data-action="merge-gateways"]').click());
+      await app.page.waitForTimeout(900);
+      res[nombre] = await app.page.evaluate(() => ({
+        estado: JSON.parse(localStorage.getItem('processiq.v1')),
+        mensaje: [...document.querySelectorAll('#copilotMessages > .copilot-msg')].at(-1).outerHTML,
+        svg: window.ProcessIQ.svg()
+      }));
+      res[nombre].antes = antes;
+      expect(app.errores).toEqual([]);
+      await app.ctx.close();
+    }
+    const { mvp, nueva } = res;
+    const m = MODELO(mvp.estado), n = MODELO(nueva.estado);
+    const merges = m.nodos.filter((x) => x.merge).map((x) => x.id);
+    expect(merges.length, `${demo}: el copiloto inserta compuertas de cierre`).toBeGreaterThan(0);
+    // MVP: de cada compuerta de cierre cuelga una rama «No» hacia un fin «Caso no procede»
+    const ramasNo = m.aristas.filter((a) => merges.includes(a.from) && a.label === 'No');
+    expect(ramasNo).toHaveLength(merges.length);
+    const inventados = ramasNo.map((a) => a.to);
+    expect(inventados.map((id) => m.nodos.find((x) => x.id === id).label)).toEqual(merges.map(() => 'Caso no procede'));
+    // App nueva: el mismo modelo sin esos fines ni sus ramas, y la salida de la compuerta sin «Sí»
+    expect(n.nodos).toEqual(m.nodos.filter((x) => !inventados.includes(x.id)));
+    expect(n.aristas).toEqual(m.aristas.filter((a) => !inventados.includes(a.to))
+      .map((a) => (merges.includes(a.from) ? { ...a, label: '' } : a)));
+    expect(n.aristas.filter((a) => merges.includes(a.from)).map((a) => a.label)).toEqual(merges.map(() => ''));
+    // El mensaje solo cambia en el recuento de nodos
+    expect(nueva.antes).toBe(mvp.antes);
+    expect(mvp.mensaje).toContain(`Nodos: ${mvp.antes} → ${mvp.antes + 2 * merges.length}.`);
+    expect(nueva.mensaje).toBe(mvp.mensaje.replace(`→ ${mvp.antes + 2 * merges.length}.`, `→ ${mvp.antes + merges.length}.`));
+    // En el dibujo: ningún «Caso no procede»
+    const veces = (s) => s.split('>Caso no procede<').length - 1;
+    expect(veces(mvp.svg)).toBe(merges.length);
+    expect(veces(nueva.svg)).toBe(0);
+  }
+});
+
+// D14: con la jerarquía explícita (la de la IA o la de los subprocesos de un BPMN
+// importado), el nivel Ejecutivo también tiene el techo de 10 cajas.
+const SPEC_LARGA = {
+  meta: { name: 'Proceso largo', industry: 'Banca', macroprocess: 'O2C' },
+  nodes: [
+    { k: 's', type: 'start', label: 'Inicio', owner: 'Cliente', nivel: 1 },
+    ...Array.from({ length: 12 }, (_, i) => ({ k: 't' + i, type: 'task', label: 'Paso ' + (i + 1), owner: i % 2 ? 'Operaciones' : 'Ventas', nivel: 1 })),
+    { k: 't3a', type: 'task', label: 'Detalle A', owner: 'Ventas', nivel: 3, padre: 't3' },
+    { k: 't3b', type: 'task', label: 'Detalle B', owner: 'Ventas', nivel: 3, padre: 't3' },
+    { k: 'f', type: 'end', label: 'Fin', owner: 'Cliente', nivel: 1 }
+  ],
+  edges: [
+    { from: 's', to: 't0' }, { from: 't0', to: 't1' }, { from: 't1', to: 't2' }, { from: 't2', to: 't3a' }, { from: 't3a', to: 't3b' },
+    { from: 't3b', to: 't4' }, ...Array.from({ length: 7 }, (_, i) => ({ from: 't' + (i + 4), to: 't' + (i + 5) })), { from: 't11', to: 'f' }
+  ]
+};
+
+test('D14: con jerarquía explícita, el nivel Ejecutivo no pasa de 10 cajas', async ({ browser }) => {
+  const res = {};
+  for (const [nombre, puerto] of [['mvp', PUERTO_REFERENCIA], ['nueva', PUERTO_NUEVA]]) {
+    const app = await abrir(browser, puerto);
+    res[nombre] = await app.page.evaluate((spec) => {
+      window.ProcessIQ.buildProcessFromAiSpec(spec);
+      const r = { detalle: window.ProcessIQ.snapshot().nodes };
+      r.actividad = window.ProcessIQ.nivel(2).nodos;
+      r.ejecutivo = window.ProcessIQ.nivel(1).nodos;
+      const d = JSON.parse(localStorage.getItem('processiq.v1'));
+      r.carriles = d.lanes.list;
+      r.etapas = d.nodes.filter((x) => x.marker === 'subprocess').map((x) => x.label);
+      r.vuelta = window.ProcessIQ.nivel(3).nodos;
+      return r;
+    }, SPEC_LARGA);
+    expect(app.errores).toEqual([]);
+    await app.ctx.close();
+  }
+  // MVP: el Ejecutivo es el nivel superior entero (14 pasos + inicio y fin)
+  expect(res.mvp).toMatchObject({ detalle: 16, actividad: 14, ejecutivo: 14, carriles: ['O2C'], vuelta: 16 });
+  // App nueva: igual en Detalle y Actividad; el Ejecutivo, en etapas y un solo carril
+  expect(res.nueva).toMatchObject({ detalle: 16, actividad: 14, carriles: ['O2C'], vuelta: 16 });
+  expect(res.nueva.ejecutivo).toBeLessThanOrEqual(10);
+  expect(res.nueva.etapas.length).toBeGreaterThan(0);
+  expect(res.nueva.etapas[0]).toBe('Paso 1 (+1 pasos)');
+});

@@ -58,14 +58,17 @@ const WRAP_AT = 14;       // ranks por banda en modo envolvente
  * Coloca los nodos:
  * 1. back-edges por DFS (los bucles de reproceso no inflan los ranks);
  * 2. rank por camino más largo sobre el DAG (Kahn);
- * 3. carriles por responsable, reordenados por baricentro para cortar cruces;
+ * 3. carriles por responsable, reordenados por baricentro para cortar cruces
+ *    (salvo que venga `ordenCarriles`);
  * 4. columnas compactas (cada rank ocupa lo que necesita) y apilado dentro del carril.
  * @param ownerMap responsable final de cada nodo (inferirResponsables)
  * @param wrap modo envolvente (bandas de 14 columnas)
+ * @param ordenCarriles orden de carriles que se respeta en lugar del baricentro
+ *        (el del archivo de un BPMN importado); sin él, el cálculo es el del MVP
  */
 export function calcularLayout(
   nodes: readonly Nodo[], edges: readonly Arista[],
-  opciones: { ownerMap: Record<string, string>; wrap: boolean }
+  opciones: { ownerMap: Record<string, string>; wrap: boolean; ordenCarriles?: readonly string[] }
 ): Carriles {
   const nodo = (id: string) => nodes.find((n) => n.id === id);
   const starts = nodes.filter((n) => n.type === 'start');
@@ -135,8 +138,15 @@ export function calcularLayout(
     if (!laneOrder.includes(lane)) laneOrder.push(lane);
   });
 
-  // 3) Anti-cruces: reordena los carriles por baricentro (Sugiyama simplificado)
-  if (laneOrder.length > 2) {
+  // Orden preferido de los carriles (p. ej. el del archivo de un BPMN importado):
+  // se respeta tal cual, sin baricentro; los que no nombra van detrás, en orden de aparición.
+  const preferido = (opciones.ordenCarriles || []).filter((l, i, a) => laneOrder.includes(l) && a.indexOf(l) === i);
+  if (preferido.length) {
+    const resto = laneOrder.filter((l) => !preferido.includes(l));
+    laneOrder.length = 0;
+    preferido.concat(resto).forEach((l) => laneOrder.push(l));
+  } else if (laneOrder.length > 2) {
+    // 3) Anti-cruces: reordena los carriles por baricentro (Sugiyama simplificado)
     const link: Record<string, Record<string, number>> = {};
     edges.forEach((e) => {
       const a = nodo(e.from), b = nodo(e.to);

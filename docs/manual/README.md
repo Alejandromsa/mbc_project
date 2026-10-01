@@ -456,7 +456,8 @@ El panel «IA» es el **copiloto**. Tiene acciones rápidas y un cuadro de coman
 | Botón | Con IA disponible | Sin IA |
 |---|---|---|
 | «Generar proceso desde descripción» | Genera con IA por el mismo camino que la ingesta | Modo básico por palabras clave |
-| «Sugerir KPIs aplicables», «Proponer reingeniería to-be», «Generar matriz RACI», «Generar SIPOC», «Matriz impacto-esfuerzo», «Oportunidades de automatización», «Cuello de botella / ruta crítica», «Backlog de iniciativas», «Resumen ejecutivo» | Informe de la IA sobre este proceso, en texto, dentro del panel | Resultado local, por reglas o plantillas; RACI, SIPOC e impacto-esfuerzo abren una matriz |
+| «Sugerir KPIs aplicables», «Proponer reingeniería to-be», «Matriz impacto-esfuerzo», «Oportunidades de automatización», «Cuello de botella / ruta crítica», «Backlog de iniciativas», «Resumen ejecutivo» | Informe de la IA sobre este proceso, en texto, dentro del panel | Resultado local, por reglas o plantillas; impacto-esfuerzo abre una matriz |
+| «Generar matriz RACI», «Generar SIPOC» | La IA llena la matriz editable y la abre en su diálogo (ver [6.10](#610-tareas-del-copiloto-con-ia)) | La matriz editable, llenada por reglas |
 | «Análisis profundo de dolores (IA)» | Ver [6.9](#69-análisis-de-pains-con-ia) | Pide configurar la IA |
 | «Detectar pains en el diagrama», «Comparador de escenarios (What-If)», «Análisis de variantes (event log)», «Mapa de valor Lean (VA/NVA)», «Autoajustar (verificar cruces)», «Reorganizar diagrama (compactar)», «Insertar compuertas de convergencia» | Siempre locales, sin IA | Igual |
 
@@ -516,7 +517,7 @@ Obtienes esfuerzo total, FTE actual, lead time del flujo, costo mensual, FTE to-
 - «Comparador de escenarios (What-If)»: eliges palancas y comparas FTE, lead time y costo contra el As-Is.
 - «Cuello de botella / ruta crítica», «Oportunidades de automatización», «Backlog de iniciativas», «Matriz impacto-esfuerzo», «Generar matriz RACI», «Generar SIPOC» y «Mapa de valor Lean (VA/NVA)».
 
-Las matrices RACI y SIPOC editables y los resultados del simulador se guardan con el proceso y salen en el PPTX. Ojo: con IA disponible, «Generar matriz RACI» y «Generar SIPOC» piden a la IA un informe en texto en lugar de abrir la matriz editable, y ese informe no llega al PPTX.
+Las matrices RACI y SIPOC editables y los resultados del simulador se guardan con el proceso y salen en el PPTX, en el informe Word y en la Ficha. Con IA o sin ella, «Generar matriz RACI» y «Generar SIPOC» abren la matriz editable.
 
 ### 5.15 Validación del Playbook (panel «Lint»)
 
@@ -687,9 +688,11 @@ En el copiloto, pulsa «Análisis profundo de dolores (IA)». La respuesta separ
 
 ### 6.10 Tareas del copiloto con IA
 
-Con IA disponible, estos botones piden a la IA un informe sobre **este** proceso: «Sugerir KPIs aplicables», «Proponer reingeniería to-be», «Generar matriz RACI», «Generar SIPOC», «Matriz impacto-esfuerzo», «Oportunidades de automatización», «Cuello de botella / ruta crítica», «Backlog de iniciativas» y «Resumen ejecutivo». El botón «To-Be IA» de la cabecera hace lo mismo que «Proponer reingeniería to-be».
+Con IA disponible, estos botones piden a la IA un informe sobre **este** proceso: «Sugerir KPIs aplicables», «Proponer reingeniería to-be», «Matriz impacto-esfuerzo», «Oportunidades de automatización», «Cuello de botella / ruta crítica», «Backlog de iniciativas» y «Resumen ejecutivo». El botón «To-Be IA» de la cabecera hace lo mismo que «Proponer reingeniería to-be».
 
 El informe aparece en el panel «IA», con tablas cuando corresponde. No se guarda con el proceso: cópialo si lo vas a usar.
+
+«Generar matriz RACI» y «Generar SIPOC» son distintos: la IA llena la **matriz editable** con las actividades y los roles del proceso, y se abre en su diálogo para que la revises. Lo que guardes se queda con el proceso y sale en el PPTX, el informe Word y la Ficha. Si la IA no devuelve una matriz válida, aparece el informe en texto de antes.
 
 ### 6.11 Límites de gasto
 
