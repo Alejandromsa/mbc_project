@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { VIEWPORT, abrirApp } from './escenarios.mjs';
 import { PUERTO_REFERENCIA, PUERTO_NUEVA } from './puertos.mjs';
 import { conTextosNuevos } from './textos-divergentes.mjs';
+import { divergentesDe } from './artefactos-divergentes.mjs';
 
 const APPS = {
   referencia: `http://127.0.0.1:${PUERTO_REFERENCIA}/`,
@@ -89,8 +90,16 @@ export async function compararEnAmbas(browser, caso, capturar, opciones = {}) {
   const distintos = [];
   // GUARDAR_TODO=1 escribe también los artefactos iguales (para inspeccionar qué se captura)
   if (process.env.GUARDAR_TODO) for (const k of claves) await guardar(caso, 'nueva', k, nueva.artefactos[k]);
+  // Artefactos que cambian a propósito (artefactos-divergentes.mjs): los compara su
+  // prueba de divergencia. Aquí solo se exige que sigan difiriendo (si no, la lista está vieja).
+  const divergentes = divergentesDe(caso);
+  for (const [k, d] of divergentes) {
+    const a = ref.artefactos[k], b = nueva.artefactos[k];
+    if (a == null || b == null || equivalentes(a, b)) distintos.push(`${k}: figura como divergente (${d}) en artefactos-divergentes.mjs, pero ${a == null || b == null ? 'falta en una de las dos' : 'ya coincide con el MVP'}`);
+  }
   for (const k of claves) {
     const a = ref.artefactos[k], b = nueva.artefactos[k];
+    if (divergentes.has(k)) continue;
     if (equivalentes(a, b)) continue;
     distintos.push(`${k}: ${a == null || b == null ? 'falta en una de las dos' : primeraDiferencia(a, b)}`);
     await guardar(caso, 'referencia', k, a);
