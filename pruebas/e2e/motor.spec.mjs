@@ -34,10 +34,12 @@ async function captura(page, nombre) {
   await page.screenshot({ path: `resultados/${nombre}.png` });
 }
 
+// El copiloto publica el pedido al instante y hace el trabajo (y su respuesta) en un
+// setTimeout: se espera a la respuesta, no al pedido.
 async function accionCopiloto(page, accion) {
   const antes = await page.locator('#copilotMessages > .copilot-msg').count();
   await page.evaluate((a) => document.querySelector(`.copilot-action[data-action="${a}"]`).click(), accion);
-  await expect(page.locator('#copilotMessages > .copilot-msg')).toHaveCount(antes + 1);
+  await expect(page.locator('#copilotMessages > .copilot-msg')).toHaveCount(antes + 2);
   return page.locator('#copilotMessages > .copilot-msg').last();
 }
 
@@ -67,7 +69,7 @@ test('las compuertas de convergencia de un BPMN importado no reciben el fin «Ca
   // Un BPMN del propio ProcessIQ con compuertas de cierre se lee como en el MVP (plano):
   // al importarlo, sus convergencias siguen sin fin inventado
   await page.evaluate(() => window.ProcessIQ.loadComplex());
-  await accionCopiloto(page, 'merge-gateways');
+  await expect(await accionCopiloto(page, 'merge-gateways')).toContainText('2 compuerta(s) de convergencia insertada(s)');
   const xml = await page.evaluate(() => window.ProcessIQ.generateBpmnXml());
   expect(xml).toContain('exporter="ProcessIQ"');
   await soltarArchivo(page, 'originacion.bpmn', xml);
@@ -108,7 +110,7 @@ test('el auto-layout respeta el orden de carriles guardado en el proceso (meta.o
   await page.setInputFiles('#fileImport', { name: 'compras.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(json), 'utf8') });
   await expect.poll(async () => (await guardado(page)).lanes?.list).toEqual(ORDEN);
   // Se mantiene al reorganizar y al pasar por Actividad
-  await accionCopiloto(page, 'relayout');
+  await expect(await accionCopiloto(page, 'relayout')).toContainText('Diagrama reorganizado');
   expect((await guardado(page)).lanes.list).toEqual(ORDEN);
   await page.locator('#nivelVista button[data-nivel="2"]').click();
   await expect.poll(() => page.evaluate(() => window.ProcessIQ.snapshot().nodes)).toBeLessThan(19);
