@@ -39,6 +39,8 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 - **Editor:** en español e inglés, con el mismo idioma que la plataforma (`processiq.idioma`) y «ES / EN» en su cabecera; lo siguen el modo proyecto y la vista del invitado. Se traducen menús, paneles, diálogos, avisos, el copiloto sin IA, el linter y los errores habituales. Las exportaciones, el diagrama, los ejemplos, los catálogos y lo que responde la IA no se traducen, y el editor en español no cambia (fidelidad 37/37).
 - **Colaboración:** el título de cada avatar del editor dice qué versión tiene abierta esa persona («(v3)», «(v2, versión anterior)»). En inglés, la plataforma ya no avisa de que el editor abre en español.
 - **IA:** con IA, «Generar matriz RACI» y «Generar SIPOC» traen la matriz editable (validada, con una reparación) en lugar de un informe en texto: se abre en su diálogo, se puede ajustar y llega al PPTX, al informe Word y a la Ficha. Igual en el editor libre y en los proyectos (en el servidor); si falla, el informe de siempre (divergencia D12). Los títulos de las tareas de IA del copiloto llevan sus tildes.
+- **Operación:** `infra/promover.sh <version>` pasa a producción una versión de staging solo si staging está en esa versión, en marcha y sano, y si la prueba de humo (`infra/humo.mjs`, 26 comprobaciones con una cuenta temporal que se desactiva al terminar) pasa entera. El runbook del servidor avisa de no parar los contenedores desde Docker Desktop.
+- **IA:** en «Consumo de IA», las matrices RACI y SIPOC con IA se nombran como su tarea («Matriz RACI», «SIPOC») en lugar de «Análisis (matriz-raci)». La referencia de la API y el manual las documentan.
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 

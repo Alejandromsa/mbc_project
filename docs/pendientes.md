@@ -2,7 +2,7 @@
 
 Todo lo que queda por hacer, con quién lo tiene y en qué estado está. Lo mantiene plataforma: el PR que cierra un punto lo marca aquí (✅) y, en la siguiente limpieza, lo quita.
 
-Actualizado: 30-sep-2026.
+Actualizado: 1-oct-2026.
 
 **Estados:** ⏳ en curso · 🔜 siguiente ola · ⛔ bloqueado · 🙋 lo hace una persona · ✅ hecho.
 
@@ -24,7 +24,11 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Editor (ola 2) | Borradores locales, JSON completo, esquema v1, texto de Lint, tildes, casillas de Word | `plataforma/editor-pendientes` | `apps/web/src/app/`, `packages/dominio` | ✅ PR #17 |
 | Idiomas (ola 3) | La plataforma en español e inglés | `plataforma/i18n-shell` | `apps/web/src/shell/`, pantallas de los módulos | ✅ PR #18 |
 | BPMN | Importador: carriles, subprocesos, tipos y robustez | `plataforma/bpmn-importador` | `packages/bpmn`, `apps/web/src/app/bpmn/` | ✅ PR #20 |
-| Cuentas y avisos (ola 4) | Sesiones visibles y cerrables, aviso en vivo del cambio de estado y versión abierta en la presencia | `plataforma/sesiones-y-avisos` | `rutas/sesion.ts`, el cambio de estado de `rutas/procesos.ts`, `apps/api/src/colaboracion/`, `presencias`, `apps/web/src/shell/`, el latido de `colaboracion.js` | ⏳ PR #21 |
+| Cuentas y avisos (ola 4) | Sesiones visibles y cerrables, aviso en vivo del cambio de estado y versión abierta en la presencia | `plataforma/sesiones-y-avisos` | `rutas/sesion.ts`, el cambio de estado de `rutas/procesos.ts`, `apps/api/src/colaboracion/`, `presencias`, `apps/web/src/shell/`, el latido de `colaboracion.js` | ✅ PR #21 |
+| Editor en inglés (ola 4) | El editor en español e inglés; en español, ni un byte distinto | `plataforma/i18n-editor` | `apps/web/src/app/` (textos), `app/i18n.js` | ✅ PR #22 (seguimiento: #23) |
+| Matrices con IA (ola 5) | RACI y SIPOC con IA como matrices editables que llegan al PPTX (D12) | `plataforma/ia-matrices` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `app/ia/` | ✅ PR #24 |
+| Motor (ola 5) | Fines «Caso no procede» en compuertas de convergencia, tope del nivel Ejecutivo con subprocesos importados y orden de carriles del BPMN importado | `plataforma/motor-ajustes` | `packages/motor`, `apps/web/src/app/{layout,lienzo,proceso}/` | ⏳ |
+| Copiloto en inglés (ola 5) | Comandos del copiloto en inglés («add X after Y»), su ayuda y su `placeholder` | `plataforma/copiloto-ingles` | `apps/web/src/app/copiloto/` y sus textos | ⏳ |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -91,6 +95,8 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - ✅ `HORAS_SESION` y `PORT` validadas; `RESPALDO_ESPERA_INICIAL_S` llega al contenedor; `desplegar.sh` lee `RED_BORDE` también de los `.env`.
 - ✅ Despliegue automático a staging desde `main`, por sondeo desde el servidor (`infra/sondear-main.sh`; sin runners propios: [ADR 18](adr/0018-repositorio-publico.md)). Producción sigue siendo manual. 🙋 Falta instalar la tarea programada en el servidor (`infra/instalar-sondeo.ps1`).
 - ✅ `Content-Security-Policy` obligatoria y `Permissions-Policy` en Caddy; Montserrat servida desde la propia web; la E2E corre con la CSP y falla con cualquier violación (PR #16). Queda `style-src 'unsafe-inline'`, que necesita el editor portado ([seguridad.md §16](tecnica/seguridad.md#16-qué-no-está-cubierto-todavía)).
+- ✅ A producción solo con `infra/promover.sh`: staging sano y prueba de humo entera en verde, o no promueve ([despliegue.md](runbooks/despliegue.md#flujo-normal), lección 23).
+- 🔜 Nada avisa si los contenedores están parados. El 30-sep-2026 alguien paró producción y staging desde Docker Desktop y siguieron así hasta el día siguiente: el sondeo seguía diciendo «sin cambios» y «Sistema» no carga si la API está parada. Que el sondeo compruebe también que producción y staging están en marcha y lo deje en su estado, y avise cuando haya canal (punto siguiente).
 - 🔜 Alertas por correo o webhook (necesita el SMTP o el webhook).
 - 🔜 `CODEOWNERS` real y revisión obligatoria (necesita el equipo).
 

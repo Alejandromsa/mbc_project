@@ -12,12 +12,16 @@ const CLAVES_ESTADO = {
   fallida: 'ia.estadoFallida', cancelada: 'ia.estadoCancelada'
 } as const satisfies Record<EstadoEjecucionIa, string>;
 
+/** Una matriz con IA (D12) se nombra como su tarea del copiloto: «Matriz RACI», «SIPOC». */
+const TAREA_DE_MATRIZ: Readonly<Record<string, string>> = { 'matriz-raci': 'raci', 'matriz-sipoc': 'sipoc' };
+
 function queHizo(e: Pick<EjecucionIa, 'tipo' | 'tarea'>, t: TraductorShell): string {
   if (e.tipo === 'generacion') return t('ia.generar');
   if (e.tipo === 'pains') return t('ia.pains');
-  const etiqueta = TAREAS_IA[e.tarea ?? '']?.etiqueta;
-  if (!etiqueta) return t('ia.analisis', { tarea: e.tarea ?? '' });
-  return (t.idioma === 'en' && TAREAS_IA_EN[e.tarea ?? '']) || etiqueta;
+  const tarea = TAREA_DE_MATRIZ[e.tarea ?? ''] ?? e.tarea ?? '';
+  const etiqueta = TAREAS_IA[tarea]?.etiqueta;
+  if (!etiqueta) return t('ia.analisis', { tarea });
+  return (t.idioma === 'en' && TAREAS_IA_EN[tarea]) || etiqueta;
 }
 
 export function ConsumoIa() {
