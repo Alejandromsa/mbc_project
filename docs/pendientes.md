@@ -28,7 +28,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Editor en inglés (ola 4) | El editor en español e inglés; en español, ni un byte distinto | `plataforma/i18n-editor` | `apps/web/src/app/` (textos), `app/i18n.js` | ✅ PR #22 (seguimiento: #23) |
 | Matrices con IA (ola 5) | RACI y SIPOC con IA como matrices editables que llegan al PPTX (D12) | `plataforma/ia-matrices` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `app/ia/` | ✅ PR #24 |
 | Motor (ola 5) | Fines «Caso no procede» en compuertas de convergencia, tope del nivel Ejecutivo con subprocesos importados y orden de carriles del BPMN importado | `plataforma/motor-ajustes` | `packages/motor`, `apps/web/src/app/{layout,lienzo,proceso}/` | ✅ PR #26 |
-| Copiloto en inglés (ola 5) | Comandos del copiloto en inglés («add X after Y»), su ayuda y su `placeholder` | `plataforma/copiloto-ingles` | `apps/web/src/app/copiloto/` y sus textos | ⏳ |
+| Copiloto en inglés (ola 5) | Comandos del copiloto en inglés («add X after Y»), su ayuda y su `placeholder` | `plataforma/copiloto-ingles` | `apps/web/src/app/copiloto/` y sus textos | ✅ PR #29 |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -68,7 +68,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Edición simultánea del mismo diagrama (CRDT u operaciones en vivo) | Núcleo | 🔜 por decidir, sobre la base de `colaboracion` (necesitaría canal en los dos sentidos: otra ADR) |
 | Interfaz en inglés: la plataforma (shell y pantallas de los módulos) | Núcleo | ✅ PR #18 |
 | Interfaz en inglés: el editor | Núcleo | ✅ PR #22: editor libre, modo proyecto y vista del invitado, con el idioma de la plataforma; el español no cambia (fidelidad 37/37). No se traducen, por diseño: exportaciones, lienzo, prompts y respuestas de la IA, ejemplos y catálogos ([web.md §5.11](tecnica/web.md#511-el-editor-en-español-e-inglés)) |
-| Interfaz en inglés: lo que queda del editor | Núcleo | (1) ✅ PR #23: el shell ya no dice en inglés que el editor abre en español; (2) ✅ PR #N: comandos del copiloto en inglés («add X after Y», «connect A to B»…): con el editor en inglés entiende inglés y español; en español, como el MVP (divergencia D15); 🔜 (3) mensajes del servidor que no están en `mensajes.ts` (detalles de validación, error de una ejecución de IA) y errores de paquetes no listados en `ERRORES_EN` salen en español; (4) los nombres y descripciones de la galería de ejemplos siguen en español (son ejemplos) |
+| Interfaz en inglés: lo que queda del editor | Núcleo | (1) ✅ PR #23: el shell ya no dice en inglés que el editor abre en español; (2) ✅ PR #29: comandos del copiloto en inglés («add X after Y», «connect A to B»…): con el editor en inglés entiende inglés y español; en español, como el MVP (divergencia D15); 🔜 (3) mensajes del servidor que no están en `mensajes.ts` (detalles de validación, error de una ejecución de IA) y errores de paquetes no listados en `ERRORES_EN` salen en español; (4) los nombres y descripciones de la galería de ejemplos siguen en español (son ejemplos) |
 
 ## 5. Deuda técnica y hallazgos abiertos
 
