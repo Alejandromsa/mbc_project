@@ -50,31 +50,55 @@ const PULSE_URL = (process.env.PULSE_URL ?? '').trim();
 const PULSE_TOKEN = (process.env.PULSE_TOKEN ?? '').trim();
 const PUERTO = Number(process.env.PORT ?? 8787);
 
-type Uso = { inputTokens: number; outputTokens: number };
+// inputTokens: TODOS los de entrada, tambien los de la cache de prompts, que
+// ademas van aparte (se cobran a otro precio). Los campos de cache solo
+// aparecen si los hubo; el worker de la API informa con los mismos nombres.
+type Uso = {
+  inputTokens: number; outputTokens: number;
+  cacheCreationInputTokens?: number; cacheCreation1hInputTokens?: number; cacheReadInputTokens?: number;
+};
+
+// Uso acumulado de un objeto `usage` de Anthropic sobre lo que ya se sabia
+// (message_delta repite los totales: se toma el mayor, nunca se suma).
+function acumularUso(uso: Uso, u: any): void {
+  const total = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+  uso.inputTokens = Math.max(uso.inputTokens, total);
+  uso.outputTokens = Math.max(uso.outputTokens, u.output_tokens || 0);
+  const mayor = (campo: 'cacheCreationInputTokens' | 'cacheCreation1hInputTokens' | 'cacheReadInputTokens', v: unknown) => {
+    const n = Math.max(uso[campo] || 0, +(v as number) || 0);
+    if (n > 0) uso[campo] = n;
+  };
+  mayor('cacheCreationInputTokens', u.cache_creation_input_tokens);
+  mayor('cacheCreation1hInputTokens', u.cache_creation?.ephemeral_1h_input_tokens);
+  mayor('cacheReadInputTokens', u.cache_read_input_tokens);
+}
 
 // Lee la copia del stream (no la que ve el usuario) y saca los tokens reales.
 // Nunca lanza: sin dato, null.
-async function extraerUso(stream: ReadableStream<Uint8Array>, esStreaming: boolean): Promise<Uso | null> {
+export async function extraerUso(stream: ReadableStream<Uint8Array>, esStreaming: boolean): Promise<Uso | null> {
   try {
     const texto = await new Response(stream).text();
+    const uso: Uso = { inputTokens: 0, outputTokens: 0 };
     if (!esStreaming) {
       const u = JSON.parse(texto).usage;
-      return u ? { inputTokens: u.input_tokens || 0, outputTokens: u.output_tokens || 0 } : null;
+      if (!u) return null;
+      acumularUso(uso, u);
+      return uso;
     }
     // SSE: el input llega en message_start; el output final, en el ultimo
     // message_delta (su usage.output_tokens es acumulado, no incremental).
-    let inputTokens = 0, outputTokens = 0, visto = false;
+    let visto = false;
     for (const linea of texto.split('\n')) {
       if (!linea.startsWith('data:')) continue;
       let ev: any;
       try { ev = JSON.parse(linea.slice(5).trim()); } catch { continue; }
       if (ev.type === 'message_start' && ev.message?.usage) {
-        inputTokens = ev.message.usage.input_tokens || 0; visto = true;
+        acumularUso(uso, ev.message.usage); visto = true;
       } else if (ev.type === 'message_delta' && ev.usage) {
-        outputTokens = ev.usage.output_tokens || 0; visto = true;
+        acumularUso(uso, ev.usage); visto = true;
       }
     }
-    return visto ? { inputTokens, outputTokens } : null;
+    return visto ? uso : null;
   } catch {
     return null;
   }
