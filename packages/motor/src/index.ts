@@ -6,7 +6,7 @@ export {
   type ContextoRuteo, type CarrilesRuteo
 } from './ruteo.js';
 export {
-  asegurarRamasDeDecision, asignarCodigosActividad, inferirResponsables, insertarCompuertasConvergencia
+  asegurarRamasDeDecision, asignarCodigosActividad, esConvergencia, inferirResponsables, insertarCompuertasConvergencia
 } from './operaciones.js';
 export { calcularLayout, normalizarGeometria, type Carriles } from './layout.js';
 export {

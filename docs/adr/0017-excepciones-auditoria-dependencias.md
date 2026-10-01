@@ -1,6 +1,6 @@
 # 17. Excepciones de la auditoría de dependencias
 
-**Estado:** vigente; revisar en cada actualización de dependencias. **Fecha:** 26-sep-2026. **Revisada:** 28-sep-2026 (ya no hay excepciones: ver «Evaluación del 28-sep-2026»).
+**Estado:** vigente; revisar en cada actualización de dependencias. **Fecha:** 26-sep-2026. **Revisada:** 28-sep-2026 (ya no hay excepciones: ver «Evaluación del 28-sep-2026») y 1-oct-2026 (`esbuild` de `drizzle-kit`).
 
 ## Contexto
 
@@ -11,6 +11,8 @@ La CI ejecuta `pnpm audit --prod --audit-level=high`. Al activarla aparecieron 1
 - **`tar` (1 crítico y varios altos):** venía por `pdfjs-dist → canvas → @mapbox/node-pre-gyp`. `canvas` es una dependencia opcional de pdf.js para Node; en el navegador no se usa. **Se elimina** con `pnpm.overrides: { "canvas": "-" }`: 12 avisos menos.
 - **`image-size` GHSA-5p2g-fcmc-qvqq y GHSA-w3rx-r6r6-pgpr (altos, denegación de servicio con imágenes JXL, HEIF o ICNS manipuladas):** llega por `pptxgenjs`. Hasta el 28-sep-2026 fue un riesgo aceptado. **Desde el 28-sep-2026 se elimina** con `pnpm.overrides: { "pptxgenjs>image-size": "-" }`, igual que `canvas`: pptxgenjs la declara, pero no la usa (ver la evaluación). pptxgenjs sigue en 3.12.0.
 - **`mammoth` GHSA-rmjr-87wv-gf87 (moderado, recorrido de directorios):** solo afectaba a mammoth en Node, al leer imágenes enlazadas del disco. Hasta el 28-sep-2026 fue un riesgo aceptado, con la versión 1.8.0 fijada por la fidelidad con el MVP. **Desde el 28-sep-2026 se actualiza a 1.13.0**, que lo corrige (divergencia D6 en `docs/fase1-divergencias.md`).
+
+- **`esbuild` GHSA-67mh-4wv8-2f99 (moderado: cualquier web podía hacer peticiones al servidor de desarrollo de esbuild y leer la respuesta):** llegaba en la 0.18.20 por `drizzle-kit → @esbuild-kit/esm-loader → @esbuild-kit/core-utils`, que solo usa `pnpm --filter @processiq/db generar` y no levanta ese servidor. La CI no lo veía: es una dependencia de desarrollo y el aviso no es alto. Lo vio Dependabot (alerta 2, 28-sep-2026). La última `drizzle-kit` (0.31.11) sigue pidiendo esa versión. **Desde el 1-oct-2026 se fuerza `esbuild ^0.25.0` solo en esa ruta**, con `pnpm.overrides: { "@esbuild-kit/core-utils>esbuild": "^0.25.0" }`. `drizzle-kit generate` sigue leyendo el esquema igual («No schema changes») y `pnpm audit`, ya sin `--prod`, queda limpio.
 
 `pnpm.auditConfig.ignoreGhsas` (en `package.json`) queda vacío. Una excepción nueva se añade allí y se justifica en esta ADR.
 
@@ -68,3 +70,5 @@ Se evaluaron las últimas versiones publicadas. Resumen por librería:
   - comparar el `.pptx` completo, no solo las láminas.
 - **Al actualizar mammoth:** pasar `pnpm fidelidad`, incluida la prueba D6.
 - Si pptxgenjs o mammoth se usaran alguna vez en el servidor, hay que revisar esta ADR.
+- **Al actualizar drizzle-kit:** si deja de depender de `@esbuild-kit/*`, quitar su override. Si no, comprobar que `pnpm --filter @processiq/db generar` sin cambios en el esquema sigue diciendo «No schema changes».
+- **Los avisos de Dependabot llegan a más que la CI:** cubren las dependencias de desarrollo y los avisos moderados, que la CI deja pasar. Se revisan al llegar (pestaña *Security* del repositorio) y se resuelven aquí o se justifican como excepción.
