@@ -122,6 +122,8 @@ export const COMANDOS_VARIANTES = [
   'poner Analizar caso como RPA',
   'cambiar tipo de Validar firma como teléfono',
   'quitar Validar firma',
+  'agregar Validar en SAP después de Analizar caso',
+  'quitar la conexión entre Validar en SAP y Analizar caso',
   'add Check documents after Analizar caso',
   'insert Llamar after Revisar documentos',
   'delete Analizar caso',

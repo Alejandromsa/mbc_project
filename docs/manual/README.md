@@ -122,7 +122,7 @@ La plataforma de proyectos y el editor están en **español** y en **inglés**, 
 - **Qué no se traduce:**
   - **lo que entregas al cliente**: las exportaciones (PPTX, Word, Ficha de Proceso, BPMN, SVG, PNG y JSON) y el diagrama del lienzo, que salen igual en los dos idiomas;
   - lo que responde la IA y los procesos de ejemplo;
-  - lo que escribe el equipo: nombres de proyectos y procesos, actividades, mensajes de revisión, la ficha, los KPIs, los verbos del catálogo, las industrias y los macroprocesos. Las actividades se siguen escribiendo en español (el linter revisa sus verbos) y los comandos del copiloto («agregar X después de Y») también son en español;
+  - lo que escribe el equipo: nombres de proyectos y procesos, actividades, mensajes de revisión, la ficha, los KPIs, los verbos del catálogo, las industrias y los macroprocesos. Las actividades se siguen escribiendo en español (el linter revisa sus verbos). Los comandos del copiloto se escriben en inglés («add X after Y») o en español, pero los nombres de las actividades se escriben como están en el diagrama ([5.12](#512-copiloto-y-comandos));
   - algunos textos que genera el servidor, como el detalle de un error de validación.
 
 Donde la versión inglesa menciona un botón o menú del editor, lo cita tal como aparece, en español, con la traducción entre paréntesis: “Exportar → JSON” (Export → JSON).
@@ -474,6 +474,21 @@ El panel «IA» es el **copiloto**. Tiene acciones rápidas y un cuadro de coman
 | Generar | Un texto con «genera», «levanta» o «dibuja» inicia la generación con IA |
 
 El cuadro no es una conversación libre con la IA: fuera de estas órdenes responde con ayudas fijas.
+
+**Con el editor en inglés**, el cuadro entiende las mismas órdenes en inglés y también en español, y responde en inglés. Una orden en inglés hace exactamente lo mismo que la española:
+
+| Orden | En español | En inglés |
+|---|---|---|
+| Agregar antes o después | `agregar Validar presupuesto después de Registrar solicitud` | `add Validar presupuesto after Registrar solicitud` (también `insert`, `create`; `before`) |
+| Eliminar | `eliminar Aprobar pedido` | `delete Aprobar pedido` (también `remove`) |
+| Renombrar | `renombrar Revisar pedido a Validar pedido` | `rename Revisar pedido to Validar pedido` (también `change … to`, `replace … with`) |
+| Conectar | `conectar Registrar solicitud con Emitir orden` | `connect Registrar solicitud to Emitir orden` (también `link`, `join`) |
+| Marcar el tipo de tarea | `marcar Emitir orden como automático` | `mark Emitir orden as automatic` (también manual, system, rpa, bot, ai, email, phone, document) |
+| Generar | «genera», «levanta», «dibuja» | además «generate», «draw», «map out» |
+
+- **Los nombres de las actividades no se traducen:** escríbelos como están en el diagrama. En inglés se guardan tal cual, con sus mayúsculas («add Validar en SAP after …» crea «Validar en SAP»); en español, como siempre, solo la primera letra va en mayúscula («Validar en sap»).
+- En inglés también responde a «hello», «indicators» (KPIs), «redesign» (to-be) y «summary» (resumen ejecutivo).
+- «change the owner of X to Ana» no es una orden: no cambia nada (el responsable se cambia en «Propiedades»).
 
 ### 5.13 Minería de event logs
 
