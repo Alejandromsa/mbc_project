@@ -22,7 +22,8 @@
   "pnpm": {
     "overrides": {
       "canvas": "-",
-      "pptxgenjs>image-size": "-"
+      "pptxgenjs>image-size": "-",
+      "@esbuild-kit/core-utils>esbuild": "^0.25.0"
     },
     "auditConfig": {
       "ignoreGhsas": []

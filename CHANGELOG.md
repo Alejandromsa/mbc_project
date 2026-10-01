@@ -39,6 +39,7 @@ Versiones con [SemVer](https://semver.org/lang/es/). Cada versión desplegada se
 - **Editor:** en español e inglés, con el mismo idioma que la plataforma (`processiq.idioma`) y «ES / EN» en su cabecera; lo siguen el modo proyecto y la vista del invitado. Se traducen menús, paneles, diálogos, avisos, el copiloto sin IA, el linter y los errores habituales. Las exportaciones, el diagrama, los ejemplos, los catálogos y lo que responde la IA no se traducen, y el editor en español no cambia (fidelidad 37/37).
 - **Colaboración:** el título de cada avatar del editor dice qué versión tiene abierta esa persona («(v3)», «(v2, versión anterior)»). En inglés, la plataforma ya no avisa de que el editor abre en español.
 - **IA:** con IA, «Generar matriz RACI» y «Generar SIPOC» traen la matriz editable (validada, con una reparación) en lugar de un informe en texto: se abre en su diálogo, se puede ajustar y llega al PPTX, al informe Word y a la Ficha. Igual en el editor libre y en los proyectos (en el servidor); si falla, el informe de siempre (divergencia D12). Los títulos de las tareas de IA del copiloto llevan sus tildes.
+- **Dependencias:** `drizzle-kit` (solo para generar migraciones) ya no arrastra `esbuild` 0.18 con su aviso moderado GHSA-67mh-4wv8-2f99: un override fuerza la 0.25 en esa ruta (ADR 17). `pnpm audit`, también con las dependencias de desarrollo, queda limpio.
 
 ## 4.4.0 — 26-sep-2026 · Fase 2.4 y fase 3 (en curso)
 
