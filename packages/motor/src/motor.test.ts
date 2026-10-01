@@ -32,7 +32,7 @@ describe('operaciones sobre el grafo', () => {
     expect(edges.at(-1)).toEqual({ id: 'e11', from: 'd', to: 'n10', label: 'No' });
   });
 
-  it('una compuerta de convergencia (varias entradas, una salida) no es una decisión: ni rama "No" ni rótulo (D12)', () => {
+  it('una compuerta de convergencia (varias entradas, una salida) no es una decisión: ni rama "No" ni rótulo (D13)', () => {
     const nodes = [n('a', 'task'), n('b', 'task'), n('m', 'decision', { gatewayType: 'exclusive' }), n('z', 'task')];
     const edges = [e('1', 'a', 'm'), e('2', 'b', 'm'), e('3', 'm', 'z')];
     expect(esConvergencia(nodes[2]!, edges)).toBe(true);
@@ -253,7 +253,7 @@ describe('niveles de detalle', () => {
     return { nodes, edges };
   }
 
-  it('con jerarquía explícita, el Ejecutivo también tiene el techo de 10 cajas (D13)', () => {
+  it('con jerarquía explícita, el Ejecutivo también tiene el techo de 10 cajas (D14)', () => {
     const full = importadoLargo();
     // Actividad: la jerarquía explícita tal cual (sin techo): 14 pasos + inicio y fin
     expect(proyectarNivel(full, 2, { carrilDe, macroproceso: 'O2C' }).nodes).toHaveLength(16);

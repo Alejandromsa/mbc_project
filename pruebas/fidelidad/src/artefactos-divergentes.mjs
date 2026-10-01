@@ -8,11 +8,11 @@
 const MERGE_GATEWAYS = ['merge-gateways/mensajes.html', 'merge-gateways/resumen.json', 'merge-gateways/diagrama.svg'];
 
 export const ARTEFACTOS_DIVERGENTES = [
-  // D12: «Insertar compuertas de convergencia» ya no deja un fin «Caso no procede»
+  // D13: «Insertar compuertas de convergencia» ya no deja un fin «Caso no procede»
   // colgando de cada compuerta de cierre (el MVP se lo inventaba: asegurarRamasDeDecision)
-  { d: 'D12', caso: 'copiloto-loadComplex', claves: MERGE_GATEWAYS },
-  { d: 'D12', caso: 'copiloto-loadComplex11', claves: MERGE_GATEWAYS },
-  { d: 'D12', caso: 'copiloto-loadFichaVentaLotes', claves: MERGE_GATEWAYS }
+  { d: 'D13', caso: 'copiloto-loadComplex', claves: MERGE_GATEWAYS },
+  { d: 'D13', caso: 'copiloto-loadComplex11', claves: MERGE_GATEWAYS },
+  { d: 'D13', caso: 'copiloto-loadFichaVentaLotes', claves: MERGE_GATEWAYS }
 ];
 
 /** Claves de un caso que se comparan en su prueba de divergencia y no aquí: clave -> divergencia. */

@@ -1,6 +1,6 @@
 // Motor del diagrama con BPMN importados (fixtures inventados de packages/bpmn):
-// - una compuerta de convergencia no recibe el fin «Caso no procede» (divergencia D12);
-// - el nivel Ejecutivo no pasa de 10 cajas aunque el BPMN traiga subprocesos (D13);
+// - una compuerta de convergencia no recibe el fin «Caso no procede» (divergencia D13);
+// - el nivel Ejecutivo no pasa de 10 cajas aunque el BPMN traiga subprocesos (D14);
 // - el auto-layout respeta el orden de carriles del proceso (meta.ordenCarriles).
 import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';

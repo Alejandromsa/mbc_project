@@ -1,6 +1,8 @@
 // IA en el servidor de punta a punta: editor en modo proyecto + API + worker +
 // Anthropic falso (src/anthropic-falso.mjs).
+import { readFile } from 'node:fs/promises';
 import { expect, test } from '@playwright/test';
+import JSZip from 'jszip';
 import { BASE, CLAVE, correo, reiniciarDatos } from './src/entorno.mjs';
 
 test.beforeEach(() => reiniciarDatos());
@@ -137,6 +139,85 @@ test('el copiloto y el análisis de dolores van al servidor; el administrador ve
   await expect(ultimas).toContainText('Sugerir KPIs aplicables');
   await expect(ultimas).toContainText('Análisis de dolores');
   await expect(admin.getByRole('table').first().getByRole('row', { name: /editor@processiq\.test/ })).toContainText('US$');
+});
+
+// Lo que contesta el Anthropic falso a las matrices (src/anthropic-falso.mjs)
+const ROL_E2E = 'Auditoría interna';
+const SIPOC_E2E = {
+  suppliers: 'Asegurado, Taller afiliado', inputs: 'Denuncia del siniestro, Póliza vigente',
+  process: 'Registrar, Peritar, Liquidar, Pagar', outputs: 'Indemnización pagada', customers: 'Asegurado, Reaseguros'
+};
+
+async function laminasPptx(page) {
+  const [descarga] = await Promise.all([
+    page.waitForEvent('download', { timeout: 90_000 }),
+    page.evaluate(() => document.querySelector('button[data-export="pptx"][data-tema="mbc"]').click())
+  ]);
+  const zip = await JSZip.loadAsync(await readFile(await descarga.path()));
+  const nombres = Object.keys(zip.files).filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f));
+  return Promise.all(nombres.map((f) => zip.file(f).async('string')));
+}
+
+test('la RACI y el SIPOC con la IA del servidor llegan como matrices editables y van al PPTX (D12)', async ({ page }) => {
+  test.setTimeout(150_000);
+  await entrar(page, 'editor');
+  await irAlProceso(page, 'Gestión de siniestros');
+  const procesoId = new URL(page.url()).pathname.split('/').pop();
+  await page.getByRole('link', { name: 'Abrir la última versión en el editor' }).click();
+  await expect(barra(page)).toContainText('v3');
+  const actividades = await page.evaluate(() => window.ProcessIQ.snapshot().tasks + window.ProcessIQ.snapshot().decisions);
+
+  // RACI: el botón del copiloto, como lo usa el consultor
+  await page.locator('.tab[data-tab="copilot"]').click();
+  await page.getByRole('button', { name: 'Generar matriz RACI' }).click();
+  await expect(page.locator('#modal')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('#modalTitle')).toHaveText(/^Matriz RACI · /);
+  await expect(page.locator('#modalOk')).toHaveText('Guardar cambios');
+  // Rellena: una fila por actividad, cada una con su R/A y la auditoría interna informada
+  const tabla = page.locator('#modalBody table.raci-table');
+  await expect(tabla.locator('thead th').last()).toHaveText(ROL_E2E);
+  await expect(tabla.locator('tbody tr')).toHaveCount(actividades);
+  const celdas = await page.evaluate(() => Array.from(document.querySelectorAll('.raci-pick')).map((s) => [s.dataset.role, s.value]));
+  expect(celdas.filter(([, v]) => v === 'R/A')).toHaveLength(actividades);
+  expect(celdas.filter(([r, v]) => r === 'Auditoría interna' && v === 'I')).toHaveLength(actividades);
+  expect(celdas.filter(([, v]) => v !== '' && v !== 'R/A' && v !== 'I')).toEqual([]);
+  await expect(page.locator('#copilotMessages')).toContainText(`Matriz RACI propuesta por la IA con ${actividades} actividades`);
+  await page.screenshot({ path: 'resultados/ia-matriz-raci.png' });
+  // El final de la tabla: la columna de la auditoría y la pista del diálogo
+  await page.evaluate(() => document.querySelectorAll('#modalBody, #modalBody *').forEach((el) => { el.scrollLeft = el.scrollWidth; el.scrollTop = el.scrollHeight; }));
+  await expect(page.locator('#modalBody .panel-hint')).toContainText('Propuesta de la IA');
+  await page.screenshot({ path: 'resultados/ia-matriz-raci-final.png' });
+  // Se edita como la de siempre: la primera fila pasa a consultar a la auditoría
+  await tabla.locator('.raci-pick[data-role="Auditoría interna"]').first().selectOption('C');
+  await page.locator('#modalOk').click();
+  await expect(page.locator('#copilotMessages')).toContainText('Matriz RACI guardada con');
+
+  // SIPOC
+  await page.getByRole('button', { name: 'Generar SIPOC' }).click();
+  await expect(page.locator('#modal')).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('#modalTitle')).toHaveText(/^SIPOC · /);
+  for (const [columna, valor] of Object.entries(SIPOC_E2E)) await expect(page.locator(`[data-sipoc="${columna}"]`)).toHaveValue(valor);
+  await page.screenshot({ path: 'resultados/ia-matriz-sipoc.png' });
+  await page.locator('#modalOk').click();
+  await expect(page.locator('#copilotMessages')).toContainText('SIPOC guardado.');
+  await page.locator('#copilotMessages').screenshot({ path: 'resultados/ia-matriz-copiloto.png' });
+
+  // Las pidió el editor al servidor (tareas de la cola) y el proceso queda con cambios por guardar
+  const { ejecuciones } = await (await page.request.get(`/api/ia/procesos/${procesoId}`)).json();
+  const matrices = ejecuciones.filter((e) => e.tipo === 'tarea').map((e) => `${e.tarea} ${e.estado}`).sort();
+  expect(matrices).toEqual(['matriz-raci completada', 'matriz-sipoc completada']);
+  await expect(barra(page).locator('.piq-proyecto-cambios')).toBeVisible();
+
+  // El PPTX lleva las dos láminas con lo que dijo la IA (y el cambio de la primera fila)
+  const laminas = await laminasPptx(page);
+  const raci = laminas.find((xml) => xml.includes('>Matriz RACI<'));
+  expect(raci, 'lámina RACI').toBeTruthy();
+  expect(raci).toContain(`>${ROL_E2E}<`);
+  expect(raci.split('>R/A<').length - 1).toBeGreaterThanOrEqual(Math.min(actividades, 14));   // la lámina lleva hasta 14 filas
+  expect(raci).toContain('>C<');
+  const sipoc = laminas.find((xml) => xml.includes('>SIPOC — alcance del proceso<'));
+  expect(sipoc, 'lámina SIPOC').toBeTruthy();
+  for (const v of Object.values(SIPOC_E2E)) expect(sipoc).toContain(v);
 });
 
 test('quien solo lee no usa la IA del servidor', async ({ page }) => {

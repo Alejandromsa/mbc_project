@@ -182,7 +182,7 @@ Qué **no** revisa:
 - niveles de detalle Ejecutivo / Actividad / Detalle;
 - operaciones sobre el grafo (ramas de decisión, códigos de actividad, responsables inferidos, compuertas de convergencia).
 
-Portado del MVP sin cambios de cálculo, salvo dos divergencias registradas (D12: las convergencias no reciben la rama «Caso no procede»; D13: techo de 10 cajas del Ejecutivo también con la jerarquía explícita) y el orden de carriles opcional (`ordenCarriles`), que sin usarse deja el cálculo del MVP. No toca el DOM.
+Portado del MVP sin cambios de cálculo, salvo dos divergencias registradas (D13: las convergencias no reciben la rama «Caso no procede»; D14: techo de 10 cajas del Ejecutivo también con la jerarquía explícita) y el orden de carriles opcional (`ordenCarriles`), que sin usarse deja el cálculo del MVP. No toca el DOM.
 
 **Exporta** ([index.ts](../../packages/motor/src/index.ts)):
 
@@ -196,12 +196,12 @@ Portado del MVP sin cambios de cálculo, salvo dos divergencias registradas (D12
 | `ContextoRuteo`, `CarrilesRuteo`, `RADIO_CODO`, `LOOP_GAP`, `LOOP_LANE_H` | Contexto del ruteo (nodos, carriles, corredores, canales del `A*`) y constantes. |
 | `medirCalidad(nodes, edges, rutaDe)`, `CalidadDiagrama` | Flechas que pisan cajas, cruces, ancho, alto y una puntuación (menor es mejor). |
 | `caminoRedondeado`, `segmentosDePath`, `segmentoPisaCaja`, `segmentosSeCruzan`, `Punto`, `Caja`, `Segmento` | Geometría de rutas. |
-| `asegurarRamasDeDecision(nodes, edges, siguienteId)` | Compuerta exclusiva con una sola salida: rama «No» a un fin nuevo «Caso no procede» (`_autoGen`); rotula Sí/No. No toca las de convergencia (D12). |
+| `asegurarRamasDeDecision(nodes, edges, siguienteId)` | Compuerta exclusiva con una sola salida: rama «No» a un fin nuevo «Caso no procede» (`_autoGen`); rotula Sí/No. No toca las de convergencia (D13). |
 | `esConvergencia(nodo, edges)` | Compuerta de convergencia: una sola salida y varias entradas, o la marca `_merge` de `insertarCompuertasConvergencia`. No es una decisión. |
 | `asignarCodigosActividad(…)` | Códigos estilo MBC (`USR-27`) por prefijo y rank, respetando los existentes. |
 | `inferirResponsables(nodes, edges)` | Responsable de cada nodo (el suyo, el del vecino más cercano o el más frecuente); marca `_inferredOwner`. |
 | `insertarCompuertasConvergencia(…)` | Compuerta exclusiva de cierre donde convergen ramas de una decisión. |
-| `proyectarNivel(full, nivel, ctx)`, `ModeloProceso`, `ContextoNivel` | Proyecta el modelo completo al nivel 1, 2 o 3 (copias; no modifica el modelo). Con la jerarquía explícita (`nivel`/`padre`: la IA o los subprocesos de un BPMN importado), si el Ejecutivo pasa de 10 cajas se agrupa en etapas como el deducido (D13). |
+| `proyectarNivel(full, nivel, ctx)`, `ModeloProceso`, `ContextoNivel` | Proyecta el modelo completo al nivel 1, 2 o 3 (copias; no modifica el modelo). Con la jerarquía explícita (`nivel`/`padre`: la IA o los subprocesos de un BPMN importado), si el Ejecutivo pasa de 10 cajas se agrupa en etapas como el deducido (D14). |
 | `NIVELES`, `EJEC_MAX_CAJAS` | Definición de los 3 niveles; techo de 10 cajas en el Ejecutivo, con jerarquía deducida o explícita. |
 | `esHito`, `gruposPorCadena`, `ranksLocales`, `etapasEjecutivas`, `colapsarGatewaysDegenerados` | Piezas de la proyección: hitos, cadenas de tareas del mismo carril, ranks, etapas ejecutivas y compuertas que ya no deciden. |
 
@@ -220,7 +220,7 @@ Portado del MVP sin cambios de cálculo, salvo dos divergencias registradas (D12
 - **Las cachés son del llamador.** Rutas memorizadas por arista, corredores y canales ocupados viven en `apps/web/src/app/lienzo/ruteo.js`.
 - **El ruteo `A*` está apagado a propósito** (`ctx.canales = null`; se activa con `ProcessIQ.astar(true)`). La solución a las flechas que se pisan es bajar la densidad con los niveles, no mejorar el ruteo ([docs/mvp/HANDOFF.md](../mvp/HANDOFF.md), pendiente 3).
 - **Un nodo sin `w`/`h` finitos deja el lienzo en blanco.** Da geometría de tarea a los nodos sintéticos.
-- **Cambios de layout o ruteo:** mide con el banco de calidad (`bench/`) antes y después, y pasa `pnpm fidelidad`. El arnés captura el PPTX en `writeFile`, pero el export usa `pres.write()`: sin redirigir `write` a la captura, las métricas del PPTX salen vacías («sin captura») sin ningún error ([lección 22x](../lecciones-aprendidas.md)).
+- **Cambios de layout o ruteo:** mide con el banco de calidad (`bench/`) antes y después, y pasa `pnpm fidelidad`. El arnés captura el PPTX en `writeFile`, pero el export usa `pres.write()`: sin redirigir `write` a la captura, las métricas del PPTX salen vacías («sin captura») sin ningún error ([lección 22y](../lecciones-aprendidas.md)).
 - **Orden de carriles:** el editor pasa `meta.ordenCarriles` a `calcularLayout` si el proceso lo trae (`layout/auto-layout.js`). Hoy nadie lo rellena: el importador de BPMN no da el orden del archivo (su `carriles` es el orden de aparición de izquierda a derecha, no el del `laneSet`). Medido con `quality()` en los tres fixtures de `packages/bpmn`: el orden del archivo y el baricentro dan la misma calidad (Bizagi 0 flechas sobre cajas y 2 cruces, Signavio y Camunda 0 y 0); en Signavio, el baricentro sube «Finanzas» por encima de «Jefe de compras». Ver [pendientes §5.3](../pendientes.md#53-editor-y-dominio).
 
 ### 5.3 `@processiq/bpmn`

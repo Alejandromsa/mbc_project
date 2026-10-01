@@ -25,10 +25,10 @@ Recuentos medidos en esa fecha con `vitest list` y `playwright test --list` sobr
 
 ```text
                  manual: bench/ con procesos reales, capturas de pantalla
-              E2E (38)            web construida + API + worker + Postgres, con la CSP de producción
-         Fidelidad (39)           app nueva frente al MVP 3.8.9 congelado
-     Integración API (117)        rutas y permisos contra Postgres real
-  Unitarias (116 + 7)             paquetes e intermediario, sin red
+              E2E (42)            web construida + API + worker + Postgres, con la CSP de producción
+         Fidelidad (40)           app nueva frente al MVP 3.8.9 congelado
+     Integración API (118)        rutas y permisos contra Postgres real
+  Unitarias (141 + 7)             paquetes e intermediario, sin red
 Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 ```
 
@@ -36,15 +36,15 @@ Fronteras · tipos · build · auditoría de dependencias · imágenes Docker
 |---|---|---|---|---|---|
 | Fronteras | Node | [herramientas/fronteras.mjs](../../herramientas/fronteras.mjs) | 1 comprobación (9 paquetes), con 10 casos de ejemplo del extractor de imports | Nada | Segundos |
 | Tipos | `tsc --noEmit` | Cada paquete y app | — | Nada | — |
-| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 151 | Nada | Segundos |
+| Unitarias de paquetes | Vitest | `packages/*/src/*.test.ts` | 166 | Nada | Segundos |
 | Intermediario | Vitest | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | 7 | Nada | Segundos |
-| Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 132 | Postgres de desarrollo | — |
-| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 39 | Web construida, Chromium, internet | ~2,5 min |
-| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 52 | Web construida, Chromium, Postgres de desarrollo | ~6 min |
+| Integración de la API | Vitest | `apps/api/src/**/*.test.ts` | 133 | Postgres de desarrollo | — |
+| Fidelidad | Playwright | [pruebas/fidelidad](../../pruebas/fidelidad) | 41 | Web construida, Chromium, internet | ~2,5 min |
+| E2E | Playwright | [pruebas/e2e](../../pruebas/e2e) | 53 | Web construida, Chromium, Postgres de desarrollo | ~6 min |
 | Imágenes | `docker compose build` | [infra/](../../infra) | — | Docker | — |
 | Banco de calidad | Consola del navegador | [bench/](../../bench/README.md) | Manual | Procesos reales fuera del repositorio | — |
 
-**Total automatizado: 314 pruebas** (116 + 7 + 117 + 36 + 38).
+**Total automatizado: 348 pruebas** (141 + 7 + 118 + 40 + 42).
 
 Lo que las pruebas no ven: el diseño. Toda pantalla nueva o cambiada se revisa con una captura (`page.screenshot`) antes de darla por buena ([lección 19](../lecciones-aprendidas.md)).
 
@@ -97,7 +97,7 @@ Vitest sin configuración propia: `vitest run` en cada paquete. No usan red ni b
 | [dominio/src/dominio.test.ts](../../packages/dominio/src/dominio.test.ts) | 8 | Ficha de proceso y catálogos |
 | [dominio/src/esquema.test.ts](../../packages/dominio/src/esquema.test.ts) | 13 (12 definiciones; una `it.each` con 2 casos) | `migrarProyecto`: migración del export del MVP a v1, idempotencia, datos antiguos, rechazos; cachés quitadas también de un v1 y de sus vistas; vistas normalizadas y toleradas sin rechazar, con el orden de sus claves |
 | [dominio/src/validacion.test.ts](../../packages/dominio/src/validacion.test.ts) | 5 | `validarProceso` (Playbook MBB) |
-| [motor/src/motor.test.ts](../../packages/motor/src/motor.test.ts) | 17 | Operaciones del grafo, layout, ruteo y calidad, niveles de detalle |
+| [motor/src/motor.test.ts](../../packages/motor/src/motor.test.ts) | 25 | Operaciones del grafo (convergencias incluidas), layout (orden de carriles incluido), ruteo y calidad, niveles de detalle (techo del Ejecutivo con jerarquía explícita) |
 | [bpmn/src/bpmn.test.ts](../../packages/bpmn/src/bpmn.test.ts) | 9 | `generarBpmnXml` y `leerBpmn` |
 | [bpmn/src/importar-externo.test.ts](../../packages/bpmn/src/importar-externo.test.ts) | 27 | BPMN de otras herramientas (fixtures inventados con la forma de Bizagi, Signavio y Camunda): carriles, pools, subprocesos, eventos de borde, prefijos y robustez |
 | [exportar/src/exportar.test.ts](../../packages/exportar/src/exportar.test.ts) | 7 | Ficha de Proceso, informe Word, PPTX |
@@ -105,7 +105,8 @@ Vitest sin configuración propia: `vitest run` en cada paquete. No usan red ni b
 | [mining/src/mining.test.ts](../../packages/mining/src/mining.test.ts) | 8 | Lectura de CSV y descubrimiento del proceso con la muestra |
 | [analitica/src/analitica.test.ts](../../packages/analitica/src/analitica.test.ts) | 11 | Simulación, diagnóstico, backlog y What-If |
 | [ia/src/ia.test.ts](../../packages/ia/src/ia.test.ts) | 31 | `llamarClaude` (streaming), `extraerJson`, costes, prompts, modo servidor, especificación de la generación |
-| **Total** | **116** | |
+| [ia/src/matrices.test.ts](../../packages/ia/src/matrices.test.ts) | 17 | Matrices RACI y SIPOC (D12): esquema, letras normalizadas, filas que no son actividades, reparación una vez, error definitivo, respuesta enorme sin reparar, la petición con `llamarClaude` |
+| **Total** | **133** | |
 
 Datos de prueba: los ejemplos del MVP en [packages/dominio/src/\_\_fixtures\_\_](../../packages/dominio/src/__fixtures__), que ya eran públicos. Nunca procesos de cliente.
 
@@ -147,7 +148,7 @@ Contra un **Postgres real**, sin red: la app de Hono se llama en proceso (`app.r
 |---|---|---|
 | [sesion.test.ts](../../apps/api/src/sesion.test.ts) | 11 | scrypt y reglas de contraseña; cookie; 401; salir; CSRF; bloqueo tras 10 fallos; contraseña temporal; alta, permisos y desactivación de usuarios |
 | [proyectos.test.ts](../../apps/api/src/proyectos.test.ts) | 12 | Proyectos (propietario, visibilidad, 404, administración, lectores); procesos y revisiones (export del MVP, validación, numeración y conflicto, permisos, ciclo de aprobación, archivados, auditoría, directorio) |
-| [ia.test.ts](../../apps/api/src/ia.test.ts) | 17 | Cola, worker, reintentos, reparación del JSON, errores definitivos, cancelación, permisos y presupuesto, análisis, SSE, consumo, ejecuciones huérfanas |
+| [ia.test.ts](../../apps/api/src/ia.test.ts) | 18 | Cola, worker, reintentos, reparación del JSON, errores definitivos, cancelación, permisos y presupuesto, análisis (también las matrices RACI y SIPOC: validadas, reparadas o fallidas, y la RACI sin actividades rechazada), SSE, consumo, ejecuciones huérfanas |
 | [catalogos.test.ts](../../apps/api/src/catalogos.test.ts) | 7 | KPIs, verbos del Playbook y temas PPTX; siembra sin duplicados; plantillas de proceso |
 | [sistema.test.ts](../../apps/api/src/sistema.test.ts) | 6 | Huella de errores, 500 registrado con referencia, informes de la web con límite, avisos de «Sistema», purga a 30 días |
 | [semilla.test.ts](../../apps/api/src/semilla.test.ts) | 2 | La semilla se puede repetir y cada cuenta se comporta según su caso |
@@ -155,7 +156,7 @@ Contra un **Postgres real**, sin red: la app de Hono se llama en proceso (`app.r
 | [config.test.ts](../../apps/api/src/config.test.ts) | 4 | `leerConfig`: valores por defecto, variables fuera de rango, IA configurada |
 | [colaboracion/colaboracion.test.ts](../../apps/api/src/colaboracion/colaboracion.test.ts) | 13 | Presencia por latido y eventos en vivo (SSE) de un proceso |
 | Módulos de iniciativas (`modulos/*/`) | 41 | `portafolio` 13, `conocimiento` 15 e `invitados` 13; el detalle, en su ficha ([docs/iniciativas/](../iniciativas/README.md)) |
-| **Total** | **117** | |
+| **Total** | **118** | |
 
 La IA se prueba sin red ni gasto: `ia.test.ts` usa un `fetch` falso que imita el SSE de Anthropic.
 
@@ -190,11 +191,12 @@ Todo se compara **byte a byte**, salvo los atributos `x` y `width` de `rect.edge
 
 No son tolerancias: son cambios intencionales ([fase1-divergencias.md](../fase1-divergencias.md)) que la comparación conoce, y cada uno tiene su prueba en `divergencias.spec.mjs`.
 
-- **Textos de la interfaz (D8, D9).** Antes de comparar, `comparar.mjs` sustituye en los artefactos del MVP los textos que la app cambió a propósito por los nuevos (lista en [textos-divergentes.mjs](../../pruebas/fidelidad/src/textos-divergentes.mjs), con fragmentos largos que no coinciden con nada más). Todo lo demás del artefacto sigue byte a byte. Lo guardado en `resultados/` como `referencia` ya lleva la sustitución. La prueba `D9` falla si un texto de la lista deja de estar en el MVP o en la app: la lista no puede quedar vieja sin que se note.
+- **Textos de la interfaz (D8, D9).** Antes de comparar, `comparar.mjs` sustituye en los artefactos del MVP los textos que la app cambió a propósito por los nuevos (lista en [textos-divergentes.mjs](../../pruebas/fidelidad/src/textos-divergentes.mjs), con fragmentos largos que no coinciden con nada más). Todo lo demás del artefacto sigue byte a byte. Lo guardado en `resultados/` como `referencia` ya lleva la sustitución. La prueba `D9` falla si un texto de la lista deja de estar en el MVP o en la app: la lista no puede quedar vieja sin que se note. Si el MVP ya escribe el texto nuevo en otro sitio (el botón «Oportunidades de automatización» frente a la etiqueta de la tarea de IA sin tilde), la entrada lo declara en `enMvp` y la prueba lo descuenta, y exige que siga ahí.
+- **Tareas de IA que piden otra cosa (D12).** Con IA, la RACI y el SIPOC piden la matriz editable en JSON. «IA simulada: tareas» las deja fuera (`TAREAS_IA_DIVERGENTES` en [interacciones.mjs](../../pruebas/fidelidad/src/interacciones.mjs)) y la prueba `D12` compara con el MVP lo que sigue igual: el resumen del proceso y los parámetros de la petición, y la petición y los mensajes del informe al que se cae si la matriz falla.
 - **JSON completo (D7).** El JSON exportado se compara en la parte que exporta el MVP: sus claves, en su orden (`jsonDelMvp` en [escenarios.mjs](../../pruebas/fidelidad/src/escenarios.mjs); el del MVP pasa tal cual). En «paneles y vistas» se importa un JSON con solo esas claves, así que se compara la importación de los JSON de siempre.
-- **Artefactos que cambian enteros (D12).** Cuando la divergencia cambia el diagrama y no se puede traducir con un reemplazo de texto, el artefacto se lista en [artefactos-divergentes.mjs](../../pruebas/fidelidad/src/artefactos-divergentes.mjs) con su caso y su divergencia: hoy, `merge-gateways/` (mensajes, resumen y diagrama) de «copiloto» con `loadComplex`, `loadComplex11` y `loadFichaVentaLotes`. `comparar.mjs` no los compara, pero exige que sigan difiriendo del MVP (si un día coinciden, la lista está vieja y el escenario falla), y la prueba de la divergencia comprueba en las dos apps en qué difieren exactamente. Es por artefacto y por caso, no una tolerancia: el resto del escenario sigue byte a byte.
+- **Artefactos que cambian enteros (D13).** Cuando la divergencia cambia el diagrama y no se puede traducir con un reemplazo de texto, el artefacto se lista en [artefactos-divergentes.mjs](../../pruebas/fidelidad/src/artefactos-divergentes.mjs) con su caso y su divergencia: hoy, `merge-gateways/` (mensajes, resumen y diagrama) de «copiloto» con `loadComplex`, `loadComplex11` y `loadFichaVentaLotes`. `comparar.mjs` no los compara, pero exige que sigan difiriendo del MVP (si un día coinciden, la lista está vieja y el escenario falla), y la prueba de la divergencia comprueba en las dos apps en qué difieren exactamente. Es por artefacto y por caso, no una tolerancia: el resto del escenario sigue byte a byte.
 
-### Escenarios (39)
+### Escenarios (40)
 
 | Spec | Escenario | Qué compara |
 |---|---|---|
@@ -205,7 +207,7 @@ No son tolerancias: son cambios intencionales ([fase1-divergencias.md](../fase1-
 | | `texto en modo básico: <texto>` × 4 (`reclamos`, `compras`, `primeraPersona`, `transcripcion`) | Proceso que produce el intérprete sin IA |
 | | `importación BPMN de los 14 ejemplos` | Importar el BPMN que exporta el MVP y volver a exportarlo |
 | | `IA simulada: generación desde texto y niveles` | Diálogo de profundidad, **peticiones enviadas** (cuerpo y cabeceras), mensajes, diagrama, niveles y registro de costes |
-| | `IA simulada: tareas del copiloto y pains` | Peticiones y respuestas de cada tarea de IA |
+| | `IA simulada: tareas del copiloto y pains` | Peticiones y respuestas de cada tarea de IA, menos la RACI y el SIPOC, que piden la matriz (`D12`) |
 | | `ingesta de archivos: Word, PDF, PowerPoint y transcripción` | Texto extraído de cada fuente y proceso en modo básico. Los archivos se generan al vuelo ([archivos.mjs](../../pruebas/fidelidad/src/archivos.mjs)) |
 | | `paneles y vistas: <ejemplo>` × 2 (`loadComplex4`, `loadFichaVentaLotes`) | Validaciones, KPIs, simulador, propiedades, pains, ficha, As-Is/To-Be con su PPTX, recarga e importación de JSON ([paneles.mjs](../../pruebas/fidelidad/src/paneles.mjs)) |
 | [divergencias.spec.mjs](../../pruebas/fidelidad/divergencias.spec.mjs) | `D5` | La app nueva no pide nada a otros servidores (tampoco a Google Fonts: Montserrat llega de `/fonts/`), ni al exportar PPTX ni al leer archivos |
@@ -215,8 +217,9 @@ No son tolerancias: son cambios intencionales ([fase1-divergencias.md](../fase1-
 | | `D8` | El panel «Validaciones» ya no dice que lo crítico bloquea el export; con hallazgos críticos, JSON y BPMN se descargan igual |
 | | `D9` | Tildes de la interfaz: la lista de `textos-divergentes.mjs` está al día y en pantalla se ven los textos nuevos |
 | | `D10` | Un BPMN de otra herramienta conserva carriles y subprocesos; uno exportado por ProcessIQ se lee exactamente como en el MVP |
-| | `D12` | «Insertar compuertas de convergencia» con `loadComplex`, `loadComplex11` y `loadFichaVentaLotes`: el modelo es el del MVP sin sus fines «Caso no procede», sin sus ramas «No» y sin el «Sí» de la salida de cada cierre; el mensaje solo cambia en el recuento de nodos |
-| | `D13` | Un proceso de la IA con 14 pasos de nivel 1: el MVP muestra 14 cajas en el Ejecutivo y la app nueva, 10 o menos, en etapas; Actividad y Detalle, iguales |
+| | `D12` × 2 | Con IA, la RACI y el SIPOC llegan como matriz editable (el MVP daba un informe): misma entrada que el informe del MVP, diálogo relleno y editable, láminas RACI y SIPOC del PPTX; y, si la matriz y su reparación no son JSON, la petición y los mensajes del informe son los del MVP |
+| | `D13` | «Insertar compuertas de convergencia» con `loadComplex`, `loadComplex11` y `loadFichaVentaLotes`: el modelo es el del MVP sin sus fines «Caso no procede», sin sus ramas «No» y sin el «Sí» de la salida de cada cierre; el mensaje solo cambia en el recuento de nodos |
+| | `D14` | Un proceso de la IA con 14 pasos de nivel 1: el MVP muestra 14 cajas en el Ejecutivo y la app nueva, 10 o menos, en etapas; Actividad y Detalle, iguales |
 
 La IA simulada intercepta en el navegador las llamadas a un intermediario ficticio y responde con un SSE como el de Anthropic. No hay red ni gasto.
 
@@ -263,7 +266,7 @@ Flujos completos con la web construida, la API real, el worker real, Postgres y 
 
 El Anthropic falso decide la respuesta por la petición: una generación (`max_tokens` ≥ 16 000) recibe un proceso de 3 elementos; una tarea del copiloto, un texto en markdown; los pains, un JSON de dolores. Rechaza cualquier clave que no sea la de prueba.
 
-### Specs (38)
+### Specs (42)
 
 La tabla describe las del núcleo; las de cada iniciativa están en su ficha ([docs/iniciativas/](../iniciativas/README.md)).
 
@@ -281,6 +284,7 @@ La tabla describe las del núcleo; las de cada iniciativa están en su ficha ([d
 | [ia.spec.mjs](../../pruebas/e2e/ia.spec.mjs) | Generación | La IA del servidor genera desde el editor y queda como revisión |
 | | Pestaña cerrada | Una generación terminada se ofrece al volver a abrir el proceso |
 | | Copiloto y pains | Van al servidor; el administrador ve el consumo |
+| | Matrices RACI y SIPOC (D12) | Los botones del copiloto encolan `matriz-raci` y `matriz-sipoc`; el diálogo sale relleno con lo de la IA, se edita y se guarda, y el PPTX lleva las dos láminas. Capturas `ia-matriz-*.png` |
 | | Solo lectura | Quien solo lee no usa la IA del servidor |
 | [catalogos.spec.mjs](../../pruebas/e2e/catalogos.spec.mjs) | KPIs y verbos | Los de la organización llegan al editor; el editor libre sigue con los de fábrica |
 | | Tema PPTX | Un tema de cliente creado en el shell exporta con sus colores |
@@ -296,8 +300,8 @@ La tabla describe las del núcleo; las de cada iniciativa están en su ficha ([d
 | [editor.spec.mjs](../../pruebas/e2e/editor.spec.mjs) | Borradores locales | Al abrir un proceso se purgan los borradores de otros procesos con más de 30 días; guardar una revisión que contiene el borrador lo borra; `processiq.v1` no se toca |
 | | JSON completo en un proyecto | El JSON del editor libre llega entero (dos vistas, KPIs, RACI, SIPOC, simulación, carriles, sin cachés) por «Nuevo proceso → JSON» y por la importación asistida, y se abre en To-Be |
 | | JSON completo en el editor libre | «Importar» lo restaura; capturas del panel «Validaciones» (D8) y de la ingesta (D9) |
-| [motor.spec.mjs](../../pruebas/e2e/motor.spec.mjs) | Convergencias | Un BPMN de Bizagi con carriles y «Insertar compuertas de convergencia», y un BPMN de ProcessIQ con compuertas de cierre reimportado: ningún fin «Caso no procede» (D12) |
-| | Ejecutivo de BPMN con subprocesos | Camunda y Signavio: 10 cajas o menos en etapas, un carril, sin flechas sobre cajas, y Detalle entero al volver (D13) |
+| [motor.spec.mjs](../../pruebas/e2e/motor.spec.mjs) | Convergencias | Un BPMN de Bizagi con carriles y «Insertar compuertas de convergencia», y un BPMN de ProcessIQ con compuertas de cierre reimportado: ningún fin «Caso no procede» (D13) |
+| | Ejecutivo de BPMN con subprocesos | Camunda y Signavio: 10 cajas o menos en etapas, un carril, sin flechas sobre cajas, y Detalle entero al volver (D14) |
 | | Orden de carriles | Con `meta.ordenCarriles` (por «Importar» JSON), el auto-layout respeta ese orden al reorganizar y al cambiar de nivel |
 
 ### Qué necesita la E2E

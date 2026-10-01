@@ -206,7 +206,7 @@ El proceso se genera **una vez** al máximo detalle y se colapsa en el navegador
 
 - Proyección: `proyectarNivel` de `@processiq/motor`. En la app, [layout/niveles.js](../../apps/web/src/app/layout/niveles.js) guarda el modelo completo (`state._modeloCompleto`), aplica el nivel (`aplicarNivel`), rehace el auto-layout y actualiza el selector.
 - Si la IA etiquetó los nodos con `nivel` y `padre`, manda esa jerarquía; también la traen los subprocesos de un BPMN de otra herramienta (D10). Si no (proceso importado sin subprocesos o dibujado a mano), se deduce.
-- El techo de 10 cajas del Ejecutivo vale en los dos casos: con la jerarquía explícita, si el nivel superior pasa de 10 cajas se agrupa en etapas como las deducidas (divergencia D13; el MVP no lo hacía).
+- El techo de 10 cajas del Ejecutivo vale en los dos casos: con la jerarquía explícita, si el nivel superior pasa de 10 cajas se agrupa en etapas como las deducidas (divergencia D14; el MVP no lo hacía).
 - Cada modelo completo lleva un sello (`_sello`) que heredan sus proyecciones. Si aparece un nodo sin sello, el proceso se reemplazó por otra vía y se vuelve a capturar el modelo. Los nodos de dibujo que crea el editor (`_autoGen`) quedan fuera de esa comprobación.
 - El nivel visible se guarda en `meta.nivelVista`.
 
@@ -309,7 +309,7 @@ Detalle en [ia.md](ia.md).
 | [ia/remota.js](../../apps/web/src/app/ia/remota.js) | Punto de enganche de la IA del servidor (`usarIaRemota`, `iaRemota`) |
 | [ia/generacion.js](../../apps/web/src/app/ia/generacion.js) | `aiBuildProcess()` y `buildProcessFromAiSpec()` |
 | [ia/pains.js](../../apps/web/src/app/ia/pains.js) | Análisis de dolores con IA |
-| [ia/tareas.js](../../apps/web/src/app/ia/tareas.js) | Tareas analíticas del copiloto con IA |
+| [ia/tareas.js](../../apps/web/src/app/ia/tareas.js) | Tareas analíticas del copiloto con IA. La RACI y el SIPOC piden la matriz editable (`pedirMatrizIa`, o `matriz-raci`/`matriz-sipoc` en el servidor) y, si falla, el informe en texto (D12, [ia.md §3.1](ia.md#31-matrices-raci-y-sipoc)) |
 | [ia/ajustes.js](../../apps/web/src/app/ia/ajustes.js) | Ajustes de IA, oyentes de la ingesta y texto «qué motor se usará» |
 | [ia/dialogos.js](../../apps/web/src/app/ia/dialogos.js) | Código de equipo, nivel de detalle y modelo con coste estimado |
 
@@ -319,8 +319,8 @@ Detalle en [ia.md](ia.md).
 |---|---|
 | [analitica/simulador.js](../../apps/web/src/app/analitica/simulador.js) | Simulador de carga: FTE, lead time y costo |
 | [analitica/avanzada.js](../../apps/web/src/app/analitica/avanzada.js) | What-If, automatización, cuello de botella, variantes, mapa de valor y backlog |
-| [analitica/raci.js](../../apps/web/src/app/analitica/raci.js) | Matriz RACI |
-| [analitica/sipoc.js](../../apps/web/src/app/analitica/sipoc.js) | SIPOC |
+| [analitica/raci.js](../../apps/web/src/app/analitica/raci.js) | Matriz RACI (`state._raci`): la heurística sin IA (`generateRaci`) y la de la IA (`cargarRaciIa`), en el mismo diálogo editable |
+| [analitica/sipoc.js](../../apps/web/src/app/analitica/sipoc.js) | SIPOC (`state._sipoc`): heurística (`generateSipoc`) o de la IA (`cargarSipocIa`), en el mismo diálogo editable |
 | [analitica/impacto-esfuerzo.js](../../apps/web/src/app/analitica/impacto-esfuerzo.js) | Matriz impacto-esfuerzo de los dolores |
 
 #### Exportar, BPMN y ejemplos
@@ -468,7 +468,7 @@ La API asigna el número con `select … for update` sobre el proceso y marca el
 ### 4.7 IA remota
 
 - `activarIa()` pide `GET /api/ia/estado`. Si falla, supone «no configurada».
-- Registra `crearIaRemota(...)` ([plataforma/ia.js](../../apps/web/src/app/plataforma/ia.js)) con `usarIaRemota()` ([ia/remota.js](../../apps/web/src/app/ia/remota.js)). Desde ahí, generación, pains y tareas del copiloto van al servidor.
+- Registra `crearIaRemota(...)` ([plataforma/ia.js](../../apps/web/src/app/plataforma/ia.js)) con `usarIaRemota()` ([ia/remota.js](../../apps/web/src/app/ia/remota.js)). Desde ahí, generación, pains y tareas del copiloto (también las matrices RACI y SIPOC) van al servidor.
 - Pasa en `soloLectura` un motivo si no se puede guardar: quien no escribe tampoco usa la IA del servidor.
 - Tras dibujar una generación, `alGenerar` la guarda como revisión con `ejecucionIaId`.
 
