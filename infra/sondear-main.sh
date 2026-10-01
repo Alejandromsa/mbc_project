@@ -21,6 +21,10 @@
 # minuto, lo apunta en el registro y abre una ventana en la sesión de Windows
 # (msg.exe). Solo avisa cuando cambia la situación, también cuando se recupera.
 set -euo pipefail
+# Todo va dentro de un bloque { …; exit; }: bash lo lee entero antes de ejecutarlo
+# y no lee nada después. El script se actualiza a sí mismo con git pull, y sin el
+# bloque bash seguiría leyendo el archivo nuevo desde la posición del viejo (lección 24).
+{
 cd "$(dirname "$0")/.."
 
 uso() { sed -n '2,22p' "$0" | sed -E 's/^# ?//'; }
@@ -191,3 +195,5 @@ else
   echo "$nueva" > "$FALLIDO"
   terminar 1 siempre "staging ${staging:-sin versión} → $nueva: falló el despliegue (código $codigo; salida en .git/processiq-sondeo.salida)"
 fi
+exit 0   # no llega aquí (todas las ramas terminan), pero bash no debe leer más allá del bloque
+}

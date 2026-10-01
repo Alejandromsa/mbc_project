@@ -58,6 +58,8 @@ Antes de todo lo anterior, también con el sondeo en pausa, cada consulta compru
   - una ventana en la sesión de Windows de quien instaló la tarea (`msg.exe`), que queda abierta hasta que alguien la cierre.
 - **Dónde se ve:** la última situación, en `infra/sondear-main.sh --estado` («Vigilancia»).
 
+El script va entero dentro de un bloque `{ …; exit; }`, porque se actualiza a sí mismo con `git pull` mientras corre ([lección 24](../lecciones-aprendidas.md)). Si alguna vez se cambia ese bloque, despliega ese cambio con el sondeo en pausa.
+
 Avisa solo a quien está delante del servidor. Las alertas por correo o webhook siguen pendientes ([pendientes.md](../pendientes.md#52-seguridad-y-operación)).
 
 ```bash
