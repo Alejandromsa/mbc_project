@@ -5,10 +5,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { eq, sql } from 'drizzle-orm';
 import { ejecucionesIa, type Conexion } from '@processiq/db';
-import { MATRICES_IA, PROMPT_GENERACION, PROMPT_MATRICES, PROMPT_REPARACION, ROL_ANALISTA, sistemaReparacionMatriz, usd } from '@processiq/ia';
+import {
+  MATRICES_IA, PROMPT_GENERACION, PROMPT_MATRICES, PROMPT_REPARACION, ROL_ANALISTA, sistemaReparacionMatriz, usd, versionPrompt
+} from '@processiq/ia';
 import { despertador } from './ia/avisos.js';
 import { reencolarHuerfanas, tomarSiguiente } from './ia/cola.js';
 import { ejecutar } from './ia/ejecutar.js';
+import { tokensParaPulse } from './ia/gasto.js';
 import { cerrarBase, cliente, config, prepararBase, usuario, vaciar } from './pruebas/entorno.js';
 
 const EXPORT_MVP = JSON.parse(readFileSync(join(import.meta.dirname, '../../../packages/dominio/src/__fixtures__/mvp-3.8.9-siniestros.json'), 'utf8'));
@@ -115,7 +118,10 @@ describe('IA en el servidor', () => {
     expect(cuerpo.messages[0].content).toContain(TEXTO);
 
     const e = (await c.ana.get(`/api/ia/ejecuciones/${r.json.ejecucion.id}`)).json.ejecucion;
-    expect(e).toMatchObject({ estado: 'completada', intentos: 1, tokensEntrada: 1000, tokensSalida: 500, error: null });
+    expect(e).toMatchObject({ estado: 'completada', intentos: 1, tokensEntrada: 1000, tokensSalida: 500, error: null, reparaciones: 0 });
+    // Con qué prompts se hizo: la huella de sistema, plantilla y parámetros de la generación
+    expect(e.versionPrompt).toBe(versionPrompt('generacion'));
+    expect(e.versionPrompt).toMatch(/^[0-9a-f]{12}$/);
     expect(e.costeUsd).toBeCloseTo(usd(1000, 500, 'claude-opus-5'), 6);
     expect(e.resultado.nodes).toHaveLength(3);
     expect((await fila(e.id)).texto).toBeNull();   // el texto de las fuentes no se conserva
@@ -163,9 +169,37 @@ describe('IA en el servidor', () => {
     const f = fetchFalso(() => respuestaClaude('Aquí tienes el proceso: { "nodes": [ roto'), () => respuestaClaude(JSON.stringify(SPEC)));
     await procesarCola(f);
     const e = await fila(id);
-    expect(e).toMatchObject({ estado: 'completada', tokensEntrada: 2000, tokensSalida: 1000 });
+    expect(e).toMatchObject({ estado: 'completada', tokensEntrada: 2000, tokensSalida: 1000, reparaciones: 1 });
     expect(cuerpoDe(f, 1).system).toBe(PROMPT_REPARACION);
+    expect(cuerpoDe(f, 1)).not.toHaveProperty('reparacion');   // la marca solo la lee el worker
     expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it('la caché de prompts se cobra a su precio, en el coste, el consumo y el gasto informado', async () => {
+    const { c, generar } = await equipo();
+    const gasto = vi.fn();
+    const id = (await generar()).json.ejecucion.id;
+    // 1000 de entrada sin caché + 3000 escritos (1000 con TTL de 1 h) + 6000 leídos = 10 000 de entrada
+    const usoCache = { cache_creation_input_tokens: 3000, cache_read_input_tokens: 6000 };
+    const f = fetchFalso(() => new Response(sse([
+      { type: 'message_start', message: { model: 'claude-opus-5', usage: { input_tokens: 1000, ...usoCache, cache_creation: { ephemeral_1h_input_tokens: 1000 } } } },
+      { type: 'content_block_delta', delta: { type: 'text_delta', text: JSON.stringify(SPEC) } },
+      { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 500 } }
+    ]), { status: 200, headers: { 'content-type': 'text/event-stream' } }));
+    await procesarCola(f, { reportarGasto: gasto });
+    const e = await fila(id);
+    const esperado = (1000 * 5 + 2000 * 6.25 + 1000 * 10 + 6000 * 0.5 + 500 * 25) / 1e6;
+    expect(e).toMatchObject({ estado: 'completada', tokensEntrada: 10_000, tokensSalida: 500 });
+    expect(e.costeUsd).toBeCloseTo(esperado, 9);
+    expect(e.costeUsd).toBeLessThan(usd(10_000, 500, 'claude-opus-5'));   // antes se cobraba todo como entrada
+    expect((await c.admin.get('/api/ia/consumo')).json.mes.gastadoUsd).toBeCloseTo(esperado, 9);
+    const u = { modelo: 'claude-opus-5', entrada: 10_000, salida: 500, cacheEscritura: 3000, cacheEscritura1h: 1000, cacheLectura: 6000 };
+    expect(gasto).toHaveBeenCalledExactlyOnceWith({ ...u, ejecucionId: id });
+    // A Pulse y al log: la entrada total, como siempre, y la caché aparte con los nombres del intermediario
+    expect(tokensParaPulse(u)).toEqual({
+      inputTokens: 10_000, outputTokens: 500, cacheCreationInputTokens: 3000, cacheCreation1hInputTokens: 1000, cacheReadInputTokens: 6000
+    });
+    expect(tokensParaPulse({ modelo: 'claude-opus-5', entrada: 1000, salida: 500 })).toEqual({ inputTokens: 1000, outputTokens: 500 });
   });
 
   it('los errores definitivos no se reintentan y dejan el mensaje', async () => {
@@ -185,6 +219,8 @@ describe('IA en el servidor', () => {
     const enCola = (await generar()).json.ejecucion.id;
     expect((await c.ana.post(`/api/ia/ejecuciones/${enCola}/cancelar`)).json.ejecucion.estado).toBe('cancelada');
     expect(await tomarSiguiente(conexion.db)).toBeNull();
+    // No llegó a ejecutarse: sin versión de los prompts ni reparaciones
+    expect(await fila(enCola)).toMatchObject({ versionPrompt: null, reparaciones: null });
 
     const id = (await generar()).json.ejecucion.id;
     // Una respuesta que no termina hasta que se aborta la llamada
@@ -329,10 +365,12 @@ describe('IA en el servidor', () => {
     expect(cuerpoDe(f)).toMatchObject({ model: 'claude-sonnet-5', system: ROL_ANALISTA });
     expect(cuerpoDe(f).messages[0].content).toContain('=== PROCESO A ANALIZAR ===');
     expect((await fila(tarea.json.ejecucion.id)).resultado).toEqual({ markdown: '## KPIs sugeridos\n- Tiempo de ciclo' });
+    expect((await fila(tarea.json.ejecucion.id)).versionPrompt).toBe(versionPrompt('tarea', 'suggest-kpis'));
 
     const pains = await c.ana.post('/api/ia/analisis', { procesoId: proceso.id, tipo: 'pains', contenido: EXPORT_MVP });
     await procesarCola(fetchFalso(() => respuestaClaude('{"detectados":[],"sectoriales":[{"titulo":"Fraude"}]}')));
     expect((await fila(pains.json.ejecucion.id)).resultado).toEqual({ datos: { detectados: [], sectoriales: [{ titulo: 'Fraude' }] } });
+    expect(await fila(pains.json.ejecucion.id)).toMatchObject({ versionPrompt: versionPrompt('pains'), reparaciones: 0 });
 
     expect((await c.ana.post('/api/ia/analisis', { procesoId: proceso.id, tipo: 'inventada', contenido: EXPORT_MVP })).status).toBe(400);
     // Claves del prototipo de un objeto no son tareas (antes se encolaban y gastaban)
@@ -367,7 +405,10 @@ describe('IA en el servidor', () => {
     expect(cuerpoDe(f, 1).system).toBe(sistemaReparacionMatriz('matriz-raci'));
     expect(cuerpoDe(f, 1).messages[0].content).toContain('Problema detectado: La IA no devolvió JSON.');
     const e = (await c.ana.get(`/api/ia/ejecuciones/${raci.json.ejecucion.id}`)).json.ejecucion;
-    expect(e).toMatchObject({ estado: 'completada', intentos: 1, error: null, resultado: { matriz: { n2: { 'Contact Center': 'R/A', Asegurado: 'I' } } } });
+    expect(e).toMatchObject({
+      estado: 'completada', intentos: 1, error: null, resultado: { matriz: { n2: { 'Contact Center': 'R/A', Asegurado: 'I' } } },
+      versionPrompt: versionPrompt('tarea', 'matriz-raci'), reparaciones: 1
+    });
     expect(Object.keys(e.resultado.matriz)).toEqual(['n2']);
     expect(e.costeUsd).toBeCloseTo(2 * usd(1000, 500, 'claude-sonnet-5'), 6);   // se cobran las dos llamadas
 
@@ -378,6 +419,7 @@ describe('IA en el servidor', () => {
     await procesarCola(f2);
     expect(f2).toHaveBeenCalledTimes(1);
     expect((await fila(sipoc.json.ejecucion.id)).resultado).toEqual({ matriz: SIPOC });
+    expect(await fila(sipoc.json.ejecucion.id)).toMatchObject({ versionPrompt: versionPrompt('tarea', 'matriz-sipoc'), reparaciones: 0 });
 
     // Sin arreglo tras la reparación: fallida y sin reintentos (el editor pide entonces el informe en texto)
     const mala = await analizar('matriz-sipoc');
@@ -385,7 +427,8 @@ describe('IA en el servidor', () => {
     await procesarCola(f3);
     expect(f3).toHaveBeenCalledTimes(2);
     expect(await fila(mala.json.ejecucion.id)).toMatchObject({
-      estado: 'fallida', intentos: 1, texto: null, error: 'La IA devolvió una matriz que no se pudo interpretar ni reparar: La IA no devolvió JSON.'
+      estado: 'fallida', intentos: 1, texto: null, error: 'La IA devolvió una matriz que no se pudo interpretar ni reparar: La IA no devolvió JSON.',
+      reparaciones: 1
     });
 
     // Una RACI sin actividades se rechaza antes de gastar; quien solo revisa no la pide
@@ -422,6 +465,7 @@ describe('IA en el servidor', () => {
     expect(r.mes.gastadoUsd).toBeCloseTo(usd(1000, 500, 'claude-opus-5'), 6);
     expect(r.porUsuario).toMatchObject([{ email: 'ana@mbc.pe', ejecuciones: 1 }]);
     expect(r.recientes).toHaveLength(1);
+    expect(r.recientes[0]).toMatchObject({ versionPrompt: versionPrompt('generacion'), reparaciones: 0 });
     expect((await c.ana.get('/api/ia/consumo')).status).toBe(403);
   });
 

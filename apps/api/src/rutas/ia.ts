@@ -227,6 +227,8 @@ export function rutasIa(opciones: { sondeoMs?: number } = {}) {
       id: ejecucionesIa.id, procesoId: ejecucionesIa.procesoId, tipo: ejecucionesIa.tipo, tarea: ejecucionesIa.tarea,
       modelo: ejecucionesIa.modelo, estado: ejecucionesIa.estado, error: ejecucionesIa.error, intentos: ejecucionesIa.intentos,
       tokensEntrada: ejecucionesIa.tokensEntrada, tokensSalida: ejecucionesIa.tokensSalida, costeUsd: ejecucionesIa.costeUsd,
+      // Para comparar coste y reparaciones entre versiones de los prompts (la pantalla aún no las muestra)
+      versionPrompt: ejecucionesIa.versionPrompt, reparaciones: ejecucionesIa.reparaciones,
       creadoEn: ejecucionesIa.creadoEn, terminadoEn: ejecucionesIa.terminadoEn, usuario: usuarios.email
     }).from(ejecucionesIa).innerJoin(usuarios, eq(usuarios.id, ejecucionesIa.usuarioId))
       .where(eq(ejecucionesIa.organizacionId, yo.organizacionId)).orderBy(desc(ejecucionesIa.creadoEn)).limit(50);

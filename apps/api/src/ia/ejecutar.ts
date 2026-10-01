@@ -1,13 +1,15 @@
 // Ejecución de un trabajo de IA en el worker: arma el prompt de @processiq/ia,
 // comprueba el presupuesto antes de cada llamada, llama a Claude en streaming,
 // valida (con una reparación si hace falta), reintenta lo pasajero, registra
-// tokens y coste (también los de llamadas cortadas a mitad) y avisa de cada cambio.
+// tokens y coste (también los de llamadas cortadas a mitad, y la caché de
+// prompts a su precio), la versión de los prompts y las reparaciones, y avisa
+// de cada cambio.
 import { eq, sql } from 'drizzle-orm';
 import { ejecucionesIa, type BaseDeDatos } from '@processiq/db';
 import {
-  GEN_MAX_TOKENS, MAX_CHARS_REPARACION, PROMPT_GENERACION, PROMPT_PAINS, PROMPT_REPARACION, ROL_ANALISTA, TAREAS_IA,
+  LLAMADAS_IA, MAX_CHARS_REPARACION, TAREAS_IA,
   clasificarErrorIa, esTipoMatrizIa, extraerJson, llamarClaude, marcarErrorIa, pedirMatrizIa, promptGeneracion, promptReparacion, promptTarea,
-  timeoutGeneracion, usd, validarEspecGeneracion, type OpcionesLlamada, type UsoIa
+  timeoutGeneracion, usd, validarEspecGeneracion, versionPrompt, type OpcionesLlamada, type UsoIa
 } from '@processiq/ia';
 import type { TopesIa } from '../config.js';
 import { CANAL_EJECUCION, avisar } from './avisos.js';
@@ -53,7 +55,7 @@ async function generar(llamar: Llamar, e: EjecucionIa): Promise<unknown> {
   const prompt = promptGeneracion(e.texto ?? '', p.etiqueta, {
     roles: p.roles ?? undefined, vista: p.vista, variasFuentes: !!p.variasFuentes, maxChars: MAX_CHARS_FUENTES
   });
-  const respuesta = await llamar(prompt, { system: PROMPT_GENERACION, effort: 'medium', maxTokens: GEN_MAX_TOKENS, timeoutMs: timeoutGeneracion(prompt) });
+  const respuesta = await llamar(prompt, { ...LLAMADAS_IA.generacion, timeoutMs: timeoutGeneracion(prompt) });
   let problema: string;
   try {
     const v = validarEspecGeneracion(extraerJson(respuesta));
@@ -66,7 +68,7 @@ async function generar(llamar: Llamar, e: EjecucionIa): Promise<unknown> {
   if (respuesta.length > MAX_CHARS_REPARACION) {
     throw new Error(`La IA devolvió una respuesta que no se pudo interpretar (${problema}).`);
   }
-  const reparada = await llamar(promptReparacion(respuesta, problema), { system: PROMPT_REPARACION, effort: 'low', maxTokens: GEN_MAX_TOKENS, timeoutMs: 120_000 });
+  const reparada = await llamar(promptReparacion(respuesta, problema), { ...LLAMADAS_IA.reparacion });
   let v2;
   try { v2 = validarEspecGeneracion(extraerJson(reparada)); } catch (err) { v2 = { ok: false as const, errores: [(err as Error).message] }; }
   if (!v2.ok) throw new Error(`La IA devolvió un proceso que no se pudo interpretar ni reparar: ${v2.errores.join('; ')}`);
@@ -75,7 +77,7 @@ async function generar(llamar: Llamar, e: EjecucionIa): Promise<unknown> {
 
 async function analizar(llamar: Llamar, e: EjecucionIa): Promise<unknown> {
   if (e.tipo === 'pains') {
-    const respuesta = await llamar(e.texto ?? '', { system: PROMPT_PAINS, effort: 'high', maxTokens: 8000 });
+    const respuesta = await llamar(e.texto ?? '', { ...LLAMADAS_IA.pains });
     return { datos: extraerJson(respuesta) };
   }
   // RACI y SIPOC como matriz editable (D12): validada contra el proceso y con una reparación.
@@ -87,7 +89,7 @@ async function analizar(llamar: Llamar, e: EjecucionIa): Promise<unknown> {
   }
   const tarea = e.tarea && Object.hasOwn(TAREAS_IA, e.tarea) ? TAREAS_IA[e.tarea] : undefined;
   if (!tarea) throw new Error(`Tarea de IA desconocida: ${e.tarea}`);
-  const markdown = await llamar(promptTarea(tarea.prompt, e.texto ?? ''), { system: ROL_ANALISTA, effort: 'high', maxTokens: 8000 });
+  const markdown = await llamar(promptTarea(tarea.prompt, e.texto ?? ''), { ...LLAMADAS_IA.tarea });
   return { markdown };
 }
 
@@ -96,13 +98,16 @@ export async function ejecutar(dep: DependenciasIa, e: EjecucionIa): Promise<voi
   const ctrl = new AbortController();
   let cancelado = false;
   const uso = { entrada: 0, salida: 0, usd: 0 };
+  let reparaciones = 0;
   let ultimoAvisoProgreso = 0;
 
   const actualizar = async (cambios: Partial<typeof ejecucionesIa.$inferInsert>) => {
     await db.update(ejecucionesIa).set({ ...cambios, actualizadoEn: new Date() }).where(eq(ejecucionesIa.id, e.id));
     await avisar(db, CANAL_EJECUCION, e.id);
   };
-  await avisar(db, CANAL_EJECUCION, e.id);   // ya está «ejecutando»
+  // Ya está «ejecutando». La versión de los prompts es la de este worker: si un
+  // reintento lo toma otro con prompts nuevos, la cambia por la suya.
+  await actualizar({ versionPrompt: versionPrompt(e.tipo, e.tarea) });
 
   // Vigilancia: ¿pidieron cancelar? De paso, latido para que no se crea huérfana.
   const vigilancia = setInterval(async () => {
@@ -116,7 +121,7 @@ export async function ejecutar(dep: DependenciasIa, e: EjecucionIa): Promise<voi
   const sumarUso = (u: UsoIa, parcial: boolean) => {
     uso.entrada += u.entrada;
     uso.salida += u.salida;
-    uso.usd += usd(u.entrada, u.salida, u.modelo);
+    uso.usd += usd(u.entrada, u.salida, u.modelo, u);   // la caché de prompts, a su precio
     dep.reportarGasto?.({ ...u, ejecucionId: e.id, ...(parcial ? { parcial } : {}) });
   };
 
@@ -127,6 +132,7 @@ export async function ejecutar(dep: DependenciasIa, e: EjecucionIa): Promise<voi
       throw marcarErrorIa(new Error(`No se pudo comprobar el presupuesto de IA (${err.message}).`), 'transitorio');
     });
     if (sin) throw marcarErrorIa(new Error(`${sin.mensaje} La ejecución se detuvo antes de llamar a la IA.`), 'definitivo');
+    if (opts.reparacion) reparaciones++;
     return llamarClaude(prompt, {
       ...opts,
       onProgress: (caracteres) => {
@@ -146,11 +152,12 @@ export async function ejecutar(dep: DependenciasIa, e: EjecucionIa): Promise<voi
     });
   };
 
-  // Tokens y coste se suman: los intentos fallidos y la reparación también se cobran
+  // Tokens, coste y reparaciones se suman: los intentos fallidos y la reparación también se cobran
   const conCoste = () => ({
     tokensEntrada: sql`${ejecucionesIa.tokensEntrada} + ${uso.entrada}`,
     tokensSalida: sql`${ejecucionesIa.tokensSalida} + ${uso.salida}`,
-    costeUsd: sql`${ejecucionesIa.costeUsd} + ${uso.usd}`
+    costeUsd: sql`${ejecucionesIa.costeUsd} + ${uso.usd}`,
+    reparaciones: sql`coalesce(${ejecucionesIa.reparaciones}, 0) + ${reparaciones}`
   }) as unknown as Partial<typeof ejecucionesIa.$inferInsert>;
 
   // Al terminar (bien, mal o cancelada) no se conservan el texto de las fuentes ni los

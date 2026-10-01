@@ -71,6 +71,13 @@
       "when": 1790707335301,
       "tag": "0009_colaboracion_revision_abierta",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790898049049,
+      "tag": "0010_ia_version_prompt",
+      "breakpoints": true
     }
   ]
 }
