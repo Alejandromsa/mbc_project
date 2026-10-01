@@ -103,6 +103,64 @@ export async function capturarComandos(page) {
   return a;
 }
 
+// Más órdenes con el editor en español: sinónimos, «antes de», comillas, «cambiar X por Y»,
+// «cambiar tipo de», nombres que no existen y una conexión repetida, para cubrir cada
+// rama del intérprete (comandos.js). Y las mismas órdenes en inglés y otras frases en
+// inglés: en español no se interpretan, igual que en el MVP (con el editor en inglés sí:
+// pruebas/e2e/copiloto-ingles.spec.mjs).
+export const COMANDOS_VARIANTES = [
+  'añadir paso Revisar documentos antes de Investigar caso',
+  'insertar "Validar firma" después de "Registrar reclamo"',
+  'agregar Llamar al cliente después de Paso fantasma',
+  'borrar la Tarea fantasma',
+  'renombrar Nada a Algo',
+  'cambiar Investigar caso por Analizar caso',
+  'conecta Aprobar resolución y Notificar al cliente',
+  'une Notificar al cliente con Revisar documentos',
+  'unir Nada con Algo',
+  'marca Notificar al cliente como automática',
+  'poner Analizar caso como RPA',
+  'cambiar tipo de Validar firma como teléfono',
+  'quitar Validar firma',
+  'add Check documents after Analizar caso',
+  'insert Llamar after Revisar documentos',
+  'delete Analizar caso',
+  'remove the step Revisar documentos',
+  'rename Analizar caso to Review case',
+  'connect Resolver y cerrar to Notificar al cliente',
+  'mark Resolver y cerrar as automatic',
+  'set Aprobar resolución as bot',
+  'change the owner of Aprobar resolución to Ana',
+  'hello',
+  'executive summary',
+  'Draw the purchasing process',
+  'help',
+  'cambia el responsable de Registrar reclamo a Ana'
+];
+
+export async function capturarComandosVariantes(page) {
+  const a = {};
+  await page.evaluate(() => window.ProcessIQ.loadDemo());
+  await asentar(page);
+  let i = 0;
+  for (const cmd of COMANDOS_VARIANTES) {
+    const antes = await contarMensajes(page);
+    await page.evaluate((c) => {
+      document.querySelector('#copilotPrompt').value = c;
+      document.querySelector('#btnCopilotSend').click();
+    }, cmd);
+    await esperar(page, 900);
+    const modal = await modalAbierto(page);
+    if (modal) { a[`cmd-${i}/modal.html`] = modal.titulo + '\n' + modal.cuerpo; await cerrarModal(page); await esperar(page, 1500); }
+    a[`cmd-${i}/mensajes.html`] = await mensajesDesde(page, antes);
+    const e = await estadoDiagrama(page);
+    a[`cmd-${i}/resumen.json`] = e.resumen;
+    a[`cmd-${i}/diagrama.svg`] = e.svg;
+    i++;
+  }
+  return a;
+}
+
 // ---------------------------------------------------------------- minería
 export async function capturarMineria(page) {
   const a = {};

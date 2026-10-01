@@ -4,7 +4,7 @@ import { test } from '@playwright/test';
 import { compararEnAmbas } from './src/comparar.mjs';
 import { VIEWPORT, abrirApp, DEMOS } from './src/escenarios.mjs';
 import {
-  TEXTOS, capturarComandos, capturarCopiloto, capturarGeneracionIa, capturarImportBpmn,
+  TEXTOS, capturarComandos, capturarComandosVariantes, capturarCopiloto, capturarGeneracionIa, capturarImportBpmn,
   capturarMineria, capturarTareasIa, capturarTextoBasico, estadoDiagrama, prepararIa, xmlBpmnDeDemo
 } from './src/interacciones.mjs';
 import { PUERTO_REFERENCIA } from './src/puertos.mjs';
@@ -19,6 +19,10 @@ for (const demo of ['loadDemo', 'loadComplex', 'loadComplex11', 'loadFichaVentaL
 
 test('comandos en lenguaje natural y deshacer', async ({ browser }) => {
   await compararEnAmbas(browser, 'comandos', (page) => capturarComandos(page));
+});
+
+test('comandos: variantes, errores y órdenes en inglés con el editor en español', async ({ browser }) => {
+  await compararEnAmbas(browser, 'comandos-variantes', (page) => capturarComandosVariantes(page));
 });
 
 test('minería de event log (muestra)', async ({ browser }) => {

@@ -1,6 +1,6 @@
 // Portado del MVP 3.8.9 (app.js) sin cambios de lógica — fase 1.
 import { SHAPE_DEFAULTS, state } from '../estado.js';
-import { tr } from '../i18n.js';
+import { enIngles, tr } from '../i18n.js';
 import { ingestarDescripcion } from '../ingesta/flujo.js';
 import { autoLayout } from '../layout/auto-layout.js';
 import { getNode } from '../lienzo/interaccion.js';
@@ -199,17 +199,29 @@ function execSummaryMock() {
   copilotPost('ai', msg);
 }
 
+// Ola 5: con el editor en inglés, el copiloto entiende además estas palabras, junto a
+// las de siempre y en el mismo orden («generate», «pain», «kpi» y «to-be» ya las cubren
+// las españolas). En español, solo las de siempre (el MVP).
+const PALABRAS_EN = {
+  hola: /\b(?:hi|hello|hey|good (?:morning|afternoon|evening))\b/,
+  genera: /\b(?:draw|map out)\b/,
+  indicador: /\bindicators?\b/,
+  reingenieria: /\b(?:redesign|re-?engineer)/,
+  resumen: /\b(?:summary|executive)\b/
+};
+
 function mockCopilotResponse(prompt) {
   // F7: intenta interpretar como comando de edición primero
   const cmd = tryNlCommand(prompt);
   if (cmd !== null) return cmd;
   const p = prompt.toLowerCase();
-  if (p.includes('hola') || p.includes('buenos') || p.includes('buenas')) return tr('heur.hola');
-  if (p.includes('genera') || p.includes('levanta') || p.includes('dibuja')) { ingestarDescripcion(prompt); return tr('heur.interpretando'); }
+  const en = enIngles();
+  if (p.includes('hola') || p.includes('buenos') || p.includes('buenas') || (en && PALABRAS_EN.hola.test(p))) return tr('heur.hola');
+  if (p.includes('genera') || p.includes('levanta') || p.includes('dibuja') || (en && PALABRAS_EN.genera.test(p))) { ingestarDescripcion(prompt); return tr('heur.interpretando'); }
   if (p.includes('pain') || p.includes('dolor')) { detectPainsMock(); return ''; }
-  if (p.includes('kpi') || p.includes('indicador')) { suggestKpisMock(); return ''; }
-  if (p.includes('to-be') || p.includes('tobe') || p.includes('reingenier')) { proposeToBeMock(); return ''; }
-  if (p.includes('resumen') || p.includes('ejecutivo')) { execSummaryMock(); return ''; }
+  if (p.includes('kpi') || p.includes('indicador') || (en && PALABRAS_EN.indicador.test(p))) { suggestKpisMock(); return ''; }
+  if (p.includes('to-be') || p.includes('tobe') || p.includes('reingenier') || (en && PALABRAS_EN.reingenieria.test(p))) { proposeToBeMock(); return ''; }
+  if (p.includes('resumen') || p.includes('ejecutivo') || (en && PALABRAS_EN.resumen.test(p))) { execSummaryMock(); return ''; }
   return tr('heur.generico');
 }
 
