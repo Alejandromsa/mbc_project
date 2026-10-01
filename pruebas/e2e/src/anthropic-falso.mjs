@@ -1,7 +1,7 @@
 // Anthropic falso para las pruebas E2E: responde /v1/messages en streaming
 // (SSE) como la API real, sin red ni gasto. Además arranca el worker de IA de
 // la API apuntando aquí (Playwright solo espera a servicios con URL).
-//   generación (max_tokens grande) -> un proceso de 3 elementos
+//   generación (max_tokens grande) -> un proceso de 3 elementos, con tokens de la caché de prompts
 //   tarea del copiloto              -> markdown
 //   pains                           -> JSON de dolores
 //   matriz RACI o SIPOC (D12)       -> JSON con la forma de la matriz
@@ -58,7 +58,10 @@ createServer((req, res) => {
       : contenido.includes('=== PROCESO A ANALIZAR ===') ? '## Análisis del servidor\n- Resultado de prueba'
       : JSON.stringify({ detectados: [], sectoriales: [{ titulo: 'Fraude en reclamos', descripcion: 'Hipótesis de prueba' }] });
     res.writeHead(200, { 'content-type': 'text/event-stream' });
-    res.write(evento({ type: 'message_start', message: { model: b.model, usage: { input_tokens: 1200 } } }));
+    // La generación informa caché de prompts (1200 de entrada: 200 normales, 400 escritos y 600 leídos),
+    // que el coste cobra a su precio (lo comprueba ia.spec.mjs); lo demás, 1200 sin caché
+    const uso = b.max_tokens >= 16000 ? { input_tokens: 200, cache_creation_input_tokens: 400, cache_read_input_tokens: 600 } : { input_tokens: 1200 };
+    res.write(evento({ type: 'message_start', message: { model: b.model, usage: uso } }));
     // En trozos y con pausa: el editor debe mostrar el progreso
     const trozos = texto.match(/[\s\S]{1,60}/g) ?? [texto];
     for (const t of trozos) {
