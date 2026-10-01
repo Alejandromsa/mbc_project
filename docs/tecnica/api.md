@@ -67,7 +67,7 @@ Permiso: **público** = sin sesión; **usuario** = cualquier sesión válida; **
 | GET | `/api/auditoria` | admin | Últimos eventos de auditoría, con filtros |
 | GET | `/api/ia/estado` | usuario | Modelos disponibles y presupuesto del mes |
 | POST | `/api/ia/generaciones` | escribir | Encola la generación de un proceso desde texto |
-| POST | `/api/ia/analisis` | escribir | Encola un análisis (pains o tarea del copiloto) |
+| POST | `/api/ia/analisis` | escribir | Encola un análisis (pains, tarea del copiloto o matriz RACI/SIPOC) |
 | GET | `/api/ia/ejecuciones/:id` | leer | Estado y resultado de una ejecución |
 | GET | `/api/ia/ejecuciones/:id/eventos` | leer | Progreso en vivo (SSE) |
 | POST | `/api/ia/ejecuciones/:id/cancelar` | escribir | Cancela una ejecución |
@@ -706,7 +706,7 @@ Nunca incluye el texto de las fuentes ni la organización (`publica()` en [rutas
 | `estado` | ver tabla anterior | |
 | `parametros` | objeto | Generación: `etiqueta`, `vista`, `roles`, `variasFuentes`, `fuentes`, `caracteres`. Análisis: `nodos`. |
 | `progreso` | número | Caracteres recibidos |
-| `resultado` | JSON | **Solo** en `GET /api/ia/ejecuciones/:id`, en el evento SSE final y en `pendientes`. Generación: la especificación del proceso; `pains`: `{ datos }`; `tarea`: `{ markdown }`. |
+| `resultado` | JSON | **Solo** en `GET /api/ia/ejecuciones/:id`, en el evento SSE final y en `pendientes`. Generación: la especificación del proceso; `pains`: `{ datos }`; `tarea`: `{ markdown }`, o `{ matriz }` si es `matriz-raci` o `matriz-sipoc` (la forma de `state._raci` o `state._sipoc` del editor). |
 | `error` | string \| null | |
 | `intentos` | número | |
 | `tokensEntrada`, `tokensSalida`, `costeUsd` | número | Acumulados |
@@ -764,16 +764,22 @@ const { ejecucion } = await api.generarIa({
 
 ### `POST /api/ia/analisis`
 
-Pains o una tarea del copiloto. Sustituye a `aiAnalyzePains` y `runAiTask` del MVP.
+Pains, una tarea del copiloto o una matriz editable. Sustituye a `aiAnalyzePains` y `runAiTask` del MVP.
 
 - **Permiso:** escribir.
 - **Cuerpo:**
   - `procesoId` (UUID).
-  - `tipo`: `pains` o una tarea de `TAREAS_IA`: `suggest-kpis`, `propose-tobe`, `raci`, `impact-effort`, `automation`, `backlog`, `exec-summary`, `sipoc`, `bottleneck`. Otro valor: 400 `VALIDACION` («Análisis desconocido.»).
+  - `tipo`, uno de estos:
+    - `pains`;
+    - una tarea de `TAREAS_IA`, que devuelve un informe en texto: `suggest-kpis`, `propose-tobe`, `raci`, `impact-effort`, `automation`, `backlog`, `exec-summary`, `sipoc`, `bottleneck`;
+    - una matriz editable (divergencia D12): `matriz-raci` o `matriz-sipoc`.
+
+    Otro valor: 400 `VALIDACION` («Análisis desconocido.»).
   - `contenido`: el proceso tal como está en el editor.
 - El servidor valida el contenido, arma un resumen del proceso y usa siempre `MODELO_IA_ANALISIS`.
+- **Matrices:** el servidor guarda en `parametros.actividades` los id de las actividades que llevan fila en la RACI (tareas, sistemas y decisiones). El worker valida la matriz contra ellos con Zod y, si no vale, pide una reparación. Si tampoco vale, la ejecución queda `fallida` y el editor pide el informe en texto de siempre (`raci` o `sipoc`).
 - **Respuesta 202:** `{ "ejecucion": {…} }`.
-- **Errores:** 400 `PROCESO_INVALIDO`, 400 `PROCESO_VACIO` (sin nodos), 409 `IA_NO_CONFIGURADA`, 409 `PRESUPUESTO`, 409 `LIMITE_USUARIO`, 409 `ARCHIVADO`.
+- **Errores:** 400 `PROCESO_INVALIDO`, 400 `PROCESO_VACIO` (sin nodos), 400 `PROCESO_SIN_ACTIVIDADES` (`matriz-raci` sin actividades), 409 `IA_NO_CONFIGURADA`, 409 `PRESUPUESTO`, 409 `LIMITE_USUARIO`, 409 `ARCHIVADO`.
 - **Auditoría:** `ia.analisis` con `{ ejecucionId, tipo }`.
 
 ### `GET /api/ia/ejecuciones/:id`
@@ -1005,6 +1011,7 @@ Un proceso completo del que se parte al crear otro (`POST /api/proyectos/:id/pro
 | 400 | `PADRE_INVALIDO` | `padreId` no es una revisión de este proceso | guardar revisión |
 | 400 | `EJECUCION_INVALIDA` | `ejecucionIaId` no es una generación completada de este proceso | guardar revisión |
 | 400 | `PROCESO_VACIO` | El proceso no tiene nodos | `POST /api/ia/analisis` |
+| 400 | `PROCESO_SIN_ACTIVIDADES` | Se pide la matriz RACI de un proceso sin tareas, sistemas ni decisiones | `POST /api/ia/analisis` |
 | 401 | `SIN_SESION` | Sin cookie, o sesión caducada, desconocida o de una cuenta desactivada | toda ruta no pública |
 | 401 | `CREDENCIALES` | Correo o contraseña incorrectos, o cuenta desactivada | `POST /api/sesion` |
 | 403 | `ORIGEN` | Escritura con un `Origin` distinto de `ORIGEN_PUBLICO` (o sin él) | toda ruta que no sea GET/HEAD/OPTIONS |
