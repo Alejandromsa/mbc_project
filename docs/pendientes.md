@@ -28,7 +28,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Editor en inglés (ola 4) | El editor en español e inglés; en español, ni un byte distinto | `plataforma/i18n-editor` | `apps/web/src/app/` (textos), `app/i18n.js` | ✅ PR #22 (seguimiento: #23) |
 | Matrices con IA (ola 5) | RACI y SIPOC con IA como matrices editables que llegan al PPTX (D12) | `plataforma/ia-matrices` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `app/ia/` | ✅ PR #24 |
 | Motor (ola 5) | Fines «Caso no procede» en compuertas de convergencia, tope del nivel Ejecutivo con subprocesos importados y orden de carriles del BPMN importado | `plataforma/motor-ajustes` | `packages/motor`, `apps/web/src/app/{layout,lienzo,proceso}/` | ✅ PR #26 |
-| Copiloto en inglés (ola 5) | Comandos del copiloto en inglés («add X after Y»), su ayuda y su `placeholder` | `plataforma/copiloto-ingles` | `apps/web/src/app/copiloto/` y sus textos | ⏳ |
+| Copiloto en inglés (ola 5) | Comandos del copiloto en inglés («add X after Y»), su ayuda y su `placeholder` | `plataforma/copiloto-ingles` | `apps/web/src/app/copiloto/` y sus textos | ✅ PR #29 |
 | IA (ola 6) | Versión del prompt en `ejecuciones_ia`, coste con la caché de prompts, medición de la caché y evaluación de la salida estructurada ([§5.1](#51-ia)) | `plataforma/ia-prompts` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `worker.ts`, `apps/intermediario`, `app/ia/` | ⏳ |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
@@ -69,7 +69,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Edición simultánea del mismo diagrama (CRDT u operaciones en vivo) | Núcleo | 🔜 por decidir, sobre la base de `colaboracion` (necesitaría canal en los dos sentidos: otra ADR) |
 | Interfaz en inglés: la plataforma (shell y pantallas de los módulos) | Núcleo | ✅ PR #18 |
 | Interfaz en inglés: el editor | Núcleo | ✅ PR #22: editor libre, modo proyecto y vista del invitado, con el idioma de la plataforma; el español no cambia (fidelidad 37/37). No se traducen, por diseño: exportaciones, lienzo, prompts y respuestas de la IA, ejemplos y catálogos ([web.md §5.11](tecnica/web.md#511-el-editor-en-español-e-inglés)) |
-| Interfaz en inglés: lo que queda del editor | Núcleo | 🔜 (1) el shell aún dice en inglés que el editor abre en español (`EnlaceEditor`, «Editor libre», «Entrar») y cita sus menús en español: quitarlo (zona del shell); (2) comandos del copiloto en inglés («add X after Y»): hoy solo entiende español; (3) mensajes del servidor que no están en `mensajes.ts` (detalles de validación, error de una ejecución de IA) y errores de paquetes no listados en `ERRORES_EN` salen en español; (4) los nombres y descripciones de la galería de ejemplos siguen en español (son ejemplos) |
+| Interfaz en inglés: lo que queda del editor | Núcleo | (1) ✅ PR #23: el shell ya no dice en inglés que el editor abre en español; (2) ✅ PR #29: comandos del copiloto en inglés («add X after Y», «connect A to B»…): con el editor en inglés entiende inglés y español; en español, como el MVP (divergencia D15); 🔜 (3) mensajes del servidor que no están en `mensajes.ts` (detalles de validación, error de una ejecución de IA) y errores de paquetes no listados en `ERRORES_EN` salen en español; (4) los nombres y descripciones de la galería de ejemplos siguen en español (son ejemplos) |
 
 ## 5. Deuda técnica y hallazgos abiertos
 
@@ -137,6 +137,7 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - 🔜 La semilla de desarrollo deja abiertas las sesiones con las que crea los proyectos de prueba (propietario, editor y revisor): en «Sesiones» salen como «Navegador desconocido» con IP `local`. Bastaría con borrarlas al final de `sembrar()`.
 - ✅ Avisos de la auditoría de pptxgenjs y mammoth ([ADR 17](adr/0017-excepciones-auditoria-dependencias.md)), sin excepciones: mammoth pasa a 1.13.0 (divergencia D6), e `image-size`, que pptxgenjs declara pero no usa, se quita con un override. pptxgenjs sigue en 3.12.0, porque la 4.0.1 no quita el aviso; da el mismo `.pptx` y está evaluada en la ADR.
 - ✅ Con mammoth 1.13 el texto extraído de un Word perdía el símbolo de las casillas (`☒`/`☐`). mammoth no tiene opción para eso en `extractRawText`, así que el editor quita antes la marca de casilla del documento (preproceso con JSZip) y el símbolo se lee como con 1.8.0 (divergencia D6).
+- 🔜 Órdenes del copiloto en español que hacen otra cosa, heredadas del MVP ([fallo F2](fase1-divergencias.md)): «marca X como automática» la deja manual, «cambia el responsable de X a Ana» renombra X, «quitar la conexión entre A y B» borra una de las dos, y el nombre nuevo pierde sus mayúsculas. Las órdenes en inglés ya no lo hacen (D15). Corregirlas en español es otra divergencia: cambia el escenario «comandos: variantes…» de la fidelidad. Tampoco hay orden para cambiar el responsable («set owner of X to Ana»): sería nueva en los dos idiomas.
 
 ### 5.4 Documentación
 
