@@ -29,7 +29,7 @@ Cada agente trabaja en su propia copia (`git worktree`), en su rama y solo en su
 | Matrices con IA (ola 5) | RACI y SIPOC con IA como matrices editables que llegan al PPTX (D12) | `plataforma/ia-matrices` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `app/ia/` | ✅ PR #24 |
 | Motor (ola 5) | Fines «Caso no procede» en compuertas de convergencia, tope del nivel Ejecutivo con subprocesos importados y orden de carriles del BPMN importado | `plataforma/motor-ajustes` | `packages/motor`, `apps/web/src/app/{layout,lienzo,proceso}/` | ✅ PR #26 |
 | Copiloto en inglés (ola 5) | Comandos del copiloto en inglés («add X after Y»), su ayuda y su `placeholder` | `plataforma/copiloto-ingles` | `apps/web/src/app/copiloto/` y sus textos | ✅ PR #29 |
-| IA (ola 6) | Versión del prompt en `ejecuciones_ia`, coste con la caché de prompts, medición de la caché y evaluación de la salida estructurada ([§5.1](#51-ia)) | `plataforma/ia-prompts` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `worker.ts`, `apps/intermediario`, `app/ia/` | ⏳ |
+| IA (ola 6) | Versión del prompt en `ejecuciones_ia`, coste con la caché de prompts, medición de la caché y evaluación de la salida estructurada ([§5.1](#51-ia)) | `plataforma/ia-prompts` | `packages/ia`, `apps/api/src/ia/`, `rutas/ia.ts`, `worker.ts`, `apps/intermediario`, `app/ia/` | ✅ PR #31 |
 
 ## 2. Del dueño del proyecto y del responsable de operación 🙋
 
@@ -83,8 +83,8 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 - ✅ Un aviso `ia_cola` despierta a todos los bucles del worker (PR #7).
 - ✅ `clasificarErrorIa` decide por la clase marcada en el error; el texto queda solo como respaldo (PR #7).
 - ✅ La cabecera del intermediario ya no dice que es temporal (PR de operación).
-- ✅ Versión del prompt en `ejecuciones_ia` (`version_prompt`: huella de sistema, plantilla y parámetros de cada tipo, fijada por `version.test.ts`) y cuántas reparaciones hizo cada ejecución (`reparaciones`) ([ia.md §3.2](tecnica/ia.md#32-versión-de-los-prompts), `plataforma/ia-prompts`).
-- ✅ El coste cobra la caché de prompts a su precio (editor, D21; worker, presupuesto, «Consumo de IA» y Pulse); el intermediario deja pasar `cache_control` (`plataforma/ia-prompts`).
+- ✅ Versión del prompt en `ejecuciones_ia` (`version_prompt`: huella de sistema, plantilla y parámetros de cada tipo, fijada por `version.test.ts`) y cuántas reparaciones hizo cada ejecución (`reparaciones`) ([ia.md §3.2](tecnica/ia.md#32-versión-de-los-prompts), PR #31).
+- ✅ El coste cobra la caché de prompts a su precio (editor, D21; worker, presupuesto, «Consumo de IA» y Pulse); el intermediario deja pasar `cache_control` (PR #31).
 - ✅ Caché de prompts: medida y **no activada**. Con los prompts de hoy solo el sistema de la generación llega al mínimo, y ahorraría menos del 2 % de una generación ([ia.md §3.3](tecnica/ia.md#33-caché-de-prompts-medición-y-decisión)). 🔜 Para que compense, reordenar los prompts (lo variable al final: el resumen del proceso antes de la instrucción en las tareas): es cambiar prompts, con evaluación de IA y divergencia.
 - ✅ Salida estructurada: evaluada y **no implementada** ([ia.md §3.4](tecnica/ia.md#34-salida-estructurada-evaluación)). 🔜 Revisarla con datos: cuando haya unas 50 generaciones con versión, mirar el porcentaje con reparación (consulta en ia.md §3.2).
 - 🔜 «Consumo de IA» podría mostrar la versión de los prompts y las reparaciones (la API ya las devuelve; la pantalla es del shell).
@@ -143,5 +143,5 @@ Los hallazgos salen de la revisión del código hecha al documentar (secciones �
 ### 5.4 Documentación
 
 - 🔜 `arquitectura.md` §7 y §8 describen tablas y rutas previstas que no coinciden con las reales (`/api/ia/analisis/{tipo}`, SSE con `Last-Event-ID`, `fuentes`, `exportaciones`…): marcar qué está hecho y cómo.
-- ✅ Comentario desfasado en `esquema.ts` sobre las claves de `ejecuciones_ia.tarea` (ahora nombra las de `TAREAS_IA` y las matrices; `plataforma/ia-prompts`).
+- ✅ Comentario desfasado en `esquema.ts` sobre las claves de `ejecuciones_ia.tarea` (ahora nombra las de `TAREAS_IA` y las matrices; PR #31).
 - ✅ La fidelidad no borra las carpetas de resultados entre corridas: quedan restos que parecen fallos (`plataforma/operacion`).
