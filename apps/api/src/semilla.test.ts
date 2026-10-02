@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { like } from 'drizzle-orm';
-import { usuarios, type Conexion } from '@processiq/db';
+import { inArray, like } from 'drizzle-orm';
+import { sesiones, usuarios, type Conexion } from '@processiq/db';
 import { cerrarBase, cliente, prepararBase, URL_PRUEBAS } from './pruebas/entorno.js';
 import { CLAVE_PRUEBA, CUENTAS_PRUEBA, DOMINIO_PRUEBA, correoPrueba, sembrar } from './semilla.js';
 
@@ -15,6 +15,8 @@ describe('semilla de desarrollo', () => {
 
     const cuentas = await conexion.db.select().from(usuarios).where(like(usuarios.email, `%@${DOMINIO_PRUEBA}`));
     expect(cuentas).toHaveLength(CUENTAS_PRUEBA.length);
+    // Las sesiones con las que se sembró no quedan abiertas
+    expect(await conexion.db.select().from(sesiones).where(inArray(sesiones.usuarioId, cuentas.map((c) => c.id)))).toHaveLength(0);
 
     const admin = cliente();
     await admin.entrar(correoPrueba('admin'), CLAVE_PRUEBA);
