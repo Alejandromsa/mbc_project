@@ -120,5 +120,9 @@ export async function sembrar(db: BaseDeDatos, databaseUrl: string) {
   const archivado = await propietario('POST', '/api/proyectos', { nombre: 'Proyecto archivado (prueba)', cliente: 'Cliente antiguo (ficticio)' });
   await propietario('PATCH', `/api/proyectos/${archivado.proyecto.id}`, { archivado: true });
 
+  // Las sesiones con las que se sembró no son de nadie: sin esto salían en «Sesiones»
+  // como «Navegador desconocido» con IP `local`
+  await db.delete(sesiones).where(inArray(sesiones.usuarioId, todos));
+
   return { ids, proyectoId: proyecto.id as string, procesoSiniestrosId: a.proceso.id as string, archivadoId: archivado.proyecto.id as string };
 }
