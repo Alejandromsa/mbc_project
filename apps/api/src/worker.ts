@@ -4,10 +4,12 @@
 //   pnpm --filter @processiq/api worker   (desarrollo, con .env.dev)
 // Las migraciones las aplica la API: el worker arranca después.
 import { conectar } from '@processiq/db';
+import type { UsoIa } from '@processiq/ia';
 import { leerConfigWorker } from './config.js';
 import { CANAL_COLA, Escucha, despertador } from './ia/avisos.js';
 import { reencolarHuerfanas, tomarSiguiente } from './ia/cola.js';
 import { ejecutar } from './ia/ejecutar.js';
+import { tokensParaPulse } from './ia/gasto.js';
 import { latido, purgarErrores, purgarSesionesCaducadas, registrarError } from './observabilidad.js';
 
 const cfg = leerConfigWorker();
@@ -30,14 +32,16 @@ function fallo(err: unknown, donde: string, detalle: Record<string, unknown> = {
   registrarError(conexion.db, { origen: 'worker', mensaje: String(e && e.message), pila: e && e.stack, ruta: donde, detalle }).catch(() => {});
 }
 
-const reportarGasto = (u: { modelo: string; entrada: number; salida: number; ejecucionId: string; parcial?: boolean }) => {
-  // parcial: respuesta cortada a mitad (cancelada, sin respuesta, corte de red o parada del worker)
-  log({ evento: 'gasto_ia', modelo: u.modelo, inputTokens: u.entrada, outputTokens: u.salida, ejecucionId: u.ejecucionId, ...(u.parcial ? { parcial: true } : {}) });
+const reportarGasto = (u: UsoIa & { ejecucionId: string; parcial?: boolean }) => {
+  // parcial: respuesta cortada a mitad (cancelada, sin respuesta, corte de red o parada del worker).
+  // inputTokens son todos los de entrada; los de la caché de prompts van además aparte (se cobran a otro precio).
+  const tokens = tokensParaPulse(u);
+  log({ evento: 'gasto_ia', modelo: u.modelo, ...tokens, ejecucionId: u.ejecucionId, ...(u.parcial ? { parcial: true } : {}) });
   if (!cfg.pulseUrl) return;
   fetch(cfg.pulseUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...(cfg.pulseToken ? { authorization: 'Bearer ' + cfg.pulseToken } : {}) },
-    body: JSON.stringify({ tool: 'processiq', provider: 'anthropic', model: u.modelo, inputTokens: u.entrada, outputTokens: u.salida, origen: 'servidor' })
+    body: JSON.stringify({ tool: 'processiq', provider: 'anthropic', model: u.modelo, ...tokens, origen: 'servidor' })
   }).catch(() => { /* el registro de gasto nunca debe afectar a la ejecución */ });
 };
 

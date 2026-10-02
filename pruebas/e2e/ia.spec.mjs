@@ -104,6 +104,12 @@ test('una generación que terminó con la pestaña cerrada se ofrece al volver a
   const id = (await r.json()).ejecucion.id;
   await expect.poll(async () => (await (await page.request.get(`/api/ia/ejecuciones/${id}`)).json()).ejecucion.estado, { timeout: 30_000 })
     .toBe('completada');
+  // El Anthropic falso informa caché de prompts en la generación: 1200 de entrada (200 normales, 400 escritos
+  // y 600 leídos) y 800 de salida, con Opus 5. El coste los cobra a su precio, y queda la versión de los prompts.
+  const { ejecucion } = await (await page.request.get(`/api/ia/ejecuciones/${id}`)).json();
+  expect(ejecucion).toMatchObject({ modelo: 'claude-opus-5', tokensEntrada: 1200, tokensSalida: 800, reparaciones: 0 });
+  expect(ejecucion.costeUsd).toBeCloseTo((200 * 5 + 400 * 6.25 + 600 * 0.5 + 800 * 25) / 1e6, 9);
+  expect(ejecucion.versionPrompt).toMatch(/^[0-9a-f]{12}$/);
 
   await page.getByRole('link', { name: 'Empezar a dibujarlo en el editor' }).click();
   const dialogo = page.locator('dialog.piq-dialogo');

@@ -8,6 +8,7 @@ import { PUERTO_NUEVA, PUERTO_REFERENCIA } from './src/puertos.mjs';
 import { archivosDeIngesta } from './src/archivos.mjs';
 import { TEXTOS_DIVERGENTES } from './src/textos-divergentes.mjs';
 import { prepararIa, respuestaPara } from './src/interacciones.mjs';
+import { CONFIG_IA, SPEC_IA, TEXTOS, URL_IA } from './src/interacciones.mjs';
 
 async function abrir(browser, puerto) {
   const ctx = await browser.newContext({ viewport: VIEWPORT, acceptDownloads: true, reducedMotion: 'reduce' });
@@ -637,4 +638,68 @@ test('D14: con jerarquía explícita, el nivel Ejecutivo no pasa de 10 cajas', a
   expect(res.nueva.ejecutivo).toBeLessThanOrEqual(10);
   expect(res.nueva.etapas.length).toBeGreaterThan(0);
   expect(res.nueva.etapas[0]).toBe('Paso 1 (+1 pasos)');
+});
+
+// D21: si la respuesta informa tokens de la caché de prompts, el coste de la generación los
+// cobra a su precio; el MVP los sumaba a la entrada y los cobraba como entrada normal. El
+// editor no pide la caché (la petición es la del MVP): solo cambia la cuenta.
+function sseConCache(texto) {
+  const ev = (type, data) => `event: ${type}\ndata: ${JSON.stringify({ type, ...data })}\n\n`;
+  return ev('message_start', { message: { id: 'msg_prueba', type: 'message', role: 'assistant', model: 'claude-opus-5', content: [], stop_reason: null,
+    usage: { input_tokens: 200, cache_creation_input_tokens: 400, cache_read_input_tokens: 600, output_tokens: 1 } } }) +
+    ev('content_block_start', { index: 0, content_block: { type: 'text', text: '' } }) +
+    ev('content_block_delta', { index: 0, delta: { type: 'text_delta', text: texto } }) +
+    ev('content_block_stop', { index: 0 }) +
+    ev('message_delta', { delta: { stop_reason: 'end_turn', stop_sequence: null }, usage: { output_tokens: 900 } }) +
+    ev('message_stop', {});
+}
+
+async function generarConCache(browser, puerto) {
+  const ctx = await browser.newContext({ viewport: VIEWPORT, acceptDownloads: true, reducedMotion: 'reduce' });
+  const cuerpos = [];
+  await ctx.addInitScript((c) => localStorage.setItem('processiq.ai', JSON.stringify(c)), CONFIG_IA);
+  await ctx.route(URL_IA + '/**', async (route) => {
+    const req = route.request();
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, GET, OPTIONS' };
+    if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors });
+    cuerpos.push(req.postDataJSON());
+    await route.fulfill({ status: 200, headers: { ...cors, 'content-type': 'text/event-stream' }, body: sseConCache(JSON.stringify(SPEC_IA)) });
+  });
+  const page = await ctx.newPage();
+  const errores = [];
+  page.on('pageerror', (e) => errores.push(String(e)));
+  await abrirApp(page, `http://127.0.0.1:${puerto}/`);
+  await page.evaluate((t) => { document.querySelector('#notesInput').value = t; }, TEXTOS.compras);
+  await page.evaluate(() => { window.ProcessIQ.runIngest(); });
+  await page.waitForFunction(() => document.querySelector('#modalOk')?.textContent === 'Generar', null, { timeout: 10_000 });
+  await page.evaluate(() => document.querySelector('#modalOk').click());
+  await page.waitForFunction(() => /interpretado con IA/.test(document.querySelector('#copilotMessages')?.textContent ?? ''), null, { timeout: 30_000 });
+  const r = {
+    cuerpos,
+    costes: await page.evaluate(() => JSON.parse(localStorage.getItem('processiq.ia.costes'))),
+    chat: await page.evaluate(() => document.querySelector('#copilotMessages').textContent)
+  };
+  expect(errores).toEqual([]);
+  await ctx.close();
+  return r;
+}
+
+test('D21: el coste de una generación cobra la caché de prompts a su precio (el MVP, como entrada normal)', async ({ browser }) => {
+  const mvp = await generarConCache(browser, PUERTO_REFERENCIA);
+  const nueva = await generarConCache(browser, PUERTO_NUEVA);
+  // La misma petición, sin cache_control: el editor no pide la caché
+  expect(nueva.cuerpos).toHaveLength(1);
+  expect(nueva.cuerpos).toEqual(mvp.cuerpos);
+  expect(JSON.stringify(nueva.cuerpos)).not.toContain('cache_control');
+  // Los mismos tokens (la entrada incluye los 1000 de la caché) y el mismo registro, salvo el coste
+  expect(mvp.costes).toHaveLength(1);
+  const { usd: usdMvp, ...restoMvp } = mvp.costes[0];
+  const { usd: usdNueva, ...restoNueva } = nueva.costes[0];
+  expect(restoNueva).toEqual(restoMvp);
+  expect(restoNueva).toMatchObject({ modelo: 'claude-opus-5', entrada: 1200, salida: 900 });
+  // Opus 5: el MVP, 1200 × 5 + 900 × 25; la app nueva, 200 × 5 + 400 × 6,25 (escritura) + 600 × 0,5 (lectura) + 900 × 25
+  expect(usdMvp).toBeCloseTo((1200 * 5 + 900 * 25) / 1e6, 12);
+  expect(usdNueva).toBeCloseTo((200 * 5 + 400 * 6.25 + 600 * 0.5 + 900 * 25) / 1e6, 12);
+  expect(mvp.chat).toContain('Coste de esta ejecución: US$ 0.029 (1,200 tokens de entrada');
+  expect(nueva.chat).toContain('Coste de esta ejecución: US$ 0.026 (1,200 tokens de entrada');
 });

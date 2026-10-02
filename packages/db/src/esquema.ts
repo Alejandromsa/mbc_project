@@ -126,7 +126,11 @@ export const ejecucionesIa = pgTable('ejecuciones_ia', {
   procesoId: uuid('proceso_id').notNull().references(() => procesos.id, { onDelete: 'cascade' }),
   usuarioId: uuid('usuario_id').notNull().references(() => usuarios.id),
   tipo: tipoEjecucionIa('tipo').notNull(),
-  /** Solo en tipo «tarea»: cuál (kpis, raci, tobe…; TAREAS_IA de @processiq/ia). */
+  /**
+   * Solo en tipo «tarea»: una clave de TAREAS_IA de @processiq/ia (suggest-kpis,
+   * propose-tobe, raci…: informe en Markdown) o una matriz editable
+   * (matriz-raci, matriz-sipoc; TIPOS_MATRIZ_IA).
+   */
   tarea: text('tarea'),
   modelo: text('modelo').notNull(),
   estado: estadoEjecucionIa('estado').notNull().default('en_cola'),
@@ -139,7 +143,7 @@ export const ejecucionesIa = pgTable('ejecuciones_ia', {
   texto: text('texto'),
   /** Caracteres recibidos de la IA (progreso). */
   progreso: integer('progreso').notNull().default(0),
-  /** generacion: la especificación del proceso; tarea: { markdown }; pains: { datos }. */
+  /** generacion: la especificación del proceso; tarea: { markdown } o, en una matriz, { matriz }; pains: { datos }. */
   resultado: jsonb('resultado'),
   error: text('error'),
   intentos: integer('intentos').notNull().default(0),
@@ -156,7 +160,20 @@ export const ejecucionesIa = pgTable('ejecuciones_ia', {
   iniciadoEn: timestamp('iniciado_en', { withTimezone: true }),
   terminadoEn: timestamp('terminado_en', { withTimezone: true }),
   /** Latido del worker mientras ejecuta: si se detiene, la ejecución vuelve a la cola. */
-  actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow()
+  actualizadoEn: timestamp('actualizado_en', { withTimezone: true }).notNull().defaultNow(),
+  /**
+   * Versión de los prompts con que se ejecutó (versionPrompt de @processiq/ia:
+   * huella de sistema, plantilla y parámetros), para comparar resultados cuando
+   * cambie un prompt. La pone el worker en cada intento. Nula en las filas
+   * anteriores y en las que no llegaron a ejecutarse.
+   */
+  versionPrompt: text('version_prompt'),
+  /**
+   * Llamadas de reparación del JSON que hizo la ejecución (todos los intentos).
+   * Mide cuánto haría falta la salida estructurada (docs/tecnica/ia.md §13).
+   * Nula en las filas anteriores y en las que no llegaron a ejecutarse.
+   */
+  reparaciones: integer('reparaciones')
 }, (t) => [
   index('ejecuciones_ia_cola_idx').on(t.estado, t.disponibleEn),
   index('ejecuciones_ia_proceso_idx').on(t.procesoId),

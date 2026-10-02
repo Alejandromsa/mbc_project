@@ -328,6 +328,8 @@ La generación ya no depende de que el navegador mantenga abierta la conexión:
   - Llevar el dibujo al servidor queda para cuando el auto-layout viva entero en `packages/motor`.
 - **Reintentos:** hasta 3 intentos, con esperas de 15 s y 60 s. Una sola reparación del JSON.
 - **Privacidad de las fuentes:** el texto de las fuentes se borra de la base al terminar; quedan el nombre y el tamaño de cada una.
+- **Versión del prompt** (1-oct-2026): cada ejecución guarda en `version_prompt` una huella de sistema, plantilla y parámetros de su tipo ([ia.md §3.2](tecnica/ia.md#32-versión-de-los-prompts)), y cuenta sus reparaciones.
+- **Caché de prompts y salida estructurada: medidas y no activadas** (1-oct-2026). Con los prompts de hoy, lo único que se repite entre llamadas y llega al mínimo de la caché es el sistema de la generación, que ahorraría menos del 2 % de una generación ([ia.md §3.3](tecnica/ia.md#33-caché-de-prompts-medición-y-decisión)). La salida estructurada no se puede validar sin datos de reparaciones ni llamadas reales, y la RACI no cabe en un esquema con su forma ([ia.md §3.4](tecnica/ia.md#34-salida-estructurada-evaluación)). El coste sí cuenta la caché a su precio si aparece.
 - **Topes y modelos:** presupuesto mensual por organización y límite por persona (US$, `.env`); modelos permitidos y modelo de análisis configurables.
 - **Modo básico:** el editor sin proyecto (`/`) sigue llamando a la IA como el MVP (intermediario o clave propia), así que ese modo no cambia.
 
@@ -343,7 +345,7 @@ El cliente nunca envía prompts. El servidor decide modelo (entre los permitidos
 
 ### Gobierno de la IA
 
-- **Registro de prompts:** cada prompt vive en `packages/ia` con versión. Cambiarlo exige pasar la evaluación (§10).
+- **Registro de prompts:** cada prompt vive en `packages/ia` con versión (hoy, una huella que se calcula sola y que `version.test.ts` fija: [ia.md §3.2](tecnica/ia.md#32-versión-de-los-prompts)). Cambiarlo exige pasar la evaluación (§10).
 - **Modelo por tarea:** Opus para generar el proceso; Sonnet por defecto para análisis más acotados. El usuario puede elegir modelo al generar (como hoy), dentro de una lista permitida.
 - **Costes:**
   - estimación previa (como hoy) y coste real por ejecución;
@@ -416,7 +418,7 @@ El cliente nunca envía prompts. El servidor decide modelo (entre los permitidos
 - **Carga:** división de código por ruta, y las librerías pesadas (pptxgenjs, pdf.js, mammoth) solo cuando se usan.
 - **Hilo principal libre:** extracción de documentos y auto-layout en Web Workers. Hoy el layout de 119 nodos bloquea ~0,7 s y el autoajuste prueba tres disposiciones.
 - **IA más barata y rápida:**
-  - caché de prompts para el prompt de sistema;
+  - caché de prompts para el prompt de sistema (medida el 1-oct-2026: con los prompts de hoy no compensa; para que lo haga, lo variable tiene que ir al final del prompt, [ia.md §3.3](tecnica/ia.md#33-caché-de-prompts-medición-y-decisión));
   - el modelo adecuado para cada tarea;
   - el nivel de detalle calculado localmente (cambiar de vista nunca vuelve a llamar a la IA, como hoy).
 - **Exports en lote** (varios procesos o temas) en el worker, no en el navegador.

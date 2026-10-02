@@ -2,7 +2,7 @@
 
 Cómo usa ProcessIQ los modelos Claude: los dos caminos (editor libre y modo proyecto), la cola y el worker del servidor, los costes, el intermediario, cómo se prueba sin gastar y qué hacer ante un incidente.
 
-**Actualizado:** 30-sep-2026.
+**Actualizado:** 1-oct-2026.
 
 ---
 
@@ -52,11 +52,12 @@ flowchart LR
 | Costes | [packages/ia/src/costes.ts](../../packages/ia/src/costes.ts) | Modelos, precios, `usd`, estimación previa |
 | Especificación | [packages/ia/src/especificacion.ts](../../packages/ia/src/especificacion.ts) | `validarEspecGeneracion`, `promptReparacion`, `clasificarErrorIa` |
 | Matrices | [packages/ia/src/matrices.ts](../../packages/ia/src/matrices.ts) | RACI y SIPOC editables (sección 3.1): `PROMPT_MATRICES`, `MATRICES_IA`, `validarMatrizIa`, `pedirMatrizIa` |
+| Versión de los prompts | [packages/ia/src/version.ts](../../packages/ia/src/version.ts) | `versionPrompt` (sección 3.2) y los parámetros de las llamadas del worker (`LLAMADAS_IA`) |
 | Rutas | [apps/api/src/rutas/ia.ts](../../apps/api/src/rutas/ia.ts) | Endpoints de negocio, SSE, cancelación, consumo |
 | Cola | [apps/api/src/ia/cola.ts](../../apps/api/src/ia/cola.ts) | Tomar un trabajo y reencolar huérfanas |
 | Ejecución | [apps/api/src/ia/ejecutar.ts](../../apps/api/src/ia/ejecutar.ts) | Llamada, validación, reparación, reintentos, coste |
 | Avisos | [apps/api/src/ia/avisos.ts](../../apps/api/src/ia/avisos.ts) | `LISTEN/NOTIFY`: canales `ia_cola` e `ia_ejecucion` |
-| Worker | [apps/api/src/worker.ts](../../apps/api/src/worker.ts) | Bucle de la cola, latido, parada ordenada, gasto a Pulse |
+| Worker | [apps/api/src/worker.ts](../../apps/api/src/worker.ts) | Bucle de la cola, latido, parada ordenada, gasto a Pulse (`tokensParaPulse` en [ia/gasto.ts](../../apps/api/src/ia/gasto.ts)) |
 | Configuración | [apps/api/src/config.ts](../../apps/api/src/config.ts) | Variables de entorno de la API y del worker |
 | Editor | [apps/web/src/app/ia/](../../apps/web/src/app/ia/) | Ajustes, diálogos, generación, dolores, tareas, motor |
 | Editor en proyecto | [apps/web/src/app/plataforma/ia.js](../../apps/web/src/app/plataforma/ia.js) | IA remota: ejecuciones y seguimiento por SSE |
@@ -112,6 +113,8 @@ Parámetros de cada llamada (iguales en los dos caminos, salvo la reparación de
 
 Con un modelo `claude-opus-5*`, la petición lleva `fallbacks: 'default'`: si los clasificadores declinan, la API de Anthropic repite con el modelo de respaldo en la misma llamada.
 
+En el worker, sistema, esfuerzo y tope salen de `LLAMADAS_IA` ([version.ts](../../packages/ia/src/version.ts)) y, en las matrices, de `LLAMADA_MATRIZ` y `llamadaReparacionMatriz` ([matrices.ts](../../packages/ia/src/matrices.ts)): son los mismos datos que entran en la versión de los prompts (sección 3.2). El editor libre usa los mismos valores, escritos en su código portado del MVP (la fidelidad los compara). Las reparaciones llevan además `reparacion: true`, que no viaja en la petición: el worker lo usa para contarlas.
+
 ### 3.1 Matrices RACI y SIPOC
 
 Con IA disponible, «Generar matriz RACI» y «Generar SIPOC» no piden el informe en Markdown del MVP: piden **la matriz editable** que usan el PPTX, el informe Word y la Ficha (divergencia D12, [fase1-divergencias.md](../fase1-divergencias.md)). Todo está en [matrices.ts](../../packages/ia/src/matrices.ts) y lo usan igual el editor libre y el worker.
@@ -136,6 +139,81 @@ En el editor ([ia/tareas.js](../../apps/web/src/app/ia/tareas.js)), `runAiTask('
 - con la matriz, `cargarRaciIa` o `cargarSipocIa` ([analitica/](../../apps/web/src/app/analitica/)) la guardan en el proceso (`persist()`: deshacer la quita), avisan en el copiloto y abren el diálogo editable de siempre, con «Guardar cambios». Las columnas de la RACI son los roles de la IA, primero en el orden de los carriles, y las filas, todas las actividades (vacías si la IA no las trajo);
 - si falla cualquier cosa, el copiloto dice por qué y pide **el informe en texto** de siempre (`TAREAS_IA`), con la misma petición que el MVP;
 - una RACI de un proceso sin actividades va directa al informe; sin IA, las heurísticas.
+
+### 3.2 Versión de los prompts
+
+Cada ejecución del servidor guarda en `ejecuciones_ia.version_prompt` con qué prompts se hizo, para comparar resultados, coste y reparaciones cuando cambie un prompt. Es `versionPrompt(tipo, tarea)` de [version.ts](../../packages/ia/src/version.ts): una huella de 12 caracteres hexadecimales.
+
+| | |
+|---|---|
+| Qué entra | Por tipo de ejecución, todo lo que decide **cómo** se pregunta: el prompt de sistema, el esfuerzo y el tope de tokens de cada llamada, también los de su reparación; y la plantilla del mensaje pintada con marcadores fijos (`{{CONTENIDO}}`, `{{RESUMEN}}`…): el texto que rodea los datos (instrucción de la tarea, reglas de fusión, quién es quién, profundidad, separadores) y el formato del resumen del proceso que reciben dolores, tareas y matrices |
+| Qué no entra | Los datos de cada ejecución (documentos, proceso) y el modelo, que tiene su columna |
+| Cuántas | Una por tipo: generación, dolores, cada tarea de `TAREAS_IA` y cada matriz. Cambiar el prompt del To-Be no cambia la versión de los KPIs |
+| Quién la pone | El worker, al empezar cada intento. Si un reintento lo toma un worker con prompts nuevos, queda la de ese intento. Nula en las filas anteriores al 1-oct-2026 y en las que se cancelaron en cola. El editor libre no la guarda: no hay fila |
+| Dónde se ve | `GET /api/ia/ejecuciones/:id` y `GET /api/ia/consumo` (`recientes`). La pantalla «Consumo de IA» no la muestra: con la API o una consulta basta para comparar |
+
+**Por qué una huella y no un número de versión escrito a mano:** no se puede olvidar subirla, cambia con cualquier byte del prompt (la fidelidad ya los trata así) y es la misma en el navegador y en el servidor. Es cyrb53 recortado a 48 bits: síncrona, sin dependencias y sin APIs de Node ni del navegador. Para que un cambio no pase desapercibido, [version.test.ts](../../packages/ia/src/version.test.ts) fija las huellas actuales: quien cambie un prompt, una plantilla, el resumen del proceso o los parámetros ve fallar esa prueba, la actualiza en el mismo PR (`vitest run -u`) y lo anota en esta tabla. Los parámetros del worker salen de `LLAMADAS_IA` y `LLAMADA_MATRIZ`, así que la huella no puede desviarse de lo que se envía.
+
+| Desde | Generación | Dolores | Matriz RACI | Matriz SIPOC | Tareas |
+|---|---|---|---|---|---|
+| 1-oct-2026 (primera versión registrada) | `e4da075ec104` | `2d28ee4d8616` | `f3ec07811977` | `3b0c4073e30a` | en `version.test.ts` (una por tarea) |
+
+Para comparar versiones (solo ejecuciones terminadas):
+
+```sql
+select tipo, coalesce(tarea, '') as tarea, modelo, version_prompt, count(*) as ejecuciones,
+       round(avg(coste_usd)::numeric, 4) as coste_medio, round(avg(tokens_salida)) as salida_media,
+       round(avg((reparaciones > 0)::int), 3) as con_reparacion
+  from ejecuciones_ia
+ where estado in ('completada', 'fallida') and version_prompt is not null
+ group by 1, 2, 3, 4 order by 1, 2, 3, 4;
+```
+
+### 3.3 Caché de prompts: medición y decisión
+
+Medido el 1-oct-2026, antes de activarla. Reglas de la [documentación de Anthropic](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) que importan aquí:
+
+- La caché es un **prefijo**: herramientas, sistema y mensajes, en ese orden, hasta la marca `cache_control`. Cualquier byte distinto antes de la marca la invalida, y cambiar el esfuerzo (`output_config.effort`) invalida los mensajes.
+- **Mínimo de tokens del prefijo** (por debajo no se guarda y no da error): **512 en Claude Opus 5, 1 024 en Claude Sonnet 5 y 4 096 en Claude Haiku 4.5**.
+- Escribir cuesta 1,25 × la entrada (TTL de 5 min) o 2 × (1 h); leer, 0,1 ×. El TTL corre desde el **inicio** de la petición que escribe o lee, y la entrada se puede leer solo cuando la primera respuesta ya empezó.
+
+Medición: caracteres exactos de [prompts.ts](../../packages/ia/src/prompts.ts), [matrices.ts](../../packages/ia/src/matrices.ts) y del resumen de los dos procesos de ejemplo de `packages/dominio/src/__fixtures__`; los tokens, estimados entre 2,8 y 4 caracteres por token (sin clave no se puede llamar a `count_tokens`).
+
+| Llamada | Qué se repite de una llamada a otra (prefijo) | Tamaño | ¿Llega al mínimo? Opus 5 · Sonnet 5 · Haiku 4.5 | Ahorro si se activara |
+|---|---|---|---|---|
+| Generación | El sistema `PROMPT_GENERACION`, igual en todas. El mensaje cambia enseguida: la etiqueta y la profundidad van antes del documento (dos niveles comparten 128 caracteres) | 3 902 car. ≈ 980–1 390 tokens | Sí · solo si está en la parte alta del rango · no | Opus 5: unos US$ 0,005 por acierto y US$ 0,0015 de recargo por fallo. Una generación cuesta US$ 0,30–1,50: menos del 2 % aunque acertara siempre. Empata con un 22 % de aciertos (dos generaciones con la misma clave a menos de 5 min) |
+| Reparación de la generación | Nada: otro sistema, y el mensaje es la respuesta nueva | — | — | 0 |
+| Reintento de una generación | El prompt entero (documento incluido, hasta unos 60 000 tokens), 15 o 60 s después | Hasta ≈ 60 000 tokens | Sí | Habría que pagar la escritura (+25 % de toda la entrada) en todas las generaciones para ahorrar solo en los reintentos tras un corte a mitad de respuesta (antes de responder no se escribe nada): empata si el 28 % de las generaciones se cortara así. Además, una generación larga dura más de 5 min y la entrada caduca |
+| Dolores | El sistema `PROMPT_PAINS` | 1 526 car. ≈ 380–545 tokens | Al límite · no (Sonnet 5 es el modelo de análisis) · no | ≈ 0 |
+| Tareas del copiloto | El sistema `ROL_ANALISTA` | 426 car. ≈ 110–150 tokens | No · no · no | 0. El resumen del proceso (2 665–9 223 car. ≈ 670–3 300 tokens en los ejemplos) se repite entre tareas seguidas, pero va **después** de la instrucción: dos tareas comparten 0 caracteres del mensaje |
+| Matrices | El sistema `PROMPT_MATRICES` | 468 car. ≈ 120–170 tokens | No · no · no | 0 |
+| Reparación de una matriz | Nada en el prefijo: otro sistema (≈ 105–160 tokens) y el resumen va al final | — | — | 0 |
+
+**Decisión: no se activa.** Donde llega al mínimo (el sistema de la generación) ahorra menos del 2 % de una generación en el mejor caso, y con poco tráfico pierde: con 100 generaciones al mes en Opus 5 serían unos +US$ 0,06 con un 30 % de aciertos y −US$ 0,08 con un 10 %, frente a un presupuesto de US$ 100. En el editor libre, además, cambiaría la petición que la fidelidad compara con el MVP.
+
+Qué la haría rentable: reordenar los prompts para que lo variable vaya al final. En las tareas, el resumen del proceso antes de la instrucción (o en el sistema): las tareas seguidas sobre el mismo proceso leerían de la caché 1 000–3 300 tokens (en Sonnet 5, hasta unos US$ 0,006 por tarea: casi toda su entrada, en torno al 10–15 % de lo que cuesta la tarea, que es sobre todo salida). En la generación, el documento antes de la profundidad, para regenerar a otro nivel. Es cambiar prompts: evaluación de IA ([arquitectura §10](../arquitectura.md#10-calidad-y-pruebas)), una divergencia en la fidelidad y comparar después con `version_prompt`.
+
+Lo que sí queda hecho: si una respuesta trae tokens de caché, se cobran a su precio en el editor (D21), el worker, el presupuesto y «Consumo de IA» (sección 8.1), y van aparte a Pulse (sección 8.4). El intermediario deja pasar `cache_control` tal cual.
+
+### 3.4 Salida estructurada: evaluación
+
+La API de Anthropic ofrece hoy, sin cabecera beta y en los tres modelos, **JSON con esquema** (`output_config.format` con `type: "json_schema"`) y **herramientas estrictas** (`strict: true`) ([documentación](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)). Funciona en streaming, no limita el razonamiento y compila una gramática por esquema (la primera vez tarda más; se guarda 24 h). Límites: `additionalProperties: false` obligatorio; sin `minLength`, `maxLength`, `minimum` ni `maximum`; `minItems` solo 0 o 1; como mucho 24 parámetros opcionales y 16 con uniones por petición, y un tope interno de complejidad («Schema is too complex for compilation», 400). Añade un prompt de sistema propio (más entrada). Una respuesta rechazada o cortada por `max_tokens` puede no cumplir el esquema.
+
+| | Generación | Matriz RACI | Matriz SIPOC |
+|---|---|---|---|
+| ¿Cabe en un esquema? | Al límite: 21 parámetros opcionales de 24 (`meta` 3; `ficha` 10, el objeto y sus 9 campos; `sistemas` 1; nodos 6; aristas 1), `k` como texto. Cada opcional dobla parte de la gramática: sin una llamada real no se sabe si compila | No con su forma: las claves son dinámicas (id → rol → letra) y `additionalProperties` tiene que ser `false`. Habría que cambiar el JSON a una lista (prompt y D12) y los id como `enum` darían un esquema por proceso, que se compila con cada proceso nuevo | Sí, trivial |
+| Qué evitaría | JSON mal formado y la falta de `nodes` o `k`. No el fallo más caro, la respuesta cortada por `max_tokens` en procesos largos (ya es un error definitivo, sin reparación), ni el rechazo | Id que no son actividades y letras fuera de la lista | Columnas que faltan (las vacías las sigue viendo Zod: no admite `minLength`) |
+| Coste | Más entrada (el prompt del esquema) y, si se hacen obligatorios los opcionales para simplificar la gramática, más salida: claves vacías en cada nodo, y la salida es lo caro (US$ 25 por millón en Opus 5) | — | — |
+
+**Decisión: no se implementa por ahora.**
+
+- No hay datos de cuántas generaciones o matrices necesitan reparación, que es lo único que ahorraría. Desde el 1-oct-2026, `ejecuciones_ia.reparaciones` lo cuenta (la consulta de la sección 3.2 da el porcentaje por tipo y versión).
+- El esquema de la generación roza los límites y no se puede comprobar que compile ni que no empeore el proceso: aquí no hay clave para llamar a la API y la evaluación de IA con procesos reales ([arquitectura §10](../arquitectura.md#10-calidad-y-pruebas)) no se puede correr. Un 400 del esquema rompería todas las generaciones si no hubiera respaldo.
+- La RACI necesitaría otra forma de JSON; el SIPOC sí cabe, pero es el que menos falla.
+- En el editor libre cambiaría la petición que la fidelidad compara con el MVP.
+- El streaming no es el problema: funciona igual.
+
+Cuándo revisarlo: con unas 50 generaciones con versión, si más de un 5 % necesitan reparación. Entonces, detrás de una opción que se pueda apagar: esquema de la generación sin uniones, la petición sin `output_config.format` como respaldo ante un 400 del esquema, la reparación de siempre como red y la evaluación de IA antes de activarla.
 
 ---
 
@@ -380,6 +458,8 @@ En las generaciones ([ejecutar.ts](../../apps/api/src/ia/ejecutar.ts)):
 
 Las matrices RACI y SIPOC siguen los mismos pasos con `pedirMatrizIa` (sección 3.1), validadas contra `parametros.actividades`. Si no se consigue la matriz, la ejecución falla con un error definitivo (sin reintentos) y el editor pide el informe en texto, que es otra ejecución.
 
+Cada llamada de reparación que llega a hacerse (la que el presupuesto detiene antes no cuenta) suma 1 en `reparaciones`, también en los intentos que después fallan: es el dato para decidir la salida estructurada (sección 3.4).
+
 Los dolores solo pasan por `extraerJson`; las demás tareas devuelven Markdown sin validar.
 
 ### 6.8 Avisos (`LISTEN/NOTIFY`) y SSE
@@ -399,7 +479,8 @@ Los dolores solo pasan por `extraerJson`; las demás tareas devuelven Markdown s
 
 ### 6.9 Tokens, coste y purga del texto
 
-- Tokens y coste se **suman** en la fila con cada llamada que informa su uso, reparación e intentos fallidos incluidos. Las llamadas abortadas o cortadas a mitad no lo informan (sección 13).
+- Tokens y coste se **suman** en la fila con cada llamada que informa su uso, reparación e intentos fallidos incluidos. Las llamadas abortadas o cortadas a mitad solo informan la entrada (sección 13). La entrada incluye los tokens de la caché de prompts, si los hubo, y el coste los cobra a su precio (sección 8.1).
+- Al empezar cada intento, el worker guarda la versión de los prompts (`version_prompt`, sección 3.2); al terminarlo, suma sus reparaciones (`reparaciones`).
 - Al terminar (`completada`, `fallida` o `cancelada`), `texto` pasa a `null`: **el texto de las fuentes no se conserva**. Mientras está en cola o ejecutando se guarda, porque hace falta para reintentar.
 - Se quedan `parametros` (etiqueta, nivel, roles, fuentes con nombre, tipo y tamaño, caracteres) y `resultado`.
 - Cada evento del worker va al log en JSON (`arranque`, `inicio`, `fin`, `error`, `gasto_ia`, `reencoladas`). Sus errores inesperados van también a la tabla `errores` (pantalla «Sistema»).
@@ -420,7 +501,7 @@ Cómo lee la respuesta:
 
 - Siempre en **streaming** (`stream: true`). El límite es de **inactividad**: se rearma con cada trozo que llega.
 - Solo acumula los deltas de texto (el razonamiento se ignora). Un bloque `fallback` descarta lo recibido: el modelo de respaldo repite la respuesta entera.
-- Tokens: la entrada sale de `message_start` y `message_delta` (incluye la caché de prompts si la hubiera); la salida, de `message_delta`. Llama a `onUsage` antes de lanzar los errores del final de la respuesta, porque una respuesta cortada también se cobra.
+- Tokens: la entrada sale de `message_start` y `message_delta` (incluye la caché de prompts si la hubiera); la salida, de `message_delta`. Si hubo caché, el uso (`UsoIa`) trae además `cacheEscritura` (`cache_creation_input_tokens`), `cacheEscritura1h` (la parte con TTL de 1 hora) y `cacheLectura` (`cache_read_input_tokens`), que forman parte de la entrada; sin caché esos campos no aparecen. Llama a `onUsage` antes de lanzar los errores del final de la respuesta, porque una respuesta cortada también se cobra.
 - **Uso de una respuesta cortada a mitad** (cancelación, inactividad, corte de red, apagado del worker): si quien llama pasa `onUsoParcial`, recibe la entrada de `message_start` y la salida de `message_delta` si llegó. Solo lo pasa el worker, que lo suma al coste de la ejecución y lo informa a Pulse (en el log, `parcial: true`); el editor libre no lo pasa y se comporta como el MVP. En la práctica la salida de una respuesta cortada casi nunca se conoce: Anthropic la informa en el `message_delta` final.
 
 Errores que traduce:
@@ -443,15 +524,16 @@ Errores que traduce:
 
 ### 8.1 Precios
 
-Precios de lista por millón de tokens, en US$ (`PRECIOS_IA`, tabla oficial del 24-jun-2026):
+Precios de lista por millón de tokens, en US$ (`PRECIOS_IA`, tabla oficial del 24-jun-2026; los de la caché de prompts, de su documentación, consultada el 1-oct-2026):
 
-| Modelo | Entrada | Salida |
-|---|---|---|
-| `claude-opus-5` | 5 | 25 |
-| `claude-sonnet-5` | 2 | 10 |
-| `claude-haiku-4-5` | 1 | 5 |
+| Modelo | Entrada | Salida | Escribir en caché (5 min) | Escribir en caché (1 h) | Leer de la caché |
+|---|---|---|---|---|---|
+| `claude-opus-5` | 5 | 25 | 6,25 | 10 | 0,50 |
+| `claude-sonnet-5` | 2 | 10 | 2,50 | 4 | 0,20 |
+| `claude-haiku-4-5` | 1 | 5 | 1,25 | 2 | 0,10 |
 
-- `usd(entrada, salida, modelo)` = (entrada × precio de entrada + salida × precio de salida) ÷ 1 000 000. Un modelo desconocido se cobra como Opus 5.
+- `usd(entrada, salida, modelo, cache?)` = (entrada normal × precio de entrada + escritos en caché × su precio + leídos × su precio + salida × precio de salida) ÷ 1 000 000, donde la entrada normal es la entrada menos lo escrito y lo leído de la caché. Sin `cache` (o sin esos campos), todo a precio de entrada, como antes. Un modelo desconocido se cobra como Opus 5.
+- Lo usan igual el editor (coste de la generación, divergencia D21: el MVP cobraba la caché como entrada), y el worker (`coste_usd`, de donde salen el presupuesto y «Consumo de IA»); la estimación previa (sección 4.3) no cuenta caché. Hoy ninguna petición pide la caché (sección 3.3), así que el coste es el mismo que antes; el cálculo queda bien si alguna respuesta la trae.
 - El respaldo automático de Opus 5 usa modelos de la misma tarifa.
 - Si cambian los precios, se cambia `PRECIOS_IA`: lo usan el editor, la API (validación de modelos) y el worker.
 
@@ -471,16 +553,19 @@ Precios de lista por millón de tokens, en US$ (`PRECIOS_IA`, tabla oficial del 
 - Últimas 50 ejecuciones: fecha, persona, qué hizo, modelo, estado (con intentos y error), tokens de entrada y salida, y coste.
 - Aviso si falta `ANTHROPIC_API_KEY`.
 
+`GET /api/ia/consumo` trae además, en cada ejecución reciente, `versionPrompt` y `reparaciones` (secciones 3.2 y 3.4). La pantalla no los muestra: sirven para comparar versiones desde la API o con la consulta de la sección 3.2.
+
 La pantalla «Sistema» añade la cola: en cola, ejecutando, fallidas y completadas en 24 h, y avisos si el worker no da señales, si hay ejecuciones esperando más de 5 min o si falta la clave.
 
 ### 8.4 Pulse
 
 | Origen | Cuándo | Cuerpo |
 |---|---|---|
-| Worker | En cada llamada a Claude (`onUsage`) | `tool`, `provider`, `model`, `inputTokens`, `outputTokens`, `origen: 'servidor'` |
-| Intermediario | Al terminar cada respuesta (lee una copia del stream) | `tool`, `provider`, `model`, `inputTokens`, `outputTokens` |
+| Worker | En cada llamada a Claude (`onUsage`) | `tool`, `provider`, `model`, `inputTokens`, `outputTokens`, `origen: 'servidor'` y, si hubo caché, los campos de abajo |
+| Intermediario | Al terminar cada respuesta (lee una copia del stream) | `tool`, `provider`, `model`, `inputTokens`, `outputTokens` y, si hubo caché, los campos de abajo |
 
 - `POST` a `PULSE_URL` con `authorization: Bearer <PULSE_TOKEN>` si hay token. Es opcional: sin `PULSE_URL`, solo queda la línea `gasto_ia` en el log.
+- `inputTokens` son todos los tokens de entrada, también los de la caché de prompts. Si la hubo, van además aparte `cacheCreationInputTokens` (escritos), `cacheCreation1hInputTokens` (de ellos, los de TTL de 1 hora) y `cacheReadInputTokens` (leídos), que Anthropic cobra a otro precio (sección 8.1). Sin caché, el cuerpo es el de siempre. Hasta el 1-oct-2026 el intermediario informaba solo `input_tokens` (sin la caché) y el worker, la entrada total; ahora los dos informan la total.
 - Nunca afecta a la ejecución ni a la respuesta: los fallos se ignoran.
 - El editor con clave propia no informa a Pulse.
 
@@ -511,7 +596,7 @@ Después:
 
 - acota `max_tokens` entre 1 y 64 000 (1 024 si no viene);
 - solo admite `fallbacks: 'default'` (cualquier otro valor se quita) y, si viene, añade la cabecera beta del respaldo;
-- llama a Anthropic con la clave central; si el navegador corta, la llamada se aborta;
+- llama a Anthropic con la clave central y el resto del cuerpo tal cual (también `cache_control` y `output_config`); si el navegador corta, la llamada se aborta;
 - si Anthropic responde 401, devuelve **502**: falla la clave central, no el código del usuario.
 
 Los errores propios tienen la forma de los de Anthropic (`type: 'error'`, `error.type: 'processiq_proxy'`).
@@ -546,13 +631,13 @@ Staging usa topes más bajos y una sola ejecución a la vez ([ADR 16](../adr/001
 
 | Nivel | Archivo | Cómo evita la red | Qué cubre |
 |---|---|---|---|
-| Unitarias del paquete | [packages/ia/src/ia.test.ts](../../packages/ia/src/ia.test.ts) y [matrices.test.ts](../../packages/ia/src/matrices.test.ts) | `fetch` falso o `llamar` falso | Modos de `llamarClaude`, respaldo, reintento de red, errores, `extraerJson`, costes y estimación, prompts, validación y clasificación de errores; esquema, validación contra el proceso y reparación de las matrices |
-| Intermediario | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | `fetch` falso | `health`, orígenes, código, modelos, JSON, tope de `max_tokens`, `fallbacks`, 401 → 502 |
-| Fidelidad | [pruebas/fidelidad/interacciones.spec.mjs](../../pruebas/fidelidad/interacciones.spec.mjs) y [divergencias.spec.mjs](../../pruebas/fidelidad/divergencias.spec.mjs) | Playwright intercepta la URL del intermediario | Editor libre: generación, niveles, tareas y dolores, con las **peticiones** comparadas byte a byte con el MVP. La RACI y el SIPOC, en `D12`: la matriz, el diálogo, el PPTX y, si falla, la misma petición del informe que el MVP |
-| Integración de la API | [apps/api/src/ia.test.ts](../../apps/api/src/ia.test.ts) | `fetch` falso que imita el SSE de Anthropic; esperas instantáneas; vigilancia cada 20 ms | Contra Postgres real: generar, reintentar, reparar, errores definitivos, cancelar, permisos y presupuesto, análisis (también las matrices, con su reparación y su fallo), SSE, consumo y huérfanas |
-| E2E | [pruebas/e2e/ia.spec.mjs](../../pruebas/e2e/ia.spec.mjs) con [anthropic-falso.mjs](../../pruebas/e2e/src/anthropic-falso.mjs) | Servidor HTTP local que responde `/v1/messages` en SSE, en trozos y con pausas | Con la web construida, la API, Postgres y el **worker real** (apuntado al falso con `ANTHROPIC_BASE_URL`): generación guardada como revisión, generación pendiente, copiloto y dolores, la RACI y el SIPOC editables y en el PPTX, consumo, y que quien solo lee no usa la IA |
+| Unitarias del paquete | [packages/ia/src/ia.test.ts](../../packages/ia/src/ia.test.ts), [matrices.test.ts](../../packages/ia/src/matrices.test.ts) y [version.test.ts](../../packages/ia/src/version.test.ts) | `fetch` falso o `llamar` falso | Modos de `llamarClaude`, respaldo, reintento de red, errores, `extraerJson`, costes (también con caché de prompts) y estimación, prompts, validación y clasificación de errores; esquema, validación contra el proceso y reparación de las matrices; la versión de los prompts y sus huellas actuales |
+| Intermediario | [apps/intermediario/src/index.test.ts](../../apps/intermediario/src/index.test.ts) | `fetch` falso | `health`, orígenes, código, modelos, JSON, tope de `max_tokens`, `fallbacks`, 401 → 502, `cache_control` tal cual y el gasto informado (`extraerUso`, con y sin caché) |
+| Fidelidad | [pruebas/fidelidad/interacciones.spec.mjs](../../pruebas/fidelidad/interacciones.spec.mjs) y [divergencias.spec.mjs](../../pruebas/fidelidad/divergencias.spec.mjs) | Playwright intercepta la URL del intermediario | Editor libre: generación, niveles, tareas y dolores, con las **peticiones** comparadas byte a byte con el MVP. La RACI y el SIPOC, en `D12`: la matriz, el diálogo, el PPTX y, si falla, la misma petición del informe que el MVP. En `D21`, el coste de una generación cuya respuesta informa caché de prompts |
+| Integración de la API | [apps/api/src/ia.test.ts](../../apps/api/src/ia.test.ts) | `fetch` falso que imita el SSE de Anthropic; esperas instantáneas; vigilancia cada 20 ms | Contra Postgres real: generar, reintentar, reparar, errores definitivos, cancelar, permisos y presupuesto, análisis (también las matrices, con su reparación y su fallo), SSE, consumo y huérfanas; la versión de los prompts y las reparaciones de cada tipo; el coste con caché de prompts en la fila, el consumo y el gasto informado |
+| E2E | [pruebas/e2e/ia.spec.mjs](../../pruebas/e2e/ia.spec.mjs) con [anthropic-falso.mjs](../../pruebas/e2e/src/anthropic-falso.mjs) | Servidor HTTP local que responde `/v1/messages` en SSE, en trozos y con pausas | Con la web construida, la API, Postgres y el **worker real** (apuntado al falso con `ANTHROPIC_BASE_URL`): generación guardada como revisión, generación pendiente (con su coste con caché, su versión y sus reparaciones), copiloto y dolores, la RACI y el SIPOC editables y en el PPTX, consumo, y que quien solo lee no usa la IA |
 
-- El Anthropic falso elige la respuesta según la petición: un proceso de 3 elementos para la generación, Markdown para una tarea, un JSON de dolores para el análisis y, con el sistema de las matrices, un SIPOC fijo o una RACI hecha con el resumen que recibe (R/A al rol de cada actividad y la auditoría interna informada).
+- El Anthropic falso elige la respuesta según la petición: un proceso de 3 elementos para la generación, Markdown para una tarea, un JSON de dolores para el análisis y, con el sistema de las matrices, un SIPOC fijo o una RACI hecha con el resumen que recibe (R/A al rol de cada actividad y la auditoría interna informada). La generación informa 1 200 tokens de entrada de los que 400 se escriben y 600 se leen de la caché de prompts; lo demás, 1 200 sin caché.
 - Para gastar de verdad en local: `pnpm --filter @processiq/api worker` con `ANTHROPIC_API_KEY` en `.env.dev`.
 
 ---
@@ -579,9 +664,9 @@ Resumen de [runbooks/incidente-ia.md](../runbooks/incidente-ia.md). Mira primero
 ## 13. Diferencias con la arquitectura y puntos por confirmar
 
 - **Rutas distintas de las de [arquitectura.md §8](../arquitectura.md).** La tabla «Endpoints de negocio» nombra `POST /api/ia/analisis/pains` y `POST /api/ia/analisis/{tipo}`, y un SSE en `/api/ia/generaciones/{id}/eventos` con `Last-Event-ID`. El código usa `POST /api/ia/analisis` con `tipo` en el cuerpo y `/api/ia/ejecuciones/:id/eventos`, que no usa `Last-Event-ID` porque cada evento lleva el estado completo.
-- **No implementado todavía** (lo prevé la arquitectura): salida estructurada, caché de prompts y `sourceRefs`. Tampoco hay versión de prompt en `ejecuciones_ia`. Las matrices RACI y SIPOC (sección 3.1) piden JSON en el prompt y lo validan con Zod y una reparación, como la generación: no usan la salida estructurada de la API de Anthropic.
-- **«Consumo de IA» nombra las matrices por su clave.** Para `matriz-raci` y `matriz-sipoc`, la pantalla del shell dice «Análisis (matriz-raci)», porque solo busca la etiqueta en `TAREAS_IA`.
+- **Caché de prompts y salida estructurada: medidas y descartadas por ahora** (las prevé la arquitectura). La caché no ahorra con los prompts de hoy (sección 3.3) y la salida estructurada no se puede validar sin datos de reparaciones ni llamadas reales (sección 3.4). La generación y las matrices piden JSON en el prompt y lo validan con Zod y una reparación. La versión del prompt sí se registra (`version_prompt`, sección 3.2), como huella y no como número.
+- **No implementado todavía:** `sourceRefs`.
 - **Salida de las respuestas cortadas.** Desde el 28-sep-2026 se suma la entrada de una llamada cortada ([§7](#7-cliente-de-claude-llamarclaude)), pero su salida casi nunca se conoce: el consumo registrado puede quedar algo por debajo del real. Para acercarlo habría que estimar la salida a partir del texto recibido.
 - **Datos personales en `parametros`.** Al terminar una ejecución (completada, fallida o cancelada) se borran el texto y `parametros.roles` (nombres de los participantes). Quedan los nombres de los archivos de las fuentes. Por confirmar con la política de datos pendiente con Legal.
 - **Modelo elegido y permitido.** En modo proyecto, el diálogo ofrece Opus 5 y Sonnet 5 con la estimación del navegador, aunque el servidor permita otros. Si pide uno no permitido, el servidor usa el primero permitido y el editor lo avisa (`modeloSustituido`).
-- **Comentario desactualizado.** La cabecera del intermediario dice que es temporal y que en la fase 2 lo sustituyen los endpoints de negocio. La fase 2 está hecha y el intermediario sigue sirviendo al editor libre.
+- **Pulse sin precio.** Pulse recibe tokens, no dólares: con caché de prompts necesita los campos aparte (sección 8.4) para cobrarlos bien. Si Pulse no los lee, sobrevalora lo leído de la caché (que hoy nadie pide).
